@@ -1,0 +1,4 @@
+mypy>=1.5.1
+numpy>=1.25.2
+quick-server>=0.8.1
+torch>=2.0.0
