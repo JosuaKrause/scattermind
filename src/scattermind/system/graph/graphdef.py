@@ -48,7 +48,7 @@ Node definition. `node_id` is optional. `name` is a readable name.
 # - optimizations can be turn chain of nodes into a block and call
 # - find mutually recursive calls and turn them into a block together
 # - don't separate out data -- can be kept in memory to point to the same bulk
-# tensor stlill
+# tensor still
 GraphDefJSON = TypedDict('GraphDefJSON', {
     "graph_id": NotRequired[str],
     "name": str,
