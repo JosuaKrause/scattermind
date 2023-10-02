@@ -122,14 +122,7 @@
 [tool.pylint.messages_control]
     disable = [
         "docstring-first-line-empty",
-        "duplicate-code",
         "fixme",
-        "global-statement",
-        "import-outside-toplevel",
-        "invalid-unary-operand-type",
-        "missing-docstring",
-        "not-an-iterable",
-        "not-callable",
         "too-many-arguments",
         "too-many-branches",
         "too-many-instance-attributes",
@@ -138,7 +131,6 @@
         "too-many-public-methods",
         "too-many-return-statements",
         "too-many-statements",
-        "unsubscriptable-object",
     ]
     const-rgx = '^[A-Z]'
 
