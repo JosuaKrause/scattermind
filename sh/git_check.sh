@@ -19,7 +19,7 @@ if ! git diff-index --quiet HEAD -- ; then
     exit 3
 fi
 
-if [ -z $(git ls-files --other --exclude-standard --directory) ]; then
+if [ ! -z $(git ls-files --other --exclude-standard --directory) ]; then
     echo "there are untracked files"
     exit 4
 fi
