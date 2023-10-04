@@ -1,7 +1,7 @@
 
 import pytest
 
-from scatterbrain.system.base import (
+from scattermind.system.base import (
     DataId,
     ExecutorId,
     GraphId,
@@ -10,27 +10,24 @@ from scatterbrain.system.base import (
     QueueId,
     TaskId,
 )
-from scatterbrain.system.client.client import ComputeTask
-from scatterbrain.system.client.loader import load_client_pool
-from scatterbrain.system.config.config import Config
-from scatterbrain.system.config.loader import load_test
-from scatterbrain.system.executor.loader import load_executor_manager
-from scatterbrain.system.graph.graph import Graph
-from scatterbrain.system.graph.loader import load_node
-from scatterbrain.system.info import DataFormat, DataInfo
-from scatterbrain.system.names import GName, NName, QualifiedName
-from scatterbrain.system.payload.loader import load_store
-from scatterbrain.system.payload.local import LocalDataId
-from scatterbrain.system.payload.values import (
-    DataContainer,
-    TaskValueContainer,
-)
-from scatterbrain.system.queue.loader import load_queue_pool
-from scatterbrain.system.queue.strategy.loader import (
+from scattermind.system.client.client import ComputeTask
+from scattermind.system.client.loader import load_client_pool
+from scattermind.system.config.config import Config
+from scattermind.system.config.loader import load_test
+from scattermind.system.executor.loader import load_executor_manager
+from scattermind.system.graph.graph import Graph
+from scattermind.system.graph.loader import load_node
+from scattermind.system.info import DataFormat, DataInfo
+from scattermind.system.names import GName, NName, QualifiedName
+from scattermind.system.payload.loader import load_store
+from scattermind.system.payload.local import LocalDataId
+from scattermind.system.payload.values import DataContainer, TaskValueContainer
+from scattermind.system.queue.loader import load_queue_pool
+from scattermind.system.queue.strategy.loader import (
     load_node_strategy,
     load_queue_strategy,
 )
-from scatterbrain.system.readonly.loader import load_readonly_access
+from scattermind.system.readonly.loader import load_readonly_access
 
 
 def test_loaders() -> None:

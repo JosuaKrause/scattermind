@@ -4,18 +4,18 @@ from test.util import wait_for_tasks
 import numpy as np
 import pytest
 
-from scatterbrain.system.base import TaskId
-from scatterbrain.system.client.client import TASK_MAX_RETRIES
-from scatterbrain.system.config.loader import load_test
-from scatterbrain.system.payload.values import TaskValueContainer
-from scatterbrain.system.response import (
+from scattermind.system.base import TaskId
+from scattermind.system.client.client import TASK_MAX_RETRIES
+from scattermind.system.config.loader import load_test
+from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.response import (
     TASK_STATUS_DONE,
     TASK_STATUS_ERROR,
     TASK_STATUS_READY,
     TASK_STATUS_UNKNOWN,
     TASK_STATUS_WAIT,
 )
-from scatterbrain.system.torch_util import as_numpy, create_tensor
+from scattermind.system.torch_util import as_numpy, create_tensor
 
 
 @pytest.mark.parametrize("base", [[[1.0]], [[1.0, 2.0], [3.0, 4.0]]])

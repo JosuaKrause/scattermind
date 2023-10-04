@@ -2,7 +2,7 @@ from typing import get_args
 
 import pytest
 
-from scatterbrain.system.torch_util import (
+from scattermind.system.torch_util import (
     dtype_to_str,
     DTypeName,
     get_dtype,

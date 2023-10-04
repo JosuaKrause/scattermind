@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import torch
 
-from scatterbrain.system.info import DataInfo
-from scatterbrain.system.torch_util import (
+from scattermind.system.info import DataInfo
+from scattermind.system.torch_util import (
     create_tensor,
     deserialize_tensor,
     DTypeName,

@@ -4,11 +4,11 @@ from test.util import wait_for_tasks
 import numpy as np
 import pytest
 
-from scatterbrain.system.base import set_debug_output_length, TaskId
-from scatterbrain.system.client.client import TASK_MAX_RETRIES
-from scatterbrain.system.config.loader import load_test
-from scatterbrain.system.payload.values import TaskValueContainer
-from scatterbrain.system.response import (
+from scattermind.system.base import set_debug_output_length, TaskId
+from scattermind.system.client.client import TASK_MAX_RETRIES
+from scattermind.system.config.loader import load_test
+from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.response import (
     response_ok,
     TASK_STATUS_DONE,
     TASK_STATUS_ERROR,
@@ -16,7 +16,7 @@ from scatterbrain.system.response import (
     TASK_STATUS_UNKNOWN,
     TASK_STATUS_WAIT,
 )
-from scatterbrain.system.torch_util import as_numpy, create_tensor
+from scattermind.system.torch_util import as_numpy, create_tensor
 
 
 @pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])

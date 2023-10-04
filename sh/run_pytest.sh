@@ -13,8 +13,6 @@ export USER_FILEPATH=./userdata
 
 coverage erase
 
-${MAKE} clean
-
 ${MAKE} compileall
 
 run_test() {

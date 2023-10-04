@@ -6,36 +6,33 @@ from typing import Any, cast, TypeVar
 
 import pytest
 
-from scatterbrain.system.base import ExecutorId, once_test_executors
-from scatterbrain.system.client.client import ClientPool
-from scatterbrain.system.client.loader import (
-    ClientPoolModule,
-    load_client_pool,
-)
-from scatterbrain.system.executor.executor import ExecutorManager
-from scatterbrain.system.executor.loader import (
+from scattermind.system.base import ExecutorId, once_test_executors
+from scattermind.system.client.client import ClientPool
+from scattermind.system.client.loader import ClientPoolModule, load_client_pool
+from scattermind.system.executor.executor import ExecutorManager
+from scattermind.system.executor.loader import (
     ExecutorManagerModule,
     load_executor_manager,
 )
-from scatterbrain.system.graph.loader import load_node
-from scatterbrain.system.graph.node import Node
-from scatterbrain.system.payload.data import DataStore
-from scatterbrain.system.payload.loader import DataStoreModule, load_store
-from scatterbrain.system.plugins import load_plugin
-from scatterbrain.system.queue.loader import load_queue_pool, QueuePoolModule
-from scatterbrain.system.queue.queue import QueuePool
-from scatterbrain.system.queue.strategy.loader import (
+from scattermind.system.graph.loader import load_node
+from scattermind.system.graph.node import Node
+from scattermind.system.payload.data import DataStore
+from scattermind.system.payload.loader import DataStoreModule, load_store
+from scattermind.system.plugins import load_plugin
+from scattermind.system.queue.loader import load_queue_pool, QueuePoolModule
+from scattermind.system.queue.queue import QueuePool
+from scattermind.system.queue.strategy.loader import (
     load_node_strategy,
     load_queue_strategy,
     NodeStrategyModule,
     QueueStrategyModule,
 )
-from scatterbrain.system.queue.strategy.strategy import (
+from scattermind.system.queue.strategy.strategy import (
     NodeStrategy,
     QueueStrategy,
 )
-from scatterbrain.system.readonly.access import ReadonlyAccess
-from scatterbrain.system.readonly.loader import (
+from scattermind.system.readonly.access import ReadonlyAccess
+from scattermind.system.readonly.loader import (
     load_readonly_access,
     ReadonlyAccessModule,
 )
@@ -92,11 +89,11 @@ def test_plugins() -> None:
 
     do_test(
         ClientPool,
-        "scatterbrain.system.client.local",
+        "scattermind.system.client.local",
         lambda args: load_client_pool(cast(ClientPoolModule, args)), {})
     do_test(
         ExecutorManager,
-        "scatterbrain.system.executor.single",
+        "scattermind.system.executor.single",
         lambda args: load_executor_manager(
             once_test_executors([ExecutorId.for_test()]),
             cast(ExecutorManagerModule, args)),
@@ -105,36 +102,36 @@ def test_plugins() -> None:
         })
     do_test(
         Node,
-        "scatterbrain.system.graph.nodes.mat_square",
+        "scattermind.system.graph.nodes.mat_square",
         lambda args: load_node(None, args["name"], None),  # type: ignore
         {})
     do_test(
         DataStore,
-        "scatterbrain.system.payload.local",
+        "scattermind.system.payload.local",
         lambda args: load_store(cast(DataStoreModule, args)),
         {
             "max_size": 1000,
         })
     do_test(
         QueuePool,
-        "scatterbrain.system.queue.local",
+        "scattermind.system.queue.local",
         lambda args: load_queue_pool(cast(QueuePoolModule, args)),
         {
             "check_assertions": False,
         })
     do_test(
         NodeStrategy,
-        "scatterbrain.system.queue.strategy.node.simple",
+        "scattermind.system.queue.strategy.node.simple",
         lambda args: load_node_strategy(cast(NodeStrategyModule, args)),
         {})
     do_test(
         QueueStrategy,
-        "scatterbrain.system.queue.strategy.queue.simple",
+        "scattermind.system.queue.strategy.queue.simple",
         lambda args: load_queue_strategy(cast(QueueStrategyModule, args)),
         {})
     do_test(
         ReadonlyAccess,
-        "scatterbrain.system.readonly.ram",
+        "scattermind.system.readonly.ram",
         lambda args: load_readonly_access(cast(ReadonlyAccessModule, args)),
         {})
 

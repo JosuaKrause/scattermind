@@ -1,6 +1,6 @@
 [project]
-    name = "scatterbrain"
-    description = "TODO"
+    name = "scattermind"
+    description = "A decentralized and distributed horizontally scalable model execution framework."
     readme = "README.md"
     version = "0.0.1"
     authors = [
@@ -21,7 +21,7 @@
     dynamic = ["dependencies", "optional-dependencies"]
 
 [project.urls]
-    repository = "https://github.com/JosuaKrause/scatterbrain"
+    repository = "https://github.com/JosuaKrause/scattermind"
 
 [build-system]
     requires = ["setuptools>=61.2"]

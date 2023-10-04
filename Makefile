@@ -26,7 +26,6 @@ help:
 	@echo "requirements-complete	check whether the requirements file is complete"
 	@echo "run-api	start api server"
 	@echo "coverage-report	show the coverage report for python"
-	@echo "stubgen	create stubs for a package"
 
 export LC_ALL=C
 export LANG=C
@@ -112,7 +111,7 @@ git-check-publish: git-check
 pack:
 	./sh/pack.sh
 
-compileall:
+compileall: clean
 	./sh/compileall.sh
 
 pre-commit:
@@ -136,9 +135,6 @@ run-api:
 
 coverage-report:
 	cd coverage/reports/html_report && open index.html
-
-stubgen:
-	PYTHON=$(PYTHON) FORCE=$(FORCE) ./sh/stubgen.sh $(PKG)
 
 allapps:
 	./sh/findpy.sh \

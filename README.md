@@ -1,7 +1,7 @@
-# scatterbrain
+# scattermind
 
-Scatterbrain is a decentralized and distributed horizontally scalable model
-execution framework. Worried your model won't fit in memory? Scatterbrain
+Scattermind is a decentralized and distributed horizontally scalable model
+execution framework. Worried your model won't fit in memory? Scattermind
 splits the model into small independently executable sub-models to accomodate
 even small machines (*).
 

@@ -9,16 +9,16 @@ import pytest
 
 
 if TYPE_CHECKING:
-    from scatterbrain.system.base import TaskId
-    from scatterbrain.system.config.config import Config
-    from scatterbrain.system.response import ResponseObject
+    from scattermind.system.base import TaskId
+    from scattermind.system.config.config import Config
+    from scattermind.system.response import ResponseObject
 
 
 T = TypeVar('T')
 
 
 def to_bool(text: str | None) -> bool:
-    from scatterbrain.system.util import to_bool as _to_bool
+    from scattermind.system.util import to_bool as _to_bool
 
     return _to_bool(text)
 
