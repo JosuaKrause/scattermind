@@ -26,6 +26,8 @@ help:
 	@echo "requirements-complete	check whether the requirements file is complete"
 	@echo "run-api	start api server"
 	@echo "coverage-report	show the coverage report for python"
+	@echo "version	prints the currently declared version and exits"
+	@echo "version-tag	prints the currently declared version as tag and exits"
 
 export LC_ALL=C
 export LANG=C
@@ -108,8 +110,11 @@ git-check:
 git-check-publish: git-check
 	./sh/git_check.sh
 
-pack:
+pack: clean
 	./sh/pack.sh
+
+publish: clean git-check-publish
+	./sh/publish.sh
 
 compileall: clean
 	./sh/compileall.sh
@@ -141,3 +146,12 @@ allapps:
 	| xargs grep '__name__ == "__main__"' \
 	| cut -d: -f1 \
 	| sed -e 's/^.\///' -e 's/\/__main__.py$$//' -e 's/.py$$//'
+
+version:
+	./sh/version.sh
+
+version-tag:
+	./sh/version.sh --tag
+
+version-next:
+	./sh/version.sh --tag --next
