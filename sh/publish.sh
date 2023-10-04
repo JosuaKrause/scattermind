@@ -24,4 +24,4 @@ fi
 ${PYTHON} -m twine upload --repository pypi "${FILE_WHL}" "${FILE_SRC}"
 git tag "v${VERSION}"
 git push origin "v${VERSION}"
-@echo "successfully deployed ${VERSION}"
+echo "successfully deployed ${VERSION}"
