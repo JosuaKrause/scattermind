@@ -8,6 +8,16 @@ def parse_args_worker(parser: argparse.ArgumentParser) -> None:
         "--graph",
         type=str,
         help="graph definition json file")
+    parser.add_argument(
+        "--prefix",  # FIXME implement
+        type=str,
+        default=None,
+        help="an optional fixed prefix for the executor id")
+    parser.add_argument(  # FIXME implement
+        "--prefix-bonus",
+        type=float,
+        default=1000.0,
+        help="bonus score for nodes with the same executor prefix")
 
 
 def parse_args() -> argparse.Namespace:
