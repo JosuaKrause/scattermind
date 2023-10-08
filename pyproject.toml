@@ -53,6 +53,7 @@
     strictness = "short"
 
 [tool.pylint.main]
+    update-symbols = True
     load-plugins = [
         "pylint.extensions.typing",
         "pylint.extensions.docparams",
