@@ -25,4 +25,4 @@ find . -type d \( \
     | grep -vF './ui' \
     | xargs rm -r
 
-rm -r dist build src/scattermind.egg-info || echo "no files to delete"
+rm -r src/scattermind.egg-info || echo "no files to delete"
