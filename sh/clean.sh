@@ -13,8 +13,7 @@ rm -r dist/ || true
 find . -type d \( \
         -path './venv' -o \
         -path './.*' -o \
-        -path './userdata' -o \
-        -path './ui' \
+        -path './userdata' \
         \) -prune -o \( \
         -type d \
         -name '__pycache__' \
@@ -22,7 +21,6 @@ find . -type d \( \
     | grep -vF './venv' \
     | grep -vF './.' \
     | grep -vF './userdata' \
-    | grep -vF './ui' \
     | xargs rm -r
 
 rm -r src/scattermind.egg-info || echo "no files to delete"
