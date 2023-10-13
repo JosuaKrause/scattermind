@@ -17,7 +17,7 @@ INVALID_F_DOUBLE="f\"([^\\\\\"}{]|\\\\\")*\""
 INVALID_F_SINGLE="f'([^\\\\'}{]|\\\\')*'"
 INVALIDS="${INVALID_F_DOUBLE}|${INVALID_F_SINGLE}"
 NO_F_DOUBLE="[^rf]\"${ANY_DOUBLE}${IS_CURLY}${ANY_DOUBLE}\""  # we also allow r
-NO_F_SINGLE="'${ANY_SINGLE}${IS_CURLY}${ANY_SINGLE}'"  # we disallow any curls
+NO_F_SINGLE="[^r]'${ANY_SINGLE}${IS_CURLY}${ANY_SINGLE}'"  # r can have curls
 NO_FS="${NO_F_DOUBLE}|${NO_F_SINGLE}"
 
 MAIN_MATCH="(${NO_FS}|${INVALIDS})"
