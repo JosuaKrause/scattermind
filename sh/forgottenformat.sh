@@ -43,7 +43,7 @@ while True:
 EOF
 
 ./sh/findpy.sh \
-    | xargs grep -nE "['\"]" \
+    | xargs --no-run-if-empty grep -nE "['\"]" \
     | ${PYTHON} -c "${PY_FILTER}" \
     | grep -E "${REGEX}" \
     | grep --color=always -nE "${MAIN_MATCH}"

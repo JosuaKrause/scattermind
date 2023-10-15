@@ -21,6 +21,6 @@ find . -type d \( \
     | grep -vF './venv' \
     | grep -vF './.' \
     | grep -vF './userdata' \
-    | xargs rm -r
+    | xargs --no-run-if-empty rm -r
 
 rm -r src/scattermind.egg-info || echo "no files to delete"
