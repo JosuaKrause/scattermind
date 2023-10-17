@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from scattermind.system.base import ExecutorId
+from scattermind.system.base import ExecutorId, L_LOCAL, Locality
 from scattermind.system.executor.executor import Executor, ExecutorManager
 from scattermind.system.logger.context import add_context
 from scattermind.system.logger.log import EventStream
@@ -12,8 +12,8 @@ class SingleExecutorManager(ExecutorManager):
         self._is_active = False
 
     @staticmethod
-    def is_local_only() -> bool:
-        return True
+    def locality() -> Locality:
+        return L_LOCAL
 
     def get_all_executors(self) -> list[Executor]:
         return [self.as_executor()]

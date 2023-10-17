@@ -2,7 +2,7 @@ import time
 from collections.abc import Iterable
 from typing import cast, TypeVar
 
-from scattermind.system.base import Module, TaskId
+from scattermind.system.base import L_EITHER, Locality, Module, TaskId
 from scattermind.system.client.client import ClientPool
 from scattermind.system.executor.executor import ExecutorManager
 from scattermind.system.graph.graph import Graph
@@ -32,7 +32,7 @@ ModuleT = TypeVar('ModuleT', bound=Module)
 
 class Config:
     def __init__(self) -> None:
-        self._is_local: bool | None = None
+        self._locality: Locality = L_EITHER
         self._logger: EventStream | None = None
         self._graph: Graph | None = None
         self._emng: ExecutorManager | None = None
@@ -60,18 +60,20 @@ class Config:
             raise ValueError("graph not initialized")
         return self._graph
 
-    def _update_is_local(self, module: ModuleT) -> ModuleT:
-        is_local = module.is_local_only()
-        if self._is_local is None:
-            self._is_local = is_local
-        elif self._is_local != is_local:  # FIXME write testcase for this
-            raise ValueError("trying to load local and non-local modules")
+    def _update_locality(self, module: ModuleT) -> ModuleT:
+        locality = module.locality()
+        if self._locality == L_EITHER:
+            self._locality = locality
+        elif locality == L_EITHER:
+            pass
+        elif self._locality != locality:  # FIXME write testcase for this
+            raise ValueError("trying to load both local and remote modules")
         return module
 
     def set_executor_manager(self, emng: ExecutorManager) -> None:
         if self._emng is not None:
             raise ValueError("executor manager already initialized")
-        self._emng = self._update_is_local(emng)
+        self._emng = self._update_locality(emng)
 
     def get_executor_manager(self) -> ExecutorManager:
         if self._emng is None:
@@ -81,7 +83,7 @@ class Config:
     def set_data_store(self, store: DataStore) -> None:
         if self._store is not None:
             raise ValueError("store already initialized")
-        self._store = self._update_is_local(store)
+        self._store = self._update_locality(store)
 
     def get_data_store(self) -> DataStore:
         if self._store is None:
@@ -90,7 +92,7 @@ class Config:
 
     def set_client_pool(self, client_pool: ClientPool) -> None:
         self.get_queue_pool().set_client_pool(
-            self._update_is_local(client_pool))
+            self._update_locality(client_pool))
 
     def get_client_pool(self) -> ClientPool:
         return self.get_queue_pool().get_client_pool()
@@ -98,7 +100,7 @@ class Config:
     def set_queue_pool(self, queue_pool: QueuePool) -> None:
         if self._queue_pool is not None:
             raise ValueError("queue pool already initialized")
-        self._queue_pool = self._update_is_local(queue_pool)
+        self._queue_pool = self._update_locality(queue_pool)
 
     def get_queue_pool(self) -> QueuePool:
         if self._queue_pool is None:
@@ -108,7 +110,7 @@ class Config:
     def set_readonly_access(self, roa: ReadonlyAccess) -> None:
         if self._roa is not None:
             raise ValueError("readonly access already initialized")
-        self._roa = self._update_is_local(roa)
+        self._roa = self._update_locality(roa)
 
     def get_readonly_access(self) -> ReadonlyAccess:
         if self._roa is None:

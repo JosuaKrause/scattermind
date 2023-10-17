@@ -1,6 +1,6 @@
 import threading
 
-from scattermind.system.base import DataId
+from scattermind.system.base import DataId, L_LOCAL, Locality
 from scattermind.system.payload.data import DataStore
 
 
@@ -41,8 +41,8 @@ class LocalDataStore(DataStore):
                     self._size -= len(data)
 
     @staticmethod
-    def is_local_only() -> bool:
-        return True
+    def locality() -> Locality:
+        return L_LOCAL
 
     @staticmethod
     def is_content_addressable() -> bool:
@@ -59,5 +59,5 @@ class LocalDataStore(DataStore):
     def get_data(self, data_id: DataId) -> bytes | None:
         if not isinstance(data_id, LocalDataId):
             raise ValueError(
-                f"unexpected {data_id.__class__.__name__}: {data_id} ")
+                f"unexpected {data_id.__class__.__name__}: {data_id}")
         return self._data.get(data_id)

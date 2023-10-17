@@ -1,6 +1,12 @@
 import threading
 
-from scattermind.system.base import ExecutorId, QueueId, TaskId
+from scattermind.system.base import (
+    ExecutorId,
+    L_LOCAL,
+    Locality,
+    QueueId,
+    TaskId,
+)
 from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.queue.queue import QueuePool
 
@@ -16,8 +22,8 @@ class LocalQueuePool(QueuePool):
         self._lock = threading.RLock()
 
     @staticmethod
-    def is_local_only() -> bool:
-        return True
+    def locality() -> Locality:
+        return L_LOCAL
 
     def push_task_id(self, qid: QueueId, task_id: TaskId) -> None:
         with self._lock:

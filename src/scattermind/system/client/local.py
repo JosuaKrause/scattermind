@@ -1,7 +1,14 @@
 import threading
 from collections.abc import Iterable
 
-from scattermind.system.base import DataId, GraphId, QueueId, TaskId
+from scattermind.system.base import (
+    DataId,
+    GraphId,
+    L_LOCAL,
+    Locality,
+    QueueId,
+    TaskId,
+)
 from scattermind.system.client.client import ClientPool
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt
@@ -36,8 +43,8 @@ class LocalClientPool(ClientPool):
         self._lock = threading.RLock()
 
     @staticmethod
-    def is_local_only() -> bool:
-        return True
+    def locality() -> Locality:
+        return L_LOCAL
 
     def create_task(
             self,

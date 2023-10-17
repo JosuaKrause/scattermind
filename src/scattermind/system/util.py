@@ -1,3 +1,5 @@
+import base64
+import hashlib
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
@@ -67,3 +69,59 @@ def to_bool(text: str | None) -> bool:
     except ValueError:
         pass
     return f"{text}".lower() == "true"
+
+
+def as_base85(value: bytes) -> str:
+    return base64.b85encode(value).decode("ascii")
+
+
+def from_base85(text: str) -> bytes:
+    return base64.b85decode(text)
+
+
+def get_bytes_hash(value: bytes) -> str:
+    blake = hashlib.blake2b(digest_size=32)
+    blake.update(value)
+    return blake.hexdigest()
+
+
+def bytes_hash_size() -> int:
+    return 64
+
+
+def get_text_hash(text: str) -> str:
+    blake = hashlib.blake2b(digest_size=32)
+    blake.update(text.encode("utf-8"))
+    return blake.hexdigest()
+
+
+def text_hash_size() -> int:
+    return 64
+
+
+def get_short_hash(text: str) -> str:
+    blake = hashlib.blake2b(digest_size=4)
+    blake.update(text.encode("utf-8"))
+    return blake.hexdigest()
+
+
+def short_hash_size() -> int:
+    return 8
+
+
+BUFF_SIZE = 65536  # 64KiB
+
+
+def get_file_hash(fname: str) -> str:
+    blake = hashlib.blake2b(digest_size=32)
+    with open(fname, "rb") as fin:
+        while True:
+            buff = fin.read(BUFF_SIZE)
+            if not buff:
+                break
+            blake.update(buff)
+    return blake.hexdigest()
+
+
+def file_hash_size() -> int:
+    return 64
