@@ -150,11 +150,17 @@ class Config:
 
     def get_result(self, task_id: TaskId) -> TaskValueContainer | None:
         cpool = self.get_client_pool()
-        return cpool.get_final_output(task_id)
+        queue_pool = self.get_queue_pool()
+        graph_id = queue_pool.get_entry_graph()
+        output_format = queue_pool.get_output_format(graph_id)
+        return cpool.get_final_output(task_id, output_format)
 
     def get_response(self, task_id: TaskId) -> ResponseObject:
         cpool = self.get_client_pool()
-        return cpool.get_response(task_id)
+        queue_pool = self.get_queue_pool()
+        graph_id = queue_pool.get_entry_graph()
+        output_format = queue_pool.get_output_format(graph_id)
+        return cpool.get_response(task_id, output_format)
 
     def clear_task(self, task_id: TaskId) -> None:
         cpool = self.get_client_pool()

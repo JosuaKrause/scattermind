@@ -1,7 +1,9 @@
 import base64
 import hashlib
+import json
 from collections.abc import Sequence
 from datetime import datetime, timezone
+from typing import Any
 
 
 def is_partial_match(target: str, pattern: str) -> bool:
@@ -54,7 +56,7 @@ def parse_time_str(time_str: str) -> datetime:
 
 
 def time_diff(from_time: datetime, to_time: datetime) -> float:
-    return (from_time - to_time).total_seconds()
+    return (to_time - from_time).total_seconds()
 
 
 def seconds_since(time_str: str) -> float:
@@ -125,3 +127,25 @@ def get_file_hash(fname: str) -> str:
 
 def file_hash_size() -> int:
     return 64
+
+
+def report_json_error(err: json.JSONDecodeError) -> None:
+    raise ValueError(
+        f"JSON parse error ({err.lineno}:{err.colno}): "
+        f"{repr(err.doc)}") from err
+
+
+def json_compact(obj: Any) -> str:
+    return json.dumps(
+        obj,
+        sort_keys=True,
+        indent=None,
+        separators=(",", ":"))
+
+
+def json_read(data: str) -> Any:
+    try:
+        return json.loads(data)
+    except json.JSONDecodeError as e:
+        report_json_error(e)
+        raise e

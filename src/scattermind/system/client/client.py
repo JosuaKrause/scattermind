@@ -26,12 +26,15 @@ class ClientPool(Module):
         self.set_duration_value(
             task_id, seconds_since(self.get_task_start(task_id)))
 
-    def get_response(self, task_id: TaskId) -> ResponseObject:
+    def get_response(
+            self,
+            task_id: TaskId,
+            output_format: DataFormat) -> ResponseObject:
         return {
             "status": self.get_status(task_id),
             "duration": self.get_duration(task_id),
             "retries": self.get_retries(task_id),
-            "result": self.get_final_output(task_id),
+            "result": self.get_final_output(task_id, output_format),
             "error": self.get_error(task_id),
         }
 
@@ -58,7 +61,10 @@ class ClientPool(Module):
             self, task_id: TaskId, final_output: 'TaskValueContainer') -> None:
         raise NotImplementedError()
 
-    def get_final_output(self, task_id: TaskId) -> 'TaskValueContainer | None':
+    def get_final_output(
+            self,
+            task_id: TaskId,
+            output_format: DataFormat) -> 'TaskValueContainer | None':
         raise NotImplementedError()
 
     def set_error(self, task_id: TaskId, error_info: ErrorInfo) -> None:

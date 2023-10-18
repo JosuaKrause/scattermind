@@ -1,17 +1,18 @@
-import threading
 from collections.abc import Iterable
+from typing import Literal, TypedDict
+
+from redipy import Redis, RedisConfig
 
 from scattermind.system.base import (
     DataId,
     GraphId,
-    L_LOCAL,
+    L_REMOTE,
     Locality,
     QueueId,
     TaskId,
 )
 from scattermind.system.client.client import ClientPool
 from scattermind.system.info import DataFormat
-from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.error import ErrorInfo
 from scattermind.system.names import NName, ValueMap
 from scattermind.system.payload.data import DataStore
@@ -22,12 +23,40 @@ from scattermind.system.response import (
     TASK_STATUS_UNKNOWN,
     TaskStatus,
 )
-from scattermind.system.util import get_time_str, seconds_since
+from scattermind.system.util import get_time_str
+
+
+KeyName = Literal[
+    "values",  # TVC str
+    "status",  # str
+    "retries",  # int
+    "start_time",  # time str
+    "duration",  # float
+    "weight",  # float
+    "byte_size",  # int
+    "stack_data",  # list obj str
+    "stack_frame",  # list obj str
+    "result",  # TVC str
+    "error",  # ErrorInfo str
+]
 
 
 class LocalClientPool(ClientPool):
-    def __init__(self) -> None:
+    def __init__(self, cfg: RedisConfig) -> None:
         super().__init__()
+        self._redis = Redis("redis", cfg=cfg)
+
+    @staticmethod
+    def locality() -> Locality:
+        return L_REMOTE
+
+    @staticmethod
+    def key(name: KeyName, task_id: TaskId) -> str:
+        return f"{name}:{task_id.to_parseable()}"
+
+    def create_task(
+            self,
+            original_input: TaskValueContainer) -> TaskId:
         self._values: dict[TaskId, TaskValueContainer] = {}
         self._status: dict[TaskId, TaskStatus] = {}
         self._retries: dict[TaskId, int] = {}
@@ -40,15 +69,6 @@ class LocalClientPool(ClientPool):
             TaskId, list[tuple[NName, GraphId, QueueId]]] = {}
         self._results: dict[TaskId, TaskValueContainer | None] = {}
         self._error: dict[TaskId, ErrorInfo] = {}
-        self._lock = threading.RLock()
-
-    @staticmethod
-    def locality() -> Locality:
-        return L_LOCAL
-
-    def create_task(
-            self,
-            original_input: TaskValueContainer) -> TaskId:
         with self._lock:
             task_id = TaskId.create()
             self._values[task_id] = original_input
@@ -94,10 +114,7 @@ class LocalClientPool(ClientPool):
         with self._lock:
             self._results[task_id] = final_output
 
-    def get_final_output(
-            self,
-            task_id: TaskId,
-            output_format: DataFormat) -> TaskValueContainer | None:
+    def get_final_output(self, task_id: TaskId) -> TaskValueContainer | None:
         with self._lock:
             res = self._results.get(task_id)
             self._status[task_id] = TASK_STATUS_DONE
@@ -127,7 +144,8 @@ class LocalClientPool(ClientPool):
 
     def get_duration(self, task_id: TaskId) -> float:
         res = self._duration.get(task_id)
-        assert res is not None
+        if res is None:  # FIXME reevaluate if this is necessary
+            return seconds_since(self.get_task_start(task_id))
         return res
 
     def commit_task(

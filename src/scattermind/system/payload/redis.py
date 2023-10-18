@@ -2,12 +2,12 @@ from redipy import Redis, RedisConfig
 
 from scattermind.system.base import DataId, L_REMOTE, Locality
 from scattermind.system.payload.data import DataStore
-from scattermind.system.util import (
-    as_base85,
-    bytes_hash_size,
-    from_base85,
-    get_bytes_hash,
+from scattermind.system.redis_util import (
+    bytes_to_redis,
+    DataMode,
+    maybe_redis_to_bytes,
 )
+from scattermind.system.util import bytes_hash_size, get_bytes_hash
 
 
 class RedisDataId(DataId):
@@ -17,9 +17,10 @@ class RedisDataId(DataId):
 
 
 class RedisDataStore(DataStore):
-    def __init__(self, cfg: RedisConfig) -> None:
+    def __init__(self, cfg: RedisConfig, mode: DataMode) -> None:
         super().__init__()
         self._redis = Redis("redis", cfg=cfg, redis_module="data")
+        self._mode = mode  # TODO: implement time mode
 
     def _generate_redis_id(self, value: bytes) -> RedisDataId:
         return RedisDataId.parse(
@@ -35,14 +36,11 @@ class RedisDataStore(DataStore):
 
     def store_data(self, data: bytes) -> DataId:
         key = self._generate_redis_id(data)
-        self._redis.set(key.to_parseable(), as_base85(data))
+        self._redis.set(key.to_parseable(), bytes_to_redis(data))
         return key
 
     def get_data(self, data_id: DataId) -> bytes | None:
         if not isinstance(data_id, RedisDataId):
             raise ValueError(
                 f"unexpected {data_id.__class__.__name__}: {data_id}")
-        res = self._redis.get(data_id.to_parseable())
-        if res is None:
-            return None
-        return from_base85(res)
+        return maybe_redis_to_bytes(self._redis.get(data_id.to_parseable()))

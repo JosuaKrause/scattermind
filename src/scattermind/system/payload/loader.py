@@ -4,6 +4,7 @@ from redipy import RedisConfig
 
 from scattermind.system.payload.data import DataStore
 from scattermind.system.plugins import load_plugin
+from scattermind.system.redis_util import DataMode
 
 
 LocalDataStoreModule = TypedDict('LocalDataStoreModule', {
@@ -13,6 +14,7 @@ LocalDataStoreModule = TypedDict('LocalDataStoreModule', {
 RedisDataStoreModule = TypedDict('RedisDataStoreModule', {
     "name": Literal["redis"],
     "cfg": RedisConfig,
+    "mode": DataMode,
 })
 
 
@@ -29,5 +31,5 @@ def load_store(module: LocalDataStoreModule) -> DataStore:
         return LocalDataStore(module["max_size"])
     if module["name"] == "redis":
         from scattermind.system.payload.redis import RedisDataStore
-        return RedisDataStore(module["cfg"])
+        return RedisDataStore(module["cfg"], module["mode"])
     raise ValueError(f"unknown data store: {module['name']}")
