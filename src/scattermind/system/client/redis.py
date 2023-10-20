@@ -1,7 +1,8 @@
 from collections.abc import Iterable
-from typing import Literal, TypedDict
+from typing import Literal
 
 from redipy import Redis, RedisConfig
+from redipy.api import PipelineAPI
 
 from scattermind.system.base import (
     DataId,
@@ -17,6 +18,7 @@ from scattermind.system.logger.error import ErrorInfo
 from scattermind.system.names import NName, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import DataContainer, TaskValueContainer
+from scattermind.system.redis_util import robj_to_redis, tvc_to_redis
 from scattermind.system.response import (
     TASK_STATUS_DONE,
     TASK_STATUS_INIT,
@@ -54,33 +56,53 @@ class LocalClientPool(ClientPool):
     def key(name: KeyName, task_id: TaskId) -> str:
         return f"{name}:{task_id.to_parseable()}"
 
+    def set_value(
+            self,
+            pipe: PipelineAPI,
+            name: KeyName,
+            task_id: TaskId,
+            value: str) -> None:
+        pipe.set(self.key(name, task_id), value)
+
+    def get_value(
+            self,
+            name: KeyName,
+            task_id: TaskId) -> str | None:
+        return self._redis.get(self.key(name, task_id))
+
+    def push_value(
+            self,
+            pipe: PipelineAPI,
+            name: KeyName,
+            task_id: TaskId,
+            value: str) -> None:
+        pipe.rpush(self.key(name, task_id), value)
+
+    # def peek_value(self, name: KeyName, task_id: TaskId) -> str:
+    #     return self._redis
+
+    def pop_value(self, name: KeyName, task_id: TaskId) -> str:
+        res = self._redis.rpop(self.key(name, task_id))
+        if res is None:
+            raise KeyError(f"no {task_id} for {name}")
+        return res
+
     def create_task(
             self,
             original_input: TaskValueContainer) -> TaskId:
-        self._values: dict[TaskId, TaskValueContainer] = {}
-        self._status: dict[TaskId, TaskStatus] = {}
-        self._retries: dict[TaskId, int] = {}
-        self._start_times: dict[TaskId, str] = {}
-        self._duration: dict[TaskId, float] = {}
-        self._weight: dict[TaskId, float] = {}
-        self._byte_size: dict[TaskId, int] = {}
-        self._stack_data: dict[TaskId, list[DataContainer]] = {}
-        self._stack_frame: dict[
-            TaskId, list[tuple[NName, GraphId, QueueId]]] = {}
-        self._results: dict[TaskId, TaskValueContainer | None] = {}
-        self._error: dict[TaskId, ErrorInfo] = {}
-        with self._lock:
-            task_id = TaskId.create()
-            self._values[task_id] = original_input
-            self._status[task_id] = TASK_STATUS_INIT
-            self._retries[task_id] = 0
-            self._results[task_id] = None
-            self._start_times[task_id] = get_time_str()
-            self._weight[task_id] = 1.0
-            self._byte_size[task_id] = 0
-            self._stack_data[task_id] = [{}]
-            self._stack_frame[task_id] = []
-            return task_id
+        task_id = TaskId.create()
+        with self._redis.pipeline() as pipe:
+            self.set_value(
+                pipe, "values", task_id, tvc_to_redis(original_input))
+            self.set_value(pipe, "status", task_id, TASK_STATUS_INIT)
+            self.set_value(pipe, "retries", task_id, f"{0}")
+            # NOTE: no need to set result yet
+            self.set_value(pipe, "start_time", task_id, get_time_str())
+            self.set_value(pipe, "weight", task_id, f"{1.0}")
+            self.set_value(pipe, "byte_size", task_id, f"{0}")
+            self.push_value(pipe, "stack_data", task_id, robj_to_redis({}))
+            # NOTE: no need to set stack_frame
+        return task_id
 
     def init_data(
             self,

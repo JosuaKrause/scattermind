@@ -22,7 +22,7 @@ from scattermind.system.response import (
     TASK_STATUS_UNKNOWN,
     TaskStatus,
 )
-from scattermind.system.util import get_time_str, seconds_since
+from scattermind.system.util import get_time_str
 
 
 class LocalClientPool(ClientPool):
