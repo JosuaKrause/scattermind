@@ -76,6 +76,7 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
         ],
         "entry": "lowmem",
     })
+    time_start = time.monotonic()
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
             config.enqueue(TaskValueContainer({
@@ -85,7 +86,6 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
         )
         for tix in range(20)
     ]
-    time_start = time.monotonic()
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
     config.run()

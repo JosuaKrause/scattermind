@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import cast, Literal
+from typing import Literal
 
 from redipy import Redis, RedisConfig
 from redipy.api import PipelineAPI
@@ -15,7 +15,11 @@ from scattermind.system.base import (
 )
 from scattermind.system.client.client import ClientPool
 from scattermind.system.info import DataFormat
-from scattermind.system.logger.error import ErrorInfo
+from scattermind.system.logger.error import (
+    ErrorInfo,
+    from_error_json,
+    to_error_json,
+)
 from scattermind.system.names import NName, QualifiedName, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import DataContainer, TaskValueContainer
@@ -47,7 +51,7 @@ KeyName = Literal[
     "stack_data",  # list obj str
     "stack_frame",  # list obj str
     "result",  # TVC str
-    "error",  # ErrorInfo str
+    "error",  # ErrorJSON str
 ]
 
 
@@ -164,15 +168,18 @@ class RedisClientPool(ClientPool):
 
     def set_error(self, task_id: TaskId, error_info: ErrorInfo) -> None:
         with self._redis.pipeline() as pipe:
-            self.set_value(pipe, "error", task_id, robj_to_redis(error_info))
+            self.set_value(
+                pipe,
+                "error",
+                task_id,
+                robj_to_redis(to_error_json(error_info)))
             pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def get_error(self, task_id: TaskId) -> ErrorInfo | None:
         res = self.get_value("error", task_id)
         if res is None:
             return None
-        # TODO validate cast
-        return cast(ErrorInfo, redis_to_robj(res))
+        return from_error_json(redis_to_robj(res))
 
     def inc_retries(self, task_id: TaskId) -> int:
         return int(self._redis.incrby(self.key("retries", task_id), 1))

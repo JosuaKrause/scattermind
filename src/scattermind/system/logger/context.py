@@ -1,12 +1,15 @@
 import contextlib
 import threading
-from collections.abc import Iterator
-from typing import TypedDict
+from collections.abc import Callable, Iterator, Mapping
+from typing import TypedDict, TypeVar
 
 from typing_extensions import NotRequired
 
 from scattermind.system.base import ExecutorId, GraphId, NodeId, TaskId
 from scattermind.system.names import GName, NName
+
+
+T = TypeVar('T')
 
 
 TH_LOCAL = threading.local()
@@ -20,6 +23,50 @@ ContextInfo = TypedDict('ContextInfo', {
     "node": NotRequired[NodeId | None],
     "node_name": NotRequired[NName | None],
 })
+
+
+ContextJSON = TypedDict('ContextJSON', {
+    "executor": NotRequired[str | None],
+    "task": NotRequired[str | None],
+    "graph": NotRequired[str | None],
+    "graph_name": NotRequired[str | None],
+    "node": NotRequired[str | None],
+    "node_name": NotRequired[str | None],
+})
+
+
+def to_ctx_json(info: ContextInfo) -> ContextJSON:
+
+    def mapval(val: T | None, transform: Callable[[T], str]) -> str | None:
+        if val is None:
+            return None
+        return transform(val)
+
+    return {
+        "executor": mapval(info.get("executor"), lambda e: e.to_parseable()),
+        "task": mapval(info.get("task"), lambda t: t.to_parseable()),
+        "graph": mapval(info.get("graph"), lambda g: g.to_parseable()),
+        "graph_name": mapval(info.get("graph_name"), lambda n: n.get()),
+        "node": mapval(info.get("node"), lambda n: n.to_parseable()),
+        "node_name": mapval(info.get("node_name"), lambda n: n.get()),
+    }
+
+
+def from_ctx_json(ctx: Mapping) -> ContextInfo:
+
+    def mapval(val: str | None, transform: Callable[[str], T]) -> T | None:
+        if val is None:
+            return None
+        return transform(val)
+
+    return {
+        "executor": mapval(ctx.get("executor"), ExecutorId.parse),
+        "task": mapval(ctx.get("task"), TaskId.parse),
+        "graph": mapval(ctx.get("graph"), GraphId.parse),
+        "graph_name": mapval(ctx.get("graph_name"), GName),
+        "node": mapval(ctx.get("node"), NodeId.parse),
+        "node_name": mapval(ctx.get("node_name"), NName),
+    }
 
 
 NAME_CTX = "ctx"

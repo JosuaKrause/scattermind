@@ -174,6 +174,7 @@ def test_simple_call(
     # - main:node_2
     # -4x+1 1
     # 1     12x+17
+    time_start = time.monotonic()
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
             config.enqueue(TaskValueContainer({
@@ -189,7 +190,6 @@ def test_simple_call(
         )
         for tix in range(20)
     ]
-    time_start = time.monotonic()
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
     try:

@@ -1,9 +1,13 @@
 import sys
-from typing import Literal, NoReturn, TYPE_CHECKING, TypedDict
+from collections.abc import Mapping
+from typing import cast, get_args, Literal, NoReturn, TYPE_CHECKING, TypedDict
 
 from scattermind.system.logger.context import (
     ContextInfo,
+    ContextJSON,
     ctx_format,
+    from_ctx_json,
+    to_ctx_json,
     to_replace_context,
 )
 
@@ -22,12 +26,47 @@ ErrorCode = Literal[
 ]
 
 
+ERROR_CODES: set[ErrorCode] = set(get_args(ErrorCode))
+
+
+def to_error_code(text: str) -> ErrorCode:
+    if text not in ERROR_CODES:
+        raise ValueError(f"invalid error code {text}")
+    return cast(ErrorCode, text)
+
+
 ErrorInfo = TypedDict('ErrorInfo', {
     "ctx": ContextInfo,
     "code": ErrorCode,
     "message": str,
     "traceback": list[str],
 })
+
+
+ErrorJSON = TypedDict('ErrorJSON', {
+    "ctx": ContextJSON,
+    "code": str,
+    "message": str,
+    "traceback": list[str],
+})
+
+
+def to_error_json(info: ErrorInfo) -> ErrorJSON:
+    return {
+        "ctx": to_ctx_json(info["ctx"]),
+        "code": info["code"],
+        "message": info["message"],
+        "traceback": info["traceback"],
+    }
+
+
+def from_error_json(err: Mapping) -> ErrorInfo:
+    return {
+        "ctx": from_ctx_json(err["ctx"]),
+        "code": to_error_code(err["code"]),
+        "message": err["message"],
+        "traceback": err["message"],
+    }
 
 
 def build_error_str(error: ErrorInfo, retries: int) -> str:
