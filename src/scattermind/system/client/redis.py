@@ -1,8 +1,9 @@
 from collections.abc import Iterable
-from typing import Literal
+from typing import cast, Literal
 
 from redipy import Redis, RedisConfig
 from redipy.api import PipelineAPI
+from redipy.graph.expr import JSONType
 
 from scattermind.system.base import (
     DataId,
@@ -15,15 +16,22 @@ from scattermind.system.base import (
 from scattermind.system.client.client import ClientPool
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.error import ErrorInfo
-from scattermind.system.names import NName, ValueMap
+from scattermind.system.names import NName, QualifiedName, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import DataContainer, TaskValueContainer
-from scattermind.system.redis_util import robj_to_redis, tvc_to_redis
+from scattermind.system.redis_util import (
+    redis_to_robj,
+    redis_to_tvc,
+    robj_to_redis,
+    RStack,
+    tvc_to_redis,
+)
 from scattermind.system.response import (
     TASK_STATUS_DONE,
     TASK_STATUS_INIT,
     TASK_STATUS_UNKNOWN,
     TaskStatus,
+    to_status,
 )
 from scattermind.system.util import get_time_str
 
@@ -47,6 +55,7 @@ class LocalClientPool(ClientPool):
     def __init__(self, cfg: RedisConfig) -> None:
         super().__init__()
         self._redis = Redis("redis", cfg=cfg)
+        self._stack = RStack(self._redis)
 
     @staticmethod
     def locality() -> Locality:
@@ -64,28 +73,18 @@ class LocalClientPool(ClientPool):
             value: str) -> None:
         pipe.set(self.key(name, task_id), value)
 
+    def delete(
+            self,
+            pipe: PipelineAPI,
+            name: KeyName,
+            task_id: TaskId) -> None:
+        pipe.delete(self.key(name, task_id))
+
     def get_value(
             self,
             name: KeyName,
             task_id: TaskId) -> str | None:
         return self._redis.get(self.key(name, task_id))
-
-    def push_value(
-            self,
-            pipe: PipelineAPI,
-            name: KeyName,
-            task_id: TaskId,
-            value: str) -> None:
-        pipe.rpush(self.key(name, task_id), value)
-
-    # def peek_value(self, name: KeyName, task_id: TaskId) -> str:
-    #     return self._redis
-
-    def pop_value(self, name: KeyName, task_id: TaskId) -> str:
-        res = self._redis.rpop(self.key(name, task_id))
-        if res is None:
-            raise KeyError(f"no {task_id} for {name}")
-        return res
 
     def create_task(
             self,
@@ -100,8 +99,9 @@ class LocalClientPool(ClientPool):
             self.set_value(pipe, "start_time", task_id, get_time_str())
             self.set_value(pipe, "weight", task_id, f"{1.0}")
             self.set_value(pipe, "byte_size", task_id, f"{0}")
-            self.push_value(pipe, "stack_data", task_id, robj_to_redis({}))
-            # NOTE: no need to set stack_frame
+            self._stack.init(self.key("stack_data", task_id), pipe=pipe)
+            # NOTE: no need to set stack_frame yet
+            pipe.execute()  # FIXME remove once on redipy 0.4.0
         return task_id
 
     def init_data(
@@ -109,66 +109,96 @@ class LocalClientPool(ClientPool):
             store: DataStore,
             task_id: TaskId,
             input_format: DataFormat) -> None:
-        with self._lock:
-            stack_data = self._stack_data[task_id][-1]
-            original_input = self._values[task_id]
-            byte_size = original_input.byte_size(input_format)
-            original_input.place_data(None, store, input_format, stack_data)
-            self._byte_size[task_id] = byte_size
-            print(f"{ctx_fmt()} placed {task_id} {self._stack_data[task_id]}")
+        value = self.get_value("values", task_id)
+        if value is None:
+            raise ValueError(f"unknown task {task_id}")
+        original_input = redis_to_tvc(value, input_format)
+        byte_size = original_input.byte_size(input_format)
+        stack_data: DataContainer = {}  # TODO: directly place instead
+        original_input.place_data(None, store, input_format, stack_data)
+        stack_key = self.key("stack_data", task_id)
+        # TODO batch everything together
+        for field, data_id in stack_data.items():
+            self._stack.set_value(
+                stack_key, field.to_parseable(), data_id.to_parseable())
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "byte_size", task_id, f"{byte_size}")
+            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def set_bulk_status(
             self,
             task_ids: Iterable[TaskId],
             status: TaskStatus) -> list[TaskId]:
-        with self._lock:
+        with self._redis.pipeline() as pipe:
             res = []
             for task_id in task_ids:
-                self._status[task_id] = status
+                self.set_value(pipe, "status", task_id, status)
                 res.append(task_id)
+            pipe.execute()  # FIXME remove once on redipy 0.4.0
             return res
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
-        return self._status.get(task_id, TASK_STATUS_UNKNOWN)
+        res = self.get_value("status", task_id)
+        if res is None:
+            res = TASK_STATUS_UNKNOWN
+        return to_status(res)
 
     def set_final_output(
             self, task_id: TaskId, final_output: TaskValueContainer) -> None:
-        with self._lock:
-            self._results[task_id] = final_output
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "result", task_id, tvc_to_redis(final_output))
+            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
-    def get_final_output(self, task_id: TaskId) -> TaskValueContainer | None:
-        with self._lock:
-            res = self._results.get(task_id)
-            self._status[task_id] = TASK_STATUS_DONE
-            return res
+    def get_final_output(
+            self,
+            task_id: TaskId,
+            output_format: DataFormat) -> TaskValueContainer | None:
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "status", task_id, TASK_STATUS_DONE)
+            # TODO create function to properly allow grouping
+            pipe.get(self.key("result", task_id))
+            _, res = pipe.execute()
+        if res is None:
+            return None
+        return redis_to_tvc(res, output_format)
 
     def set_error(self, task_id: TaskId, error_info: ErrorInfo) -> None:
-        with self._lock:
-            self._error[task_id] = error_info
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "error", task_id, robj_to_redis(error_info))
+            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def get_error(self, task_id: TaskId) -> ErrorInfo | None:
-        return self._error.get(task_id)
+        res = self.get_value("error", task_id)
+        if res is None:
+            return None
+        # TODO validate cast
+        return cast(ErrorInfo, redis_to_robj(res))
 
     def inc_retries(self, task_id: TaskId) -> int:
-        with self._lock:
-            self._retries[task_id] += 1
-            return self._retries[task_id]
+        return int(self._redis.incrby(self.key("retries", task_id), 1))
 
     def get_retries(self, task_id: TaskId) -> int:
-        return self._retries[task_id]
+        res = self.get_value("retries", task_id)
+        if res is None:
+            return 0
+        return int(res)
 
     def get_task_start(self, task_id: TaskId) -> str:
-        return self._start_times[task_id]
+        res = self.get_value("start_time", task_id)
+        if res is None:
+            raise ValueError(f"no start time set for {task_id}")
+        return res
 
     def set_duration_value(self, task_id: TaskId, seconds: float) -> None:
-        with self._lock:
-            self._duration[task_id] = seconds
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "duration", task_id, f"{seconds}")
+            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def get_duration(self, task_id: TaskId) -> float:
-        res = self._duration.get(task_id)
-        if res is None:  # FIXME reevaluate if this is necessary
-            return seconds_since(self.get_task_start(task_id))
-        return res
+        res = self.get_value("duration", task_id)
+        if res is None:
+            raise ValueError(f"duration for {task_id} not set")
+        return float(res)
 
     def commit_task(
             self,
@@ -178,65 +208,98 @@ class LocalClientPool(ClientPool):
             weight: float,
             byte_size: int,
             push_frame: tuple[NName, GraphId, QueueId] | None) -> None:
-        with self._lock:
-            print(f"{ctx_fmt()} commit {task_id} {self._stack_data[task_id]}")
-            self._weight[task_id] = weight
-            self._byte_size[task_id] += byte_size
+        # FIXME proper operation grouping
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "weight", task_id, f"{weight}")
+            pipe.incrby(self.key("byte_size", task_id), byte_size)
+            stack_data_key = self.key("stack_data", task_id)
             if push_frame is not None:
-                self._stack_frame[task_id].append(push_frame)
-                self._stack_data[task_id].append({})
-            frame_data = self._stack_data[task_id][-1]
-            for key, data_id in data.items():
-                frame_data[key] = data_id
-            print(f"{ctx_fmt()} frame_data {task_id} {frame_data}")
+                name, graph_id, qid = push_frame
+                pipe.rpush(self.key("stack_frame", task_id), robj_to_redis({
+                    "name": name.get(),
+                    "graph_id": graph_id.to_parseable(),
+                    "qid": qid.to_parseable(),
+                }))
+                self._stack.push_frame(stack_data_key)
+            for field, data_id in data.items():
+                self._stack.set_value(
+                    stack_data_key,
+                    field.to_parseable(),
+                    data_id.to_parseable())
+            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def pop_frame(
             self,
             task_id: TaskId,
             ) -> tuple[tuple[NName, GraphId, QueueId] | None, DataContainer]:
-        with self._lock:
-            stack_frame = self._stack_frame[task_id]
-            if stack_frame:
-                res = stack_frame.pop()
-            else:
-                res = None
-            stack_data = self._stack_data[task_id]
-            print(f"{ctx_fmt()} pop {task_id}")
-            return res, stack_data.pop()
+        # FIXME proper operation grouping
+        stack_data_key = self.key("stack_data", task_id)
+        res = {
+            QualifiedName.parse(field): DataId.parse(f"{value}")
+            for field, value in self._stack.pop_frame(stack_data_key).items()
+        }
+        stack_frame_key = self.key("stack_frame", task_id)
+        frame_res = self._redis.rpop(stack_frame_key)
+        if frame_res is None:
+            return None, res
+        frame = redis_to_robj(frame_res)
+        if not NName.is_valid_name(frame["name"]):
+            raise ValueError(f"invalid name in frame {frame}")
+        name = NName(frame["name"])
+        graph_id = GraphId.parse(frame["graph_id"])
+        qid = QueueId.parse(frame["qid"])
+        return (name, graph_id, qid), res
 
     def get_weight(self, task_id: TaskId) -> float:
-        return self._weight[task_id]
+        res = self.get_value("weight", task_id)
+        if res is None:
+            raise ValueError(f"unknown task {task_id} for weight")
+        return float(res)
 
     def get_byte_size(self, task_id: TaskId) -> int:
-        return self._byte_size[task_id]
+        res = self.get_value("byte_size", task_id)
+        if res is None:
+            raise ValueError(f"unknown task {task_id} for byte size")
+        return int(res)
 
     def get_data(self, task_id: TaskId, vmap: ValueMap) -> dict[str, DataId]:
-        frame_data = self._stack_data[task_id][-1]
-        print(f"{ctx_fmt()} get_data {task_id} {frame_data}")
+        # FIXME proper operation grouping
+        stack_data_key = self.key("stack_data", task_id)
+
+        def as_data_id(qual: QualifiedName, text: JSONType | None) -> DataId:
+            if text is None:
+                raise ValueError(f"no data id for {qual} in {task_id}")
+            return DataId.parse(f"{text}")
+
         return {
-            key: frame_data[qual]
+            key: as_data_id(
+                qual,
+                self._stack.get_value(stack_data_key, qual.to_parseable()))
             for key, qual in vmap.items()
         }
 
     def clear_progress(self, task_id: TaskId) -> None:
-        with self._lock:
-            self._weight[task_id] = 1.0
-            self._byte_size[task_id] = 0
-            self._stack_data[task_id] = [{}]
-            self._stack_frame[task_id] = []
-            print(f"{ctx_fmt()} clear progress {task_id}")
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "weight", task_id, "1.0")
+            self.set_value(pipe, "byte_size", task_id, "0")
+            # FIXME might be buggy
+            self.delete(pipe, "stack_data", task_id)
+            pipe.execute()  # FIXME remove after bug is fixed
+            self._stack.init(self.key("stack_data", task_id), pipe=pipe)
+            self.delete(pipe, "stack_frame", task_id)
+            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def clear_task(self, task_id: TaskId) -> None:
-        with self._lock:
-            self._values.pop(task_id, None)
-            self._status.pop(task_id, None)
-            self._retries.pop(task_id, None)
-            self._results.pop(task_id, None)
-            self._start_times.pop(task_id, None)
-            self._duration.pop(task_id, None)
-            self._weight.pop(task_id, None)
-            self._byte_size.pop(task_id, None)
-            self._stack_data.pop(task_id, None)
-            self._stack_frame.pop(task_id, None)
-            self._error.pop(task_id, None)
-            print(f"{ctx_fmt()} clear {task_id}")
+        with self._redis.pipeline() as pipe:
+            self.delete(pipe, "values", task_id)
+            self.delete(pipe, "status", task_id)
+            self.delete(pipe, "retries", task_id)
+            self.delete(pipe, "result", task_id)
+            self.delete(pipe, "start_time", task_id)
+            self.delete(pipe, "duration", task_id)
+            self.delete(pipe, "weight", task_id)
+            self.delete(pipe, "byte_size", task_id)
+            self.delete(pipe, "stack_data", task_id)
+            self.delete(pipe, "stack_frame", task_id)
+            self.delete(pipe, "error", task_id)
+            pipe.execute()  # FIXME remove once on redipy 0.4.0
