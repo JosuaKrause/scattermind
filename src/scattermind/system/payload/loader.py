@@ -18,10 +18,10 @@ RedisDataStoreModule = TypedDict('RedisDataStoreModule', {
 })
 
 
-DataStoreModule = LocalDataStoreModule
+DataStoreModule = LocalDataStoreModule | RedisDataStoreModule
 
 
-def load_store(module: LocalDataStoreModule) -> DataStore:
+def load_store(module: DataStoreModule) -> DataStore:
     if "." in module["name"]:
         kwargs = dict(module)
         plugin = load_plugin(DataStore, f"{kwargs.pop('name')}")

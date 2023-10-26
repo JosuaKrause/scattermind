@@ -1,8 +1,11 @@
+import os
+import threading
+import uuid
 from collections.abc import Mapping
 from typing import cast, Literal, overload
 
 import torch
-from redipy import ExecFunction
+from redipy import ExecFunction, RedisConfig
 from redipy.api import PipelineAPI, RedisClientAPI
 from redipy.graph.expr import JSONType
 from redipy.symbolic.expr import Strs
@@ -26,7 +29,42 @@ from scattermind.system.util import (
 )
 
 
-DataMode = Literal["size"]  # TODO: implement time mode
+TEST_SALT_LOCK = threading.RLock()
+TEST_SALT: dict[str, str] = {}
+
+
+def is_test() -> bool:
+    test_id = os.getenv("PYTEST_CURRENT_TEST")
+    return test_id is not None
+
+
+def get_test_salt() -> str | None:
+    test_id = os.getenv("PYTEST_CURRENT_TEST")
+    if test_id is None:
+        return None
+    res = TEST_SALT.get(test_id)
+    if res is None:
+        with TEST_SALT_LOCK:
+            res = TEST_SALT.get(test_id)
+            if res is None:
+                res = f"salt:{uuid.uuid4().hex}"
+                TEST_SALT[test_id] = res
+    return res
+
+
+def get_test_config() -> RedisConfig:
+    return {
+        "host": "localhost",
+        "port": 6380,
+        "passwd": "",
+        "prefix": f"test:{get_test_salt()}",
+        "path": "userdata/test/",
+    }
+
+
+DataMode = Literal["size", "time"]
+DM_SIZE: DataMode = "size"
+DM_TIME: DataMode = "time"
 
 
 def bytes_to_redis(value: bytes) -> str:

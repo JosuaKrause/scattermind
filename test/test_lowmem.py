@@ -21,8 +21,10 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 @pytest.mark.parametrize("base", [[[1.0]], [[1.0, 2.0], [3.0, 4.0]]])
 @pytest.mark.parametrize("batch_size", [1, 2, 3, 10, 20])
 def test_low_mem(base: list[list[float]], batch_size: int) -> None:
+    # FIXME work out a way to enable redis here
     shape = [len(base), len(base[0])]
-    config = load_test(batch_size=batch_size, max_store_size=200)
+    config = load_test(
+        batch_size=batch_size, max_store_size=200, is_redis=False)
     config.load_graph({
         "graphs": [
             {

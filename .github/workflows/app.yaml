@@ -98,6 +98,12 @@ jobs:
         python-version: ${{ matrix.python }}
         cache: 'pip'
 
+    - name: Start Redis
+      uses: supercharge/redis-github-action@1.4.0
+      with:
+        redis-version: 6
+        redis-port: 6380
+
     - name: Restore test-result Cache
       uses: actions/cache@v3
       with:

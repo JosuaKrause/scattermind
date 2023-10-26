@@ -268,8 +268,9 @@ def test_ids() -> None:
         QualifiedName.parse("f o o")
 
 
-def test_compute_task() -> None:
-    config = load_test()
+@pytest.mark.parametrize("is_redis", [False, True])
+def test_compute_task(is_redis: bool) -> None:
+    config = load_test(is_redis=is_redis)
     cpool = config.get_client_pool()
     task_id = cpool.create_task(TaskValueContainer())
     task = ComputeTask(cpool, task_id, {})

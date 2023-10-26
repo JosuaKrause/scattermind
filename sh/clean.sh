@@ -24,3 +24,12 @@ find . -type d \( \
     | xargs --no-run-if-empty rm -r
 
 rm -r src/scattermind.egg-info || echo "no files to delete"
+
+if command -v redis-cli &> /dev/null; then
+    redis-cli -p 6380 \
+        "EVAL" \
+        "for _,k in ipairs(redis.call('keys', KEYS[1])) do redis.call('del', k) end" \
+        1 \
+        'test:salt:*' \
+        || echo "no redis server active"
+fi

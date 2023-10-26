@@ -5,6 +5,7 @@ from scattermind.system.payload.data import DataStore
 from scattermind.system.redis_util import (
     bytes_to_redis,
     DataMode,
+    DM_TIME,
     maybe_redis_to_bytes,
 )
 from scattermind.system.util import bytes_hash_size, get_bytes_hash
@@ -16,11 +17,14 @@ class RedisDataId(DataId):
         return len(raw_id) == bytes_hash_size()
 
 
+EXPIRE_DEFAULT = 60 * 60.0  # TODO: make configurable
+
+
 class RedisDataStore(DataStore):
     def __init__(self, cfg: RedisConfig, mode: DataMode) -> None:
         super().__init__()
         self._redis = Redis("redis", cfg=cfg, redis_module="data")
-        self._mode = mode  # TODO: implement time mode
+        self._mode = mode
 
     def _generate_redis_id(self, value: bytes) -> RedisDataId:
         return RedisDataId.parse(
@@ -36,7 +40,13 @@ class RedisDataStore(DataStore):
 
     def store_data(self, data: bytes) -> DataId:
         key = self._generate_redis_id(data)
-        self._redis.set(key.to_parseable(), bytes_to_redis(data))
+        expire_in = None
+        if self._mode == DM_TIME:
+            expire_in = EXPIRE_DEFAULT
+        self._redis.set(
+            key.to_parseable(),
+            bytes_to_redis(data),
+            expire_in=expire_in)
         return key
 
     def get_data(self, data_id: DataId) -> bytes | None:

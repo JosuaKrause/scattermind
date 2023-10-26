@@ -51,10 +51,10 @@ KeyName = Literal[
 ]
 
 
-class LocalClientPool(ClientPool):
+class RedisClientPool(ClientPool):
     def __init__(self, cfg: RedisConfig) -> None:
         super().__init__()
-        self._redis = Redis("redis", cfg=cfg)
+        self._redis = Redis("redis", cfg=cfg, redis_module="client")
         self._stack = RStack(self._redis)
 
     @staticmethod

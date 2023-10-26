@@ -25,6 +25,7 @@ help:
 	@echo "requirements-check	check whether the env differs from the requirements file"
 	@echo "requirements-complete	check whether the requirements file is complete"
 	@echo "run-api	start api server"
+	@echo "run-redis-test	start redis server for pytest"
 	@echo "coverage-report	show the coverage report for python"
 	@echo "version	prints the currently declared version and exits"
 	@echo "version-tag	prints the currently declared version as tag and exits"
@@ -137,6 +138,9 @@ split-test:
 
 run-api:
 	API_SERVER_NAMESPACE=$(NS) $(PYTHON) -m app
+
+run-redis-test:
+	PYTHON=$(PYTHON) PORT=$(PORT) ./sh/run_redis.sh
 
 coverage-report:
 	cd coverage/reports/html_report && open index.html
