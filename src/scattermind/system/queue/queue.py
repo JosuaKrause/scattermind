@@ -327,6 +327,7 @@ class QueuePool(Module):
             store: DataStore,
             task: ComputeTask) -> None:
         cpool = self.get_client_pool()
+        data_id_type = store.data_id_type()
         task_id = task.get_task_id()
         cpool.commit_task(
             task_id,
@@ -337,7 +338,7 @@ class QueuePool(Module):
         qid = task.get_next_queue_id()
         is_final = False
         while not is_final and qid.is_output_id():
-            next_frame, frame_data = cpool.pop_frame(task_id)
+            next_frame, frame_data = cpool.pop_frame(task_id, data_id_type)
             if next_frame is None:
                 m_nname = None
                 graph_id = self.get_entry_graph()

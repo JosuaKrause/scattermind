@@ -48,7 +48,7 @@ class LocalDataStore(DataStore):
     def is_content_addressable() -> bool:
         return False
 
-    def store_data(self, data: bytes) -> DataId:
+    def store_data(self, data: bytes) -> LocalDataId:
         with self._lock:
             data_id = self._generate_data_id()
             self._data[data_id] = data
@@ -57,7 +57,7 @@ class LocalDataStore(DataStore):
         return data_id
 
     def get_data(self, data_id: DataId) -> bytes | None:
-        if not isinstance(data_id, LocalDataId):
-            raise ValueError(
-                f"unexpected {data_id.__class__.__name__}: {data_id}")
-        return self._data.get(data_id)
+        return self._data.get(self.ensure_id_type(data_id, LocalDataId))
+
+    def data_id_type(self) -> type[LocalDataId]:
+        return LocalDataId

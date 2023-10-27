@@ -38,7 +38,7 @@ class RedisDataStore(DataStore):
     def is_content_addressable() -> bool:
         return True
 
-    def store_data(self, data: bytes) -> DataId:
+    def store_data(self, data: bytes) -> RedisDataId:
         key = self._generate_redis_id(data)
         expire_in = None
         if self._mode == DM_TIME:
@@ -50,7 +50,8 @@ class RedisDataStore(DataStore):
         return key
 
     def get_data(self, data_id: DataId) -> bytes | None:
-        if not isinstance(data_id, RedisDataId):
-            raise ValueError(
-                f"unexpected {data_id.__class__.__name__}: {data_id}")
-        return maybe_redis_to_bytes(self._redis.get(data_id.to_parseable()))
+        rdata_id = self.ensure_id_type(data_id, RedisDataId)
+        return maybe_redis_to_bytes(self._redis.get(rdata_id.to_parseable()))
+
+    def data_id_type(self) -> type[RedisDataId]:
+        return RedisDataId

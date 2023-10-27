@@ -1,5 +1,6 @@
 import threading
 from collections.abc import Iterable
+from typing import TypeVar
 
 from scattermind.system.base import (
     DataId,
@@ -23,6 +24,9 @@ from scattermind.system.response import (
     TaskStatus,
 )
 from scattermind.system.util import get_time_str
+
+
+DT = TypeVar('DT', bound=DataId)
 
 
 class LocalClientPool(ClientPool):
@@ -153,6 +157,7 @@ class LocalClientPool(ClientPool):
     def pop_frame(
             self,
             task_id: TaskId,
+            data_id_type: type[DataId],
             ) -> tuple[tuple[NName, GraphId, QueueId] | None, DataContainer]:
         with self._lock:
             stack_frame = self._stack_frame[task_id]
@@ -170,11 +175,22 @@ class LocalClientPool(ClientPool):
     def get_byte_size(self, task_id: TaskId) -> int:
         return self._byte_size[task_id]
 
-    def get_data(self, task_id: TaskId, vmap: ValueMap) -> dict[str, DataId]:
+    def get_data(
+            self,
+            task_id: TaskId,
+            vmap: ValueMap,
+            data_id_type: type[DT]) -> dict[str, DT]:
         frame_data = self._stack_data[task_id][-1]
         print(f"{ctx_fmt()} get_data {task_id} {frame_data}")
+
+        def ensure_id(data_id: DataId) -> DT:
+            if not isinstance(data_id, data_id_type):
+                raise TypeError(
+                    f"invalid data id: {data_id} expected type {data_id_type}")
+            return data_id
+
         return {
-            key: frame_data[qual]
+            key: ensure_id(frame_data[qual])
             for key, qual in vmap.items()
         }
 

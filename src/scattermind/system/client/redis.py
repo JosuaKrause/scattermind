@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Literal
+from typing import Literal, TypeVar
 
 from redipy import Redis, RedisConfig
 from redipy.api import PipelineAPI
@@ -38,6 +38,9 @@ from scattermind.system.response import (
     to_status,
 )
 from scattermind.system.util import get_time_str
+
+
+DT = TypeVar('DT', bound=DataId)
 
 
 KeyName = Literal[
@@ -238,11 +241,12 @@ class RedisClientPool(ClientPool):
     def pop_frame(
             self,
             task_id: TaskId,
+            data_id_type: type[DataId],
             ) -> tuple[tuple[NName, GraphId, QueueId] | None, DataContainer]:
         # FIXME proper operation grouping
         stack_data_key = self.key("stack_data", task_id)
         res = {
-            QualifiedName.parse(field): DataId.parse(f"{value}")
+            QualifiedName.parse(field): data_id_type.parse(f"{value}")
             for field, value in self._stack.pop_frame(stack_data_key).items()
         }
         stack_frame_key = self.key("stack_frame", task_id)
@@ -250,8 +254,6 @@ class RedisClientPool(ClientPool):
         if frame_res is None:
             return None, res
         frame = redis_to_robj(frame_res)
-        if not NName.is_valid_name(frame["name"]):
-            raise ValueError(f"invalid name in frame {frame}")
         name = NName(frame["name"])
         graph_id = GraphId.parse(frame["graph_id"])
         qid = QueueId.parse(frame["qid"])
@@ -269,14 +271,18 @@ class RedisClientPool(ClientPool):
             raise ValueError(f"unknown task {task_id} for byte size")
         return int(res)
 
-    def get_data(self, task_id: TaskId, vmap: ValueMap) -> dict[str, DataId]:
+    def get_data(
+            self,
+            task_id: TaskId,
+            vmap: ValueMap,
+            data_id_type: type[DT]) -> dict[str, DT]:
         # FIXME proper operation grouping
         stack_data_key = self.key("stack_data", task_id)
 
-        def as_data_id(qual: QualifiedName, text: JSONType | None) -> DataId:
+        def as_data_id(qual: QualifiedName, text: JSONType | None) -> DT:
             if text is None:
                 raise ValueError(f"no data id for {qual} in {task_id}")
-            return DataId.parse(f"{text}")
+            return data_id_type.parse(f"{text}")
 
         return {
             key: as_data_id(

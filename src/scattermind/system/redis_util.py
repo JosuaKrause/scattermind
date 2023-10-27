@@ -160,6 +160,16 @@ class RStack:
         }
         args: dict[str, JSONType] = {}
         res = self._pop_frame(keys=keys, args=args)
+        if isinstance(res, list):  # FIXME: remove in 0.4.0 -- redipy 0.3.0 bug
+            obj: dict[str, JSONType] = {}
+            key = None
+            for val in res:
+                if key is None:
+                    key = val
+                else:
+                    obj[key] = val
+                    key = None
+            return obj
         return cast(dict, res)
 
     def set_value(self, base: str, field: str, value: str) -> None:
