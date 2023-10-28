@@ -54,7 +54,8 @@ class LocalQueuePool(QueuePool):
             executor_id: ExecutorId) -> list[TaskId]:
         with self._lock:
             task_ids = self._task_ids.get(qid, [])
-            task_ids.sort(reverse=True)
+            # FIXME: keep a sorted list instead of sorting every time
+            task_ids.sort(reverse=True, key=lambda elem: elem[0])
             qclaims = self._claims.get(executor_id)
             if qclaims is None:
                 qclaims = {}
