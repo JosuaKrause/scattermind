@@ -104,11 +104,17 @@ class EventStream:
         tback = [
             line.rstrip()
             for line in (
-                traceback.format_exc()
+                traceback.format_exc().splitlines()
                 if exc is None
                 else traceback.format_exception(exc))
         ]
-        message = f"{sys.exception()}"
+        if exc is None:
+            exc = sys.exception()
+        if exc is not None and getattr(exc, "__notes__", None):
+            notes = f"\n{exc.__notes__}"
+        else:
+            notes = ""
+        message = f"{exc}{notes}"
         self.log_event(
             name,
             {

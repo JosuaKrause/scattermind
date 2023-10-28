@@ -65,7 +65,7 @@ def from_error_json(err: Mapping) -> ErrorInfo:
         "ctx": from_ctx_json(err["ctx"]),
         "code": to_error_code(err["code"]),
         "message": err["message"],
-        "traceback": err["message"],
+        "traceback": err["traceback"],
     }
 
 

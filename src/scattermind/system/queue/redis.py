@@ -99,12 +99,13 @@ class RedisQueuePool(QueuePool):
         str_help_0 = ctx.add_local("not ")
         str_help_1 = ctx.add_local("")
 
+        # FIXME check elem[0] to elem once in 0.4.0 and check error rendering
         loop, ix, elem = ctx.for_(tasks.pop_max(batch_size))
         n_then, _ = loop.if_(is_error.not_())
-        n_then.add(claims.rpush(elem))
-        n_then.add(res.set_at(ix, elem))
+        n_then.add(claims.rpush(elem[0]))
+        n_then.add(res.set_at(ix, elem[0]))
         a_then, _ = n_then.if_(check_assertions)
-        asserts = RedisVar(Strs(assert_key_base, ":", elem))
+        asserts = RedisVar(Strs(assert_key_base, ":", elem[0]))
         a_then.add(aqid.assign(asserts.get()))
         a_then.add(asserts.delete())
         e_then, _ = a_then.if_(aqid.ne_(qid))
@@ -114,7 +115,7 @@ class RedisQueuePool(QueuePool):
         h_then.add(str_help_1.assign(aqid))
         e_then.add(res.assign(Strs(
             "cannot claim ",
-            elem,
+            elem[0],
             " from ",
             qid,
             " because it was ",

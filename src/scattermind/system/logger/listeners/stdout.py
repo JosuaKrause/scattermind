@@ -1,3 +1,5 @@
+from typing import Any
+
 from scattermind.system.logger.context import ctx_format
 from scattermind.system.logger.event import EventInfo
 from scattermind.system.logger.log import EventListener
@@ -24,7 +26,13 @@ class StdoutListener(EventListener):
         time_str = fmt_time(event["when"])
         name = event["name"]
         ctx = ctx_format(event["ctx"])
+
+        def render_value(key: str, value: Any) -> str:
+            if key == "traceback":
+                return "\n".join(value)
+            return f"{value}"
+
         evt = ", ".join(
-            f"{key}={value}"
+            f"{key}={render_value(key, value)}"
             for key, value in event["event"].items())
         print(f"{time_str} {ctx} {name}: {evt}".rstrip())

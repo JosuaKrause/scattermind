@@ -111,6 +111,10 @@ def test_assertion_error(
                 assert ectx["graph_name"] is not None
                 assert ectx["graph_name"].get() == "main"
                 assert error["message"].find("value was not true") >= 0
+                tback = error["traceback"]
+                assert "Traceback" in tback[0]
+                assert "line" in tback[-2]
+                assert "ValueError: value was not true" in tback[-1]
                 with pytest.raises(ValueError, match=r"value was not true"):
                     response_ok(response, no_warn=True)
                 assert retries == TASK_MAX_RETRIES
