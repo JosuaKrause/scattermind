@@ -83,6 +83,7 @@ def load_test(
     executor_manager: ExecutorManagerModule
     client_pool: ClientPoolModule
     data_store: DataStoreModule
+    queue_pool: QueuePoolModule
     if parallelism > 0:
         executor_manager = {
             "name": "thread",
@@ -105,6 +106,11 @@ def load_test(
             "cfg": get_test_config(),
             "mode": "size",
         }
+        queue_pool = {
+            "name": "redis",
+            "cfg": get_test_config(),
+            "check_assertions": True,
+        }
     else:
         client_pool = {
             "name": "local",
@@ -113,14 +119,15 @@ def load_test(
             "name": "local",
             "max_size": max_store_size,
         }
+        queue_pool = {
+            "name": "local",
+            "check_assertions": True,
+        }
     test_config: ConfigJSON = {
         "client_pool": client_pool,
         "data_store": data_store,
         "executor_manager": executor_manager,
-        "queue_pool": {
-            "name": "local",
-            "check_assertions": True,
-        },
+        "queue_pool": queue_pool,
         "strategy": {
             "node": {
                 "name": "simple",

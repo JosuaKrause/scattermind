@@ -428,9 +428,9 @@ class QueuePool(Module):
             for task_id in self.get_unclaimed_tasks(qid)
         ]
 
-    def sort_tasks(self, task_ids: list[TaskId]) -> None:
+    def get_task_weight(self, task_id: TaskId) -> float:
         strategy = self.get_queue_strategy()
-        strategy.sort_queue(self.get_client_pool(), task_ids)
+        return strategy.compute_weight(self.get_client_pool(), task_id)
 
     def push_task_id(self, qid: QueueId, task_id: TaskId) -> None:
         raise NotImplementedError()
@@ -464,10 +464,10 @@ class QueuePool(Module):
     def get_expected_new_task_weight(self, qid: QueueId) -> float:
         raise NotImplementedError()
 
-    def get_queue_length(self, qid: QueueId) -> int:
+    def get_expected_byte_size(self, qid: QueueId) -> int:
         raise NotImplementedError()
 
-    def get_expected_byte_size(self, qid: QueueId) -> int:
+    def get_queue_length(self, qid: QueueId) -> int:
         raise NotImplementedError()
 
     def get_incoming_byte_size(self, qid: QueueId) -> int:

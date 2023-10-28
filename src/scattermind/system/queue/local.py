@@ -12,11 +12,11 @@ from scattermind.system.queue.queue import QueuePool
 
 
 class LocalQueuePool(QueuePool):
-    def __init__(self, check_assertions: bool) -> None:
+    def __init__(self, *, check_assertions: bool) -> None:
         super().__init__()
         self._check_assertions = check_assertions
         self._assert_tasks: dict[TaskId, QueueId] = {}
-        self._task_ids: dict[QueueId, list[TaskId]] = {}
+        self._task_ids: dict[QueueId, list[tuple[float, TaskId]]] = {}
         self._claims: dict[ExecutorId, dict[QueueId, list[TaskId]]] = {}
         self._expect: dict[QueueId, dict[ExecutorId, tuple[float, int]]] = {}
         self._lock = threading.RLock()
@@ -40,11 +40,12 @@ class LocalQueuePool(QueuePool):
             if task_ids is None:
                 task_ids = []
                 self._task_ids[qid] = task_ids
-            task_ids.append(task_id)
+            weight = self.get_task_weight(task_id)
+            task_ids.append((weight, task_id))
 
     def get_unclaimed_tasks(self, qid: QueueId) -> list[TaskId]:
         with self._lock:
-            return list(self._task_ids.get(qid, []))
+            return [task_id for _, task_id in self._task_ids.get(qid, [])]
 
     def claim_tasks(
             self,
@@ -53,7 +54,7 @@ class LocalQueuePool(QueuePool):
             executor_id: ExecutorId) -> list[TaskId]:
         with self._lock:
             task_ids = self._task_ids.get(qid, [])
-            self.sort_tasks(task_ids)
+            task_ids.sort(reverse=True)
             qclaims = self._claims.get(executor_id)
             if qclaims is None:
                 qclaims = {}
@@ -64,7 +65,7 @@ class LocalQueuePool(QueuePool):
                 qclaims[qid] = claims
             res: list[TaskId] = []
             while task_ids and len(res) < batch_size:
-                task_id = task_ids.pop(0)
+                _, task_id = task_ids.pop(0)
                 claims.append(task_id)
                 res.append(task_id)
             if self._check_assertions:
@@ -118,10 +119,6 @@ class LocalQueuePool(QueuePool):
                 weight += cweight
             return weight
 
-    def get_queue_length(self, qid: QueueId) -> int:
-        with self._lock:
-            return len(self._task_ids.get(qid, []))
-
     def get_expected_byte_size(self, qid: QueueId) -> int:
         with self._lock:
             qmeta = self._expect.get(qid, {})
@@ -130,11 +127,15 @@ class LocalQueuePool(QueuePool):
                 byte_size += cbyte_size
             return byte_size
 
+    def get_queue_length(self, qid: QueueId) -> int:
+        with self._lock:
+            return len(self._task_ids.get(qid, []))
+
     def get_incoming_byte_size(self, qid: QueueId) -> int:
         cpool = self.get_client_pool()
         with self._lock:
             res = 0
-            for task_id in self._task_ids.get(qid, []):
+            for _, task_id in self._task_ids.get(qid, []):
                 task = self.get_compute_task(cpool, qid, task_id)
                 res += task.get_byte_size_in()
             return res
