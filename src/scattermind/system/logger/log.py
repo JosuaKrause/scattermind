@@ -110,8 +110,9 @@ class EventStream:
         ]
         if exc is None:
             exc = sys.exception()
-        if exc is not None and getattr(exc, "__notes__", None):
-            notes = f"\n{exc.__notes__}"
+        notes_val = None if exc is None else getattr(exc, "__notes__", None)
+        if notes_val:
+            notes = f"\n{notes_val}"
         else:
             notes = ""
         message = f"{exc}{notes}"
