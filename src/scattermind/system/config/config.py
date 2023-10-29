@@ -67,8 +67,7 @@ class Config:
         elif locality == L_EITHER:
             pass
         elif self._locality != locality:  # FIXME write testcase for this
-            pass  # FIXME reset after implementing all redis
-            # raise ValueError("trying to load both local and remote modules")
+            raise ValueError("trying to load both local and remote modules")
         return module
 
     def set_executor_manager(self, emng: ExecutorManager) -> None:
