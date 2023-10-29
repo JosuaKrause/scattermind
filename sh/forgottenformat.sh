@@ -8,7 +8,7 @@ PYTHON="${PYTHON:-python}"
 
 ANY_DOUBLE="([^\\\\\"]|\\\\\")*"
 ANY_SINGLE="([^\\\\']|\\\\')*"
-IS_CURLY="([{][^{]|[^}][}])"
+IS_CURLY="([{](?![{])|(?<![}])[}])"
 EAT_DOUBLE="\"${ANY_DOUBLE}\""
 EAT_SINGLE="'${ANY_SINGLE}'"
 EAT_STRINGS="^([^\"'#]|${EAT_DOUBLE}|${EAT_SINGLE})*"
@@ -17,7 +17,7 @@ INVALID_F_DOUBLE="f\"([^\\\\\"}{]|\\\\\")*\""
 INVALID_F_SINGLE="f'([^\\\\'}{]|\\\\')*'"
 INVALIDS="${INVALID_F_DOUBLE}|${INVALID_F_SINGLE}"
 NO_F_DOUBLE="[^rf]\"${ANY_DOUBLE}${IS_CURLY}${ANY_DOUBLE}\""  # we also allow r
-NO_F_SINGLE="'${ANY_SINGLE}${IS_CURLY}${ANY_SINGLE}'"  # we disallow any curls
+NO_F_SINGLE="[^r]'${ANY_SINGLE}${IS_CURLY}${ANY_SINGLE}'"  # r can have curls
 NO_FS="${NO_F_DOUBLE}|${NO_F_SINGLE}"
 
 MAIN_MATCH="(${NO_FS}|${INVALIDS})"
@@ -43,7 +43,7 @@ while True:
 EOF
 
 ./sh/findpy.sh \
-    | xargs grep -nE "['\"]" \
+    | xargs --no-run-if-empty grep -nE "['\"]" \
     | ${PYTHON} -c "${PY_FILTER}" \
     | grep -E "${REGEX}" \
     | grep --color=always -nE "${MAIN_MATCH}"

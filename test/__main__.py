@@ -1,6 +1,6 @@
 import argparse
 
-from .util import merge_results, split_tests
+from .mng import merge_results, split_tests
 
 
 def parse_args_split_tests(parser: argparse.ArgumentParser) -> None:

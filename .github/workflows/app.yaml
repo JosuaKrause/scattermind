@@ -21,7 +21,7 @@ jobs:
       ENV: CI
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v4
@@ -90,13 +90,19 @@ jobs:
       ENV: CI
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python }}
         cache: 'pip'
+
+    - name: Start Redis
+      uses: supercharge/redis-github-action@1.4.0
+      with:
+        redis-version: 6
+        redis-port: 6380
 
     - name: Restore test-result Cache
       uses: actions/cache@v3
@@ -144,7 +150,7 @@ jobs:
       ENV: CI
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v4
@@ -168,7 +174,7 @@ jobs:
         mkdir -p test-results/parts/
 
     - name: Download all results and coverage
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
 
     - name: Merge results
       run: |

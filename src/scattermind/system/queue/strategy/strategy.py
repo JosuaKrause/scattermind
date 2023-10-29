@@ -27,9 +27,8 @@ class NodeStrategy:
 
 
 class QueueStrategy:  # pylint: disable=too-few-public-methods
-    # FIXME implement strategies using symbolic redis
-    def sort_queue(
+    def compute_weight(
             self,
             cpool: ClientPool,
-            candidates: list[TaskId]) -> None:
+            task_id: TaskId) -> float:
         raise NotImplementedError()

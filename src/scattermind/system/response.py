@@ -1,4 +1,4 @@
-from typing import Literal, TYPE_CHECKING, TypedDict
+from typing import cast, get_args, Literal, TYPE_CHECKING, TypedDict
 
 from scattermind.system.logger.error import ErrorInfo, raise_error, warn_error
 
@@ -16,6 +16,7 @@ TaskStatus = Literal[
     "error",
     "unknown",
 ]
+TASK_STATUS_ALL: set[TaskStatus] = set(get_args(TaskStatus))
 TASK_STATUS_INIT: TaskStatus = "init"
 TASK_STATUS_WAIT: TaskStatus = "wait"
 TASK_STATUS_BUSY: TaskStatus = "busy"
@@ -23,6 +24,12 @@ TASK_STATUS_READY: TaskStatus = "ready"
 TASK_STATUS_DONE: TaskStatus = "done"
 TASK_STATUS_ERROR: TaskStatus = "error"
 TASK_STATUS_UNKNOWN: TaskStatus = "unknown"
+
+
+def to_status(text: str) -> TaskStatus:
+    if text not in TASK_STATUS_ALL:
+        raise ValueError(f"invalid status {text}")
+    return cast(TaskStatus, text)
 
 
 ResponseObject = TypedDict('ResponseObject', {

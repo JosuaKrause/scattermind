@@ -13,8 +13,7 @@ rm -r dist/ || true
 find . -type d \( \
         -path './venv' -o \
         -path './.*' -o \
-        -path './userdata' -o \
-        -path './ui' \
+        -path './userdata' \
         \) -prune -o \( \
         -type d \
         -name '__pycache__' \
@@ -22,7 +21,15 @@ find . -type d \( \
     | grep -vF './venv' \
     | grep -vF './.' \
     | grep -vF './userdata' \
-    | grep -vF './ui' \
-    | xargs rm -r
+    | xargs --no-run-if-empty rm -r
 
-rm -r dist build src/scattermind.egg-info || echo "no files to delete"
+rm -r src/scattermind.egg-info || echo "no files to delete"
+
+if command -v redis-cli &> /dev/null; then
+    redis-cli -p 6380 \
+        "EVAL" \
+        "for _,k in ipairs(redis.call('keys', KEYS[1])) do redis.call('del', k) end" \
+        1 \
+        'test:salt:*' \
+        || echo "no redis server active"
+fi

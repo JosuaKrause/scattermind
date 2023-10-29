@@ -19,9 +19,12 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 
 @pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])
 @pytest.mark.parametrize("parallelism", [0, 1, 2, 3])
-def test_simple_call(batch_size: int, parallelism: int) -> None:
+@pytest.mark.parametrize("is_redis", [False, True])
+def test_simple_call(
+        batch_size: int, parallelism: int, is_redis: bool) -> None:
     set_debug_output_length(7)
-    config = load_test(batch_size=batch_size, parallelism=parallelism)
+    config = load_test(
+        batch_size=batch_size, parallelism=parallelism, is_redis=is_redis)
     writer = config.get_roa_writer()
     cpath = "procedure_const_0"
     with writer.open_write(cpath) as fout:
@@ -171,6 +174,7 @@ def test_simple_call(batch_size: int, parallelism: int) -> None:
     # - main:node_2
     # -4x+1 1
     # 1     12x+17
+    time_start = time.monotonic()
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
             config.enqueue(TaskValueContainer({
@@ -186,7 +190,6 @@ def test_simple_call(batch_size: int, parallelism: int) -> None:
         )
         for tix in range(20)
     ]
-    time_start = time.monotonic()
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
     try:
