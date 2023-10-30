@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from scattermind.system.base import DataId, GraphId, Module, QueueId, TaskId
 from scattermind.system.info import DataFormat
@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     )
 
 
+DT = TypeVar('DT', bound=DataId)
+
+
 TASK_MAX_RETRIES = 5
 
 
@@ -26,12 +29,15 @@ class ClientPool(Module):
         self.set_duration_value(
             task_id, seconds_since(self.get_task_start(task_id)))
 
-    def get_response(self, task_id: TaskId) -> ResponseObject:
+    def get_response(
+            self,
+            task_id: TaskId,
+            output_format: DataFormat) -> ResponseObject:
         return {
             "status": self.get_status(task_id),
             "duration": self.get_duration(task_id),
             "retries": self.get_retries(task_id),
-            "result": self.get_final_output(task_id),
+            "result": self.get_final_output(task_id, output_format),
             "error": self.get_error(task_id),
         }
 
@@ -58,7 +64,10 @@ class ClientPool(Module):
             self, task_id: TaskId, final_output: 'TaskValueContainer') -> None:
         raise NotImplementedError()
 
-    def get_final_output(self, task_id: TaskId) -> 'TaskValueContainer | None':
+    def get_final_output(
+            self,
+            task_id: TaskId,
+            output_format: DataFormat) -> 'TaskValueContainer | None':
         raise NotImplementedError()
 
     def set_error(self, task_id: TaskId, error_info: ErrorInfo) -> None:
@@ -95,6 +104,7 @@ class ClientPool(Module):
     def pop_frame(
             self,
             task_id: TaskId,
+            data_id_type: type[DataId],
             ) -> tuple[tuple[NName, GraphId, QueueId] | None, 'DataContainer']:
         raise NotImplementedError()
 
@@ -104,7 +114,11 @@ class ClientPool(Module):
     def get_byte_size(self, task_id: TaskId) -> int:
         raise NotImplementedError()
 
-    def get_data(self, task_id: TaskId, vmap: ValueMap) -> dict[str, DataId]:
+    def get_data(
+            self,
+            task_id: TaskId,
+            vmap: ValueMap,
+            data_id_type: type[DT]) -> dict[str, DT]:
         raise NotImplementedError()
 
     def clear_progress(self, task_id: TaskId) -> None:
@@ -145,8 +159,8 @@ class ComputeTask:
     def get_byte_size_in(self) -> int:
         return self._cpool.get_byte_size(self._task_id)
 
-    def get_data_in(self) -> dict[str, DataId]:
-        return self._cpool.get_data(self._task_id, self._vmap)
+    def get_data_in(self, data_id_type: type[DT]) -> dict[str, DT]:
+        return self._cpool.get_data(self._task_id, self._vmap, data_id_type)
 
     def get_data_out(self) -> 'DataContainer':
         if self._data_out is None:

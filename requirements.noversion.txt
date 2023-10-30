@@ -9,4 +9,5 @@ pylint
 pytest
 pytest-cov
 quick-server
+redipy
 torch

@@ -25,7 +25,10 @@ help:
 	@echo "requirements-check	check whether the env differs from the requirements file"
 	@echo "requirements-complete	check whether the requirements file is complete"
 	@echo "run-api	start api server"
+	@echo "run-redis-test	start redis server for pytest"
 	@echo "coverage-report	show the coverage report for python"
+	@echo "version	prints the currently declared version and exits"
+	@echo "version-tag	prints the currently declared version as tag and exits"
 
 export LC_ALL=C
 export LANG=C
@@ -35,7 +38,7 @@ NS=default
 
 lint-comment:
 	! ./sh/findpy.sh \
-	| xargs grep --color=always -nE \
+	| xargs --no-run-if-empty grep --color=always -nE \
 	  '#.*(todo|xxx|fixme|n[oO][tT][eE]:|Note:|nopep8\s*$$)|.\"^s%'
 
 lint-emptyinit:
@@ -43,11 +46,11 @@ lint-emptyinit:
 
 lint-stringformat:
 	! ./sh/findpy.sh \
-	| xargs grep --color=always -nE "%[^'\"]*\"\\s*%\\s*"
+	| xargs --no-run-if-empty grep --color=always -nE "%[^'\"]*\"\\s*%\\s*"
 
 lint-indent:
 	! ./sh/findpy.sh \
-	| xargs grep --color=always -nE "^(\s{4})*\s{1,3}\S.*$$"
+	| xargs --no-run-if-empty grep --color=always -nE "^(\s{4})*\s{1,3}\S.*$$"
 
 lint-forgottenformat:
 	! PYTHON=$(PYTHON) ./sh/forgottenformat.sh
@@ -59,16 +62,16 @@ lint-requirements:
 
 lint-pycodestyle:
 	./sh/findpy.sh | sort
-	./sh/findpy.sh | sort | xargs pycodestyle --show-source
+	./sh/findpy.sh | sort | xargs --no-run-if-empty pycodestyle --show-source
 
 lint-pycodestyle-debug:
 	./sh/findpy.sh | sort
 	./sh/findpy.sh \
-	| sort | xargs pycodestyle -v --show-source
+	| sort | xargs --no-run-if-empty pycodestyle -v --show-source
 
 lint-pylint:
 	./sh/findpy.sh | sort
-	./sh/findpy.sh | sort | xargs pylint -j 6 -v
+	./sh/findpy.sh | sort | xargs --no-run-if-empty pylint -j 6 -v
 
 lint-type-check:
 	mypy .
@@ -108,8 +111,11 @@ git-check:
 git-check-publish: git-check
 	./sh/git_check.sh
 
-pack:
+pack: clean
 	./sh/pack.sh
+
+publish: clean git-check-publish
+	./sh/publish.sh
 
 compileall: clean
 	./sh/compileall.sh
@@ -133,11 +139,23 @@ split-test:
 run-api:
 	API_SERVER_NAMESPACE=$(NS) $(PYTHON) -m app
 
+run-redis-test:
+	PYTHON=$(PYTHON) PORT=$(PORT) ./sh/run_redis.sh
+
 coverage-report:
 	cd coverage/reports/html_report && open index.html
 
 allapps:
 	./sh/findpy.sh \
-	| xargs grep '__name__ == "__main__"' \
+	| xargs --no-run-if-empty grep '__name__ == "__main__"' \
 	| cut -d: -f1 \
 	| sed -e 's/^.\///' -e 's/\/__main__.py$$//' -e 's/.py$$//'
+
+version:
+	./sh/version.sh
+
+version-tag:
+	./sh/version.sh --tag
+
+version-next:
+	./sh/version.sh --tag --next

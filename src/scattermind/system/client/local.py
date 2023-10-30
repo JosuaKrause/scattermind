@@ -1,7 +1,15 @@
 import threading
 from collections.abc import Iterable
+from typing import TypeVar
 
-from scattermind.system.base import DataId, GraphId, QueueId, TaskId
+from scattermind.system.base import (
+    DataId,
+    GraphId,
+    L_LOCAL,
+    Locality,
+    QueueId,
+    TaskId,
+)
 from scattermind.system.client.client import ClientPool
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt
@@ -15,7 +23,10 @@ from scattermind.system.response import (
     TASK_STATUS_UNKNOWN,
     TaskStatus,
 )
-from scattermind.system.util import get_time_str, seconds_since
+from scattermind.system.util import get_time_str
+
+
+DT = TypeVar('DT', bound=DataId)
 
 
 class LocalClientPool(ClientPool):
@@ -36,8 +47,8 @@ class LocalClientPool(ClientPool):
         self._lock = threading.RLock()
 
     @staticmethod
-    def is_local_only() -> bool:
-        return True
+    def locality() -> Locality:
+        return L_LOCAL
 
     def create_task(
             self,
@@ -87,7 +98,10 @@ class LocalClientPool(ClientPool):
         with self._lock:
             self._results[task_id] = final_output
 
-    def get_final_output(self, task_id: TaskId) -> TaskValueContainer | None:
+    def get_final_output(
+            self,
+            task_id: TaskId,
+            output_format: DataFormat) -> TaskValueContainer | None:
         with self._lock:
             res = self._results.get(task_id)
             self._status[task_id] = TASK_STATUS_DONE
@@ -117,8 +131,7 @@ class LocalClientPool(ClientPool):
 
     def get_duration(self, task_id: TaskId) -> float:
         res = self._duration.get(task_id)
-        if res is None:  # FIXME reevaluate if this is necessary
-            return seconds_since(self.get_task_start(task_id))
+        assert res is not None
         return res
 
     def commit_task(
@@ -144,6 +157,7 @@ class LocalClientPool(ClientPool):
     def pop_frame(
             self,
             task_id: TaskId,
+            data_id_type: type[DataId],
             ) -> tuple[tuple[NName, GraphId, QueueId] | None, DataContainer]:
         with self._lock:
             stack_frame = self._stack_frame[task_id]
@@ -161,11 +175,22 @@ class LocalClientPool(ClientPool):
     def get_byte_size(self, task_id: TaskId) -> int:
         return self._byte_size[task_id]
 
-    def get_data(self, task_id: TaskId, vmap: ValueMap) -> dict[str, DataId]:
+    def get_data(
+            self,
+            task_id: TaskId,
+            vmap: ValueMap,
+            data_id_type: type[DT]) -> dict[str, DT]:
         frame_data = self._stack_data[task_id][-1]
         print(f"{ctx_fmt()} get_data {task_id} {frame_data}")
+
+        def ensure_id(data_id: DataId) -> DT:
+            if not isinstance(data_id, data_id_type):
+                raise TypeError(
+                    f"invalid data id: {data_id} expected type {data_id_type}")
+            return data_id
+
         return {
-            key: frame_data[qual]
+            key: ensure_id(frame_data[qual])
             for key, qual in vmap.items()
         }
 

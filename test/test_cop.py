@@ -16,9 +16,10 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 
 @pytest.mark.parametrize("base", [[[1.0]], [[1.0, 2.0], [3.0, 4.0]]])
 @pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])
-def test_cop(base: list[list[float]], batch_size: int) -> None:
+@pytest.mark.parametrize("is_redis", [False, True])
+def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
     shape = [len(base), len(base[0])]
-    config = load_test(batch_size=batch_size)
+    config = load_test(batch_size=batch_size, is_redis=is_redis)
     config.load_graph({
         "graphs": [
             {
@@ -83,9 +84,11 @@ def test_cop(base: list[list[float]], batch_size: int) -> None:
 
 @pytest.mark.parametrize("base", [[[1.0]], [[1.0, 2.0], [3.0, 4.0]]])
 @pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])
-def test_cop_chain(base: list[list[float]], batch_size: int) -> None:
+@pytest.mark.parametrize("is_redis", [False, True])
+def test_cop_chain(
+        base: list[list[float]], batch_size: int, is_redis: bool) -> None:
     shape = [len(base), len(base[0])]
-    config = load_test(batch_size=batch_size)
+    config = load_test(batch_size=batch_size, is_redis=is_redis)
     config.load_graph({
         "graphs": [
             {

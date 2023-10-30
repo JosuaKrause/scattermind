@@ -219,12 +219,13 @@ class ComputeValueContainer:
         assert self._rejected_tasks is None
         tasks = self._tasks
         store = self._store
+        data_id_type = store.data_id_type()
         data_format = self._data_format
         rejected_tasks: list[ComputeTask] = []
         accepted_tasks: list[ComputeTask] = []
         data: dict[str, list[torch.Tensor]] | None = None
         for task in tasks:
-            data_in = task.get_data_in()
+            data_in = task.get_data_in(data_id_type)
             rejected = False
             cur = {}
             for name, data_id in data_in.items():

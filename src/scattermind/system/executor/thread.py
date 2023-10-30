@@ -2,7 +2,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from scattermind.system.base import ExecutorId
+from scattermind.system.base import ExecutorId, L_EITHER, Locality
 from scattermind.system.executor.executor import Executor, ExecutorManager
 from scattermind.system.logger.context import add_context
 from scattermind.system.logger.log import EventStream
@@ -86,8 +86,8 @@ class ThreadExecutorManager(ExecutorManager):
             thread.start()
 
     @staticmethod
-    def is_local_only() -> bool:
-        return True
+    def locality() -> Locality:
+        return L_EITHER
 
     def get_all_executors(self) -> list[Executor]:
         with LOCK:

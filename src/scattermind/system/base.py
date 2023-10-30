@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 from scattermind.system.names import GName, NAME_SEP, NName
 
@@ -432,18 +432,34 @@ class DataId:
         return self.__str__()
 
 
+Locality = Literal[
+    "local",
+    "remote",
+    "either",
+]
+
+L_LOCAL: Locality = "local"
+L_REMOTE: Locality = "remote"
+L_EITHER: Locality = "either"
+
+
 class Module:  # pylint: disable=too-few-public-methods
     """
     A module for environment dependent behavior. Module classes need to be
     subclassed to implement the respective behavior.
     """
     @staticmethod
-    def is_local_only() -> bool:
+    def locality() -> Locality:
         """
-        Whether the module is for a local (same process) environment only.
-        All loaded modules must be either all local or all non-local.
+        Whether the module is for a local (same process) environment only, a
+        possibly remote (other process / other node) environment, or either.
+        All loaded modules must be either all local or all remote (not counting
+        modules that indicate either). A module should only be L_EITHER if it
+        serves as caching layer or it behaves the same in a local and remote
+        context (i.e., no data is stored in the current process and data is
+        possible to be accessed remotely)
 
         Returns:
-            bool: `True` if the module is local only.
+            Locality: The locality mode.
         """
         raise NotImplementedError()

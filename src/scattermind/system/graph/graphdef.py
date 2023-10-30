@@ -39,6 +39,16 @@ NodeDefJSON = TypedDict('NodeDefJSON', {
 Node definition. `node_id` is optional. `name` is a readable name.
 """
 
+# FIXME implement blocks
+# - blocks are computed with separate local everything
+# - can only be executed from call
+# - nodes/queues are kept in a separate location (different queue_pool)
+# - all nodes from a block are loaded at once (happens in the calling node)
+# - can only call other blocks
+# - optimizations can be turn chain of nodes into a block and call
+# - find mutually recursive calls and turn them into a block together
+# - don't separate out data -- can be kept in memory to point to the same bulk
+# tensor still
 GraphDefJSON = TypedDict('GraphDefJSON', {
     "graph_id": NotRequired[str],
     "name": str,
@@ -48,6 +58,7 @@ GraphDefJSON = TypedDict('GraphDefJSON', {
     "output_format": DataFormatJSON,
     "vmap": ValueMapJSON,
     "nodes": list[NodeDefJSON],
+    "is_block": NotRequired[bool],
 })
 """
 Graph definition. `name` and `description` are for information purposes only.

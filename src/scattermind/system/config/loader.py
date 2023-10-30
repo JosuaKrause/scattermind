@@ -25,6 +25,7 @@ from scattermind.system.readonly.loader import (
     load_readonly_access,
     ReadonlyAccessModule,
 )
+from scattermind.system.redis_util import get_test_config
 
 
 StrategyModule = TypedDict('StrategyModule', {
@@ -75,10 +76,14 @@ def load_config(
 
 def load_test(
         *,
+        is_redis: bool,
         max_store_size: int = 1024 * 1024,
         parallelism: int = 0,
         batch_size: int = 5) -> Config:
     executor_manager: ExecutorManagerModule
+    client_pool: ClientPoolModule
+    data_store: DataStoreModule
+    queue_pool: QueuePoolModule
     if parallelism > 0:
         executor_manager = {
             "name": "thread",
@@ -91,19 +96,38 @@ def load_test(
             "name": "single",
             "batch_size": batch_size,
         }
-    test_config: ConfigJSON = {
-        "client_pool": {
+    if is_redis:
+        client_pool = {
+            "name": "redis",
+            "cfg": get_test_config(),
+        }
+        data_store = {
+            "name": "redis",
+            "cfg": get_test_config(),
+            "mode": "size",
+        }
+        queue_pool = {
+            "name": "redis",
+            "cfg": get_test_config(),
+            "check_assertions": True,
+        }
+    else:
+        client_pool = {
             "name": "local",
-        },
-        "data_store": {
+        }
+        data_store = {
             "name": "local",
             "max_size": max_store_size,
-        },
-        "executor_manager": executor_manager,
-        "queue_pool": {
+        }
+        queue_pool = {
             "name": "local",
             "check_assertions": True,
-        },
+        }
+    test_config: ConfigJSON = {
+        "client_pool": client_pool,
+        "data_store": data_store,
+        "executor_manager": executor_manager,
+        "queue_pool": queue_pool,
         "strategy": {
             "node": {
                 "name": "simple",

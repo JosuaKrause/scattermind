@@ -3,6 +3,7 @@
 import threading
 from io import BytesIO, SEEK_END, SEEK_SET
 
+from scattermind.system.base import L_EITHER, Locality
 from scattermind.system.readonly.access import ReadonlyAccess
 from scattermind.system.readonly.writer import RoAWriter
 
@@ -14,8 +15,8 @@ class RAMAccess(ReadonlyAccess[str], RoAWriter[str]):
         self._lock = threading.RLock()
 
     @staticmethod
-    def is_local_only() -> bool:
-        return True
+    def locality() -> Locality:
+        return L_EITHER
 
     def open_raw(self, path: str) -> str:
         return path
