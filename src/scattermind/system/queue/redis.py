@@ -147,15 +147,12 @@ class RedisQueuePool(QueuePool):
 
     def unclaim_tasks(
             self, qid: QueueId, executor_id: ExecutorId) -> list[TaskId]:
-        # pylint: disable=not-an-iterable
-        # FIXME use functionality of 0.4.0 -- workaround here
         claims_key = self.key_claims(executor_id, qid)
-        res: list[TaskId] = []
-        while True:
-            batch = self._redis.lpop(claims_key, 100)
-            if not batch:
-                return res
-            res.extend((TaskId.parse(elem) for elem in batch))
+        return [
+            TaskId.parse(elem)
+            for elem in
+            self._redis.lrange(claims_key, 0, -1)
+        ]
 
     def expect_task_weight(
             self,
