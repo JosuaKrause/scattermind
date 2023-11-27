@@ -106,9 +106,7 @@ class RedisClientPool(ClientPool):
             self.set_value(pipe, "start_time", task_id, get_time_str())
             self.set_value(pipe, "weight", task_id, f"{1.0}")
             self.set_value(pipe, "byte_size", task_id, f"{0}")
-            self._stack.init(self.key("stack_data", task_id), pipe=pipe)
             # NOTE: no need to set stack_frame yet
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
         return task_id
 
     def init_data(
@@ -130,7 +128,6 @@ class RedisClientPool(ClientPool):
                 stack_key, field.to_parseable(), data_id.to_parseable())
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "byte_size", task_id, f"{byte_size}")
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def set_bulk_status(
             self,
@@ -141,7 +138,6 @@ class RedisClientPool(ClientPool):
             for task_id in task_ids:
                 self.set_value(pipe, "status", task_id, status)
                 res.append(task_id)
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
             return res
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
@@ -154,7 +150,6 @@ class RedisClientPool(ClientPool):
             self, task_id: TaskId, final_output: TaskValueContainer) -> None:
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "result", task_id, tvc_to_redis(final_output))
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def get_final_output(
             self,
@@ -176,7 +171,6 @@ class RedisClientPool(ClientPool):
                 "error",
                 task_id,
                 robj_to_redis(to_error_json(error_info)))
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def get_error(self, task_id: TaskId) -> ErrorInfo | None:
         res = self.get_value("error", task_id)
@@ -202,7 +196,6 @@ class RedisClientPool(ClientPool):
     def set_duration_value(self, task_id: TaskId, seconds: float) -> None:
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "duration", task_id, f"{seconds}")
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def get_duration(self, task_id: TaskId) -> float:
         res = self.get_value("duration", task_id)
@@ -236,7 +229,6 @@ class RedisClientPool(ClientPool):
                     stack_data_key,
                     field.to_parseable(),
                     data_id.to_parseable())
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def pop_frame(
             self,
@@ -295,12 +287,8 @@ class RedisClientPool(ClientPool):
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "weight", task_id, "1.0")
             self.set_value(pipe, "byte_size", task_id, "0")
-            # FIXME might be buggy
             self.delete(pipe, "stack_data", task_id)
-            pipe.execute()  # FIXME remove after bug is fixed
-            self._stack.init(self.key("stack_data", task_id), pipe=pipe)
             self.delete(pipe, "stack_frame", task_id)
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def clear_task(self, task_id: TaskId) -> None:
         with self._redis.pipeline() as pipe:
@@ -315,4 +303,3 @@ class RedisClientPool(ClientPool):
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
             self.delete(pipe, "error", task_id)
-            pipe.execute()  # FIXME remove once on redipy 0.4.0

@@ -75,15 +75,12 @@ class RedisQueuePool(QueuePool):
             pipe.zadd(self.key_tasks(qid), {
                 task_id.to_parseable(): weight,
             })
-            pipe.execute()
 
     def get_unclaimed_tasks(self, qid: QueueId) -> list[TaskId]:
-        # FIXME use functionality of 0.4.0 -- workaround here
-        with getattr(self._redis, "_rt").get_connection() as conn:
-            res = conn.zrange(self.key_tasks(qid), 0, -1)
-            if res is None:
-                return []
-            return [TaskId.parse(elem.decode("utf-8")) for elem in res]
+        res = self._redis.zrange(self.key_tasks(qid), 0, -1)
+        if res is None:
+            return []
+        return [TaskId.parse(elem) for elem in res]
 
     def _claim_tasks_script(self) -> ExecFunction:
         ctx = FnContext()
@@ -150,6 +147,7 @@ class RedisQueuePool(QueuePool):
 
     def unclaim_tasks(
             self, qid: QueueId, executor_id: ExecutorId) -> list[TaskId]:
+        # pylint: disable=not-an-iterable
         # FIXME use functionality of 0.4.0 -- workaround here
         claims_key = self.key_claims(executor_id, qid)
         res: list[TaskId] = []
