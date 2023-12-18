@@ -23,7 +23,7 @@ from scattermind.system.response import (
     TASK_STATUS_UNKNOWN,
     TaskStatus,
 )
-from scattermind.system.util import get_time_str
+from scattermind.system.util import get_time_str, seconds_since
 
 
 DT = TypeVar('DT', bound=DataId)
@@ -131,7 +131,8 @@ class LocalClientPool(ClientPool):
 
     def get_duration(self, task_id: TaskId) -> float:
         res = self._duration.get(task_id)
-        assert res is not None
+        if res is None:
+            return seconds_since(self.get_task_start(task_id))
         return res
 
     def commit_task(
