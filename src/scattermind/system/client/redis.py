@@ -37,7 +37,7 @@ from scattermind.system.response import (
     TaskStatus,
     to_status,
 )
-from scattermind.system.util import get_time_str
+from scattermind.system.util import get_time_str, seconds_since
 
 
 DT = TypeVar('DT', bound=DataId)
@@ -200,7 +200,7 @@ class RedisClientPool(ClientPool):
     def get_duration(self, task_id: TaskId) -> float:
         res = self.get_value("duration", task_id)
         if res is None:
-            raise ValueError(f"duration for {task_id} not set")
+            return seconds_since(self.get_task_start(task_id))
         return float(res)
 
     def commit_task(
