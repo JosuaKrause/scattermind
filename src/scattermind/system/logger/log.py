@@ -60,19 +60,21 @@ class EventStream:
     def log_output(self, name: str, entry: str) -> Iterator[None]:
         stdout = io.StringIO()
         stderr = io.StringIO()
-        with (
-                contextlib.redirect_stdout(stdout),
-                contextlib.redirect_stderr(stderr)):
-            yield
-        if stdout.tell() > 0 or stderr.tell() > 0:
-            self.log_event(
-                name,
-                {
-                    "name": "output",
-                    "entry": entry,
-                    "stdout": stdout.getvalue(),
-                    "stderr": stderr.getvalue(),
-                })
+        try:
+            with (
+                    contextlib.redirect_stdout(stdout),
+                    contextlib.redirect_stderr(stderr)):
+                yield
+        finally:
+            if stdout.tell() > 0 or stderr.tell() > 0:
+                self.log_event(
+                    name,
+                    {
+                        "name": "output",
+                        "entry": entry,
+                        "stdout": stdout.getvalue(),
+                        "stderr": stderr.getvalue(),
+                    })
 
     def log_event(
             self,
