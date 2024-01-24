@@ -1,3 +1,18 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, TypeVar
@@ -20,7 +35,7 @@ IS_GH_ACTION: bool | None = None
 
 
 def is_github_action() -> bool:
-    global IS_GH_ACTION
+    global IS_GH_ACTION  # pylint: disable=global-statement
 
     if IS_GH_ACTION is None:
         IS_GH_ACTION = to_bool(os.getenv("GITHUB_ACTIONS"))

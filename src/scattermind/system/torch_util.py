@@ -1,3 +1,18 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import gzip
 import io
 from typing import cast, Literal
@@ -223,7 +238,7 @@ def set_system_device(device: torch.device) -> None:
     Args:
         device (torch.device): The desired torch device.
     """
-    global SYS_DEVICE
+    global SYS_DEVICE  # pylint: disable=global-statement
 
     SYS_DEVICE = device
 
@@ -243,7 +258,7 @@ def get_system_device() -> torch.device:
     Returns:
         torch.device: The system torch device.
     """
-    global SYS_DEVICE
+    global SYS_DEVICE  # pylint: disable=global-statement
 
     if SYS_DEVICE is None:  # pragma: no cover
         if torch.backends.mps.is_available():
@@ -296,7 +311,8 @@ def pad_tensor(value: torch.Tensor, shape: list[int]) -> torch.Tensor:
         padding.append(dim - own_dim)
     if not padding:
         return value
-    return pad(value, tuple((
+    # FIXME check why pylint errors here
+    return pad(value, tuple((  # pylint: disable=not-callable
         pad_val
         for right in reversed(padding)
         for pad_val in [0, right]
