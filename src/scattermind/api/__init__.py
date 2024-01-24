@@ -13,5 +13,5 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-"""Scattermind is a decentralized and distributed horizontally scalable model
-execution framework."""
+"""Provides functionality to communicate with running scattermind apps.
+Creating tasks for a given execution graph and retrieving their results."""

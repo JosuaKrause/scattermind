@@ -13,9 +13,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-def run() -> None:
-    from scattermind.app.args import parse_args
+"""Runs the scattermind application."""
+from scattermind.app.args import parse_args
 
+
+def run() -> None:
+    """
+    Parses the command line arguments and runs the corresponding app.
+    """
     args = parse_args()
     args.func(args)
 

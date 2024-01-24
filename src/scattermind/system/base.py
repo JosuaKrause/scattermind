@@ -13,6 +13,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""This module defines various ids used internally. Also various other base
+classes are defined here."""
 import uuid
 from collections.abc import Callable
 from typing import Literal, TypeVar
@@ -32,18 +34,38 @@ NS_QUEUE = uuid.UUID("55fbaa9565fa4bf3ba806ade03c1e395")
 UUID_OUTPUT_QUEUE = uuid.UUID("8a82aef7da2c4b49bf7ba25d42e99391")
 """Output queue id."""
 TEST_EXECUTOR = uuid.UUID("5883f8c8a5bc4d56ae3202d1dc548118")
+"""Executor UUID for tests."""
 
 
 DEBUG_OUTPUT_LENGTH: int | None = None
+"""The length of the id shown when debugging. The id is truncated to this
+length for easier readability. If it's set to None the full id is shown."""
 
 
 def set_debug_output_length(output_length: int | None) -> None:
+    """
+    Sets the length of ids when shown in debug outputs.
+
+    Args:
+        output_length (int | None): The maximum display length. If None the
+            full id is shown.
+    """
     global DEBUG_OUTPUT_LENGTH  # pylint: disable=global-statement
 
     DEBUG_OUTPUT_LENGTH = output_length
 
 
 def trim_id(text_id: str) -> str:
+    """
+    Prepares the text representation of an id for user output. The id might
+    get truncated based on the debug settings.
+
+    Args:
+        text_id (str): The id representation to prepare.
+
+    Returns:
+        str: The potentially truncated id representation.
+    """
     if DEBUG_OUTPUT_LENGTH is None:
         return text_id
     return text_id[:DEBUG_OUTPUT_LENGTH]
@@ -57,7 +79,7 @@ class BaseId:
     def __init__(self, raw_id: uuid.UUID) -> None:
         """
         Creates an id. Do not call this function directly.
-        Use `parse` or the respective `create` instead.
+        Use `parse` or the respective `create` method instead.
 
         Args:
             raw_id (uuid.UUID): The UUID.
@@ -98,6 +120,12 @@ class BaseId:
         return cls(uuid.UUID(text[1:]))
 
     def _hex(self) -> str:
+        """
+        Returns the raw hex value of the id.
+
+        Returns:
+            str: The raw hex value.
+        """
         return self._id.hex
 
     def to_parseable(self) -> str:
@@ -156,6 +184,7 @@ class BaseId:
 
 
 class GraphId(BaseId):
+    """An `GraphId` is used to identify an execution graph."""
     @staticmethod
     def prefix() -> str:
         return "G"
@@ -298,13 +327,35 @@ class ExecutorId(BaseId):
 
     @staticmethod
     def for_test() -> 'ExecutorId':
+        """
+        The executor id used for test cases.
+
+        Returns:
+            ExecutorId: The test executor id.
+        """
         return TEST_EXECUTOR_ID
 
 
 TEST_EXECUTOR_ID = ExecutorId(TEST_EXECUTOR)
+"""The executor id used for test cases."""
 
 
 def once_test_executors(execs: list[ExecutorId]) -> Callable[[], ExecutorId]:
+    """
+    Creates an executor id generator from a list of executor ids. Each entry
+    in the list gets returned exactly once. If the list is exhausted an error
+    is raised.
+
+    Args:
+        execs (list[ExecutorId]): The list of executor ids to return by the
+            generator.
+
+    Raises:
+        ValueError: If the generator is exhausted.
+
+    Returns:
+        Callable[[], ExecutorId]: Returns an executor id.
+    """
     teix = 0
 
     def gen() -> ExecutorId:
@@ -452,10 +503,17 @@ Locality = Literal[
     "remote",
     "either",
 ]
+"""In which environment a module can be used. It can be 'local' only, 'remote'
+only, or available in 'either' of those environments."""
 
 L_LOCAL: Locality = "local"
+"""Indicates that a module can only be used in a local environment."""
 L_REMOTE: Locality = "remote"
+"""Indicates that a module can only be used in a remote environment."""
 L_EITHER: Locality = "either"
+"""
+Indicates that a module can be used in either a local or remote environment.
+"""
 
 
 class Module:  # pylint: disable=too-few-public-methods
