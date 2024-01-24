@@ -341,6 +341,9 @@ def pad_tensor(value: torch.Tensor, shape: list[int]) -> torch.Tensor:
     Pads a tensor to a given shape. Each dimension where the tensor is smaller
     than the desired shape gets padded with 0s at the end.
 
+    See also :py:function::`pad_list`, :py:function::`mask_from_shape`,
+    :py:function::`mask_from_shapes`.
+
     Args:
         value (torch.Tensor): The tensor to pad.
         shape (list[int]): The desired shape. Each dimension must be either
@@ -377,6 +380,37 @@ def pad_tensor(value: torch.Tensor, shape: list[int]) -> torch.Tensor:
 
 def pad_list(
         values: list[torch.Tensor], max_row_shape: list[int]) -> torch.Tensor:
+    """
+    Combines and pads a list of tensors to the common maximum shape given by
+    `max_row_shape`. The resulting tensor has an additional dimension at the
+    front where each "row" corresponds to the tensor in the list.
+
+    Example:
+
+    Input:
+    values=`[`
+    `tensor(shape=[2, 1, 4]),`
+    `tensor(shape=[2, 2, 4]),`
+    `tensor(shape=[2, 1, 3]),`
+    `]`
+
+    max_row_shape=`[2, 2, 4]`
+
+    Output:
+    `tensor(shape=[3, 2, 2, 4])`
+
+    See also :py:function::`pad_tensor`, :py:function::`mask_from_shape`,
+    :py:function::`mask_from_shapes`.
+
+    Args:
+        values (list[torch.Tensor]): The tensors to combine and pad.
+        max_row_shape (list[int]): The maximum shape of the tensors.
+
+    Returns:
+        torch.Tensor: The combined tensor. Note, that the tensor has an
+            additional dimension at the front which corresponds to the length
+            of the input list.
+    """
     max_row = [1] + max_row_shape
     return torch.vstack([
         pad_tensor(torch.unsqueeze(value, 0), max_row)
@@ -385,6 +419,21 @@ def pad_list(
 
 
 def mask_from_shape(own_shape: list[int], shape: list[int]) -> torch.Tensor:
+    """
+    Creates a mask for a would be padded tensor.
+
+    See also :py:function::`pad_tensor`, :py:function::`pad_list`,
+    :py:function::`mask_from_shapes`.
+
+    Args:
+        own_shape (list[int]): The shape of the tensor.
+        shape (list[int]): The shape the tensor will be padded to.
+
+    Returns:
+        torch.Tensor: The mask which has the padded shape and is True where
+            the original tensor has values and False where the original tensor
+            would be padded.
+    """
     dtype_name: DTypeName = "bool"
     dtype = get_dtype(dtype_name)
     value = create_tensor(
@@ -394,6 +443,23 @@ def mask_from_shape(own_shape: list[int], shape: list[int]) -> torch.Tensor:
 
 def mask_from_shapes(
         shapes: list[list[int]], max_row_shape: list[int]) -> torch.Tensor:
+    """
+    Creates a combined mask for a list of would be padded tensors.
+
+    See also :py:function::`pad_tensor`, :py:function::`pad_list`,
+    :py:function::`mask_from_shape`.
+
+    Args:
+        shapes (list[list[int]]): The shapes of the tensors.
+        max_row_shape (list[int]): The shape the tensors will be padded to.
+
+    Returns:
+        torch.Tensor: The mask which has the padded shape and is True where
+            the original tensors have values and False where the original
+            tensors would be padded. Note, that the tensor has an
+            additional dimension at the front which corresponds to the length
+            of the input list.
+    """
     max_row = [1] + max_row_shape
     return torch.vstack([
         mask_from_shape([1] + shape, max_row)
@@ -402,14 +468,51 @@ def mask_from_shapes(
 
 
 def same_shape(value_a: torch.Tensor, value_b: torch.Tensor) -> bool:
+    """
+    Whether two tensors have the same shapes.
+
+    Args:
+        value_a (torch.Tensor): The first tensor.
+        value_b (torch.Tensor): The second tensor.
+
+    Returns:
+        bool: True if both tensors have the same shape.
+    """
     return list(value_a.shape) == list(value_b.shape)
 
 
 def same_mask(mask_a: torch.Tensor, mask_b: torch.Tensor) -> bool:
+    """
+    Whether two masks are the same.
+
+    See also :py:function::`mask_from_shape`, :py:function::`mask_from_shapes`.
+
+    Args:
+        mask_a (torch.Tensor): The first mask.
+        mask_b (torch.Tensor): The second mask.
+
+    Returns:
+        bool: True if both masks have the same shape and mask the same values.
+    """
     return same_shape(mask_a, mask_b) and bool((mask_a == mask_b).all().item())
 
 
 def extract_shapes(mask: torch.Tensor) -> list[list[int]]:
+    """
+    Extracts the individual shapes from a combined mask tensor. The first
+    dimension represents the rows. Masks can only have False values at the end
+    of a dimension.
+
+    See also :py:function::`mask_from_shapes`.
+
+    Args:
+        mask (torch.Tensor): The combined mask tensor.
+
+    Returns:
+        list[list[int]]: A list of tensor shapes corresponding to the rows.
+            The length of the list equals the number of rows (i.e., the size
+            of the first dimensions of the mask).
+    """
     return [
         extract_shape(mask[ix, :])
         for ix in range(mask.shape[0])
@@ -417,16 +520,56 @@ def extract_shapes(mask: torch.Tensor) -> list[list[int]]:
 
 
 def extract_shape(mask: torch.Tensor) -> list[int]:
-    return list(mask.nonzero().max(0)[0] + 1)
+    """
+    Extracts the actual shape from the mask. This assumes that False values
+    can only be at the end of each dimension.
+
+    Example:
+
+    mask=`[[True, True, False], [True, True, False], [False, False, False]]`
+    (shape=[3, 3])
+
+    output=`[2, 2]`
+
+    Args:
+        mask (torch.Tensor): The mask.
+
+    Returns:
+        list[int]: The shape given by which values are unmasked.
+    """
+    return list((mask.nonzero().max(0)[0] + 1).cpu().numpy())
 
 
 def str_to_tensor(text: str) -> torch.Tensor:
+    """
+    Convert a string into a one dimensional tensor using UTF-8 encoding.
+
+    Args:
+        text (str): The text.
+
+    Returns:
+        torch.Tensor: A one dimensional uint8 tensor containing the UTF-8
+            byte values of the given text.
+    """
     return create_tensor(
         np.array(list(text.encode("utf-8")), dtype=np.dtype("uint8")),
         "uint8")
 
 
 def tensor_to_str(value: torch.Tensor) -> str:
+    """
+    Convert a tensor into a string. The tensor is flattened and values are
+    interpreted as UTF-8 bytes.
+
+    Args:
+        value (torch.Tensor): The tensor.
+
+    Raises:
+        ValueError: If the tensor could not be converted to a string.
+
+    Returns:
+        str: The string.
+    """
     try:
         return bytes(value.ravel().cpu().tolist()).decode("utf-8")
     except UnicodeDecodeError as e:
