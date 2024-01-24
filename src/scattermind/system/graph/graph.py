@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""This module defines the in-memory representation of the execution graph."""
 from scattermind.system.base import GraphId, NodeId, QueueId
 from scattermind.system.graph.args import NodeArg, NodeArgs, NodeArguments
 from scattermind.system.graph.loader import load_node
@@ -22,6 +23,13 @@ from scattermind.system.queue.queue import QueuePool
 
 
 class Graph:
+    """
+    The in-memory representation of the execution graph. The graph defines how
+    nodes connect to each other, which queue ids are associated with which
+    nodes, and specifies the mapping of node ids to nodes. The full execution
+    graph is loaded at all times. Nodes, on the other hand, are loaded and
+    unloaded on demand.
+    """
     def __init__(self) -> None:
         self._nodes: dict[NodeId, Node] = {}
         self._names: dict[NodeId, NName] = {}
@@ -33,6 +41,15 @@ class Graph:
         self._vmaps: dict[NodeId, ValueMap] = {}
 
     def get_node_name(self, node_id: NodeId) -> NName:
+        """
+        Gets the node name associated with the given node id.
+
+        Args:
+            node_id (NodeId): The node id.
+
+        Returns:
+            NName: The name.
+        """
         return self._names[node_id]
 
     def get_node_arguments(self, node_id: NodeId) -> NodeArgs:

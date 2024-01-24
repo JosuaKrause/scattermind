@@ -13,6 +13,9 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""This module defines name classes. The classes guarantee that no invalid
+characters are used in a name. Names are comparable for equality and can be
+used as keys in dictionaries."""
 NAME_SEP = ":"
 """Separator for names and queue id generation."""
 INVALID_CHARACTERS = {
@@ -29,19 +32,45 @@ INVALID_CHARACTERS = {
     "\f",
     "\v",
 }
+"""Characters specifically forbidden as characters in names."""
 
 
 class NameStr:
+    """A class to define a general name."""
     def __init__(self, name: str) -> None:
+        """
+        Creates a name from the given string.
+
+        Args:
+            name (str): The raw string.
+
+        Raises:
+            ValueError: If the name is not valid.
+        """
         if not self.is_valid_name(name):
             raise ValueError(f"name {name} is not valid")
         self._name = name
 
     def get(self) -> str:
+        """
+        Gets the raw name string.
+
+        Returns:
+            str: The name as string.
+        """
         return self._name
 
     @staticmethod
     def is_valid_name(name: str) -> bool:
+        """
+        Verifies that the raw name string is valid.
+
+        Args:
+            name (str): The raw name string.
+
+        Returns:
+            bool: Whether the string represents a valid name.
+        """
         return (
             len(name) > 0
             and NAME_SEP not in name
@@ -69,18 +98,28 @@ class NameStr:
 
 
 class NName(NameStr):
-    pass
+    """Name of a execution node. Node names are deterministically converted
+    into node ids internally."""
 
 
 class QName(NameStr):
-    pass
+    """Name of a queue. Queue names are deterministically converted into queue
+    ids internally."""
 
 
 class GName(NameStr):
-    pass
+    """Name of a graph. Graph names are deterministically converted into graph
+    ids internally."""
 
 
 class QualifiedName:
+    """A qualified name describes a value field and how to access it. It
+    combines a node name and a value field name. The node name can be None
+    to describe input value fields. In the execution graph json definition
+    qualified names are the node name separated by ':' from the value field
+    name as defined in the node. Examples: 'node_2:out' addresses the output
+    value field 'out' from the node named 'node_2". ':text' addresses the
+    input value field 'text' of the current execution graph."""
     def __init__(self, nname: NName | None, vname: str) -> None:
         if not self.is_valid_name(vname):
             raise ValueError(f"value name {vname} is not valid")
