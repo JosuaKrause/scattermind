@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Utility functions for pytorch."""
 import gzip
 import io
 from typing import cast, Literal
@@ -272,6 +273,17 @@ def get_system_device() -> torch.device:
 
 
 def create_tensor(mat: np.ndarray, dtype: DTypeName) -> torch.Tensor:
+    """
+    Creates a tensor from a numpy array with a given dtype. The tensor will be
+    placed in the system device (:py:function::`get_system_device`).
+
+    Args:
+        mat (np.ndarray): The tensor content.
+        dtype (DTypeName): The tensor dtype.
+
+    Returns:
+        torch.Tensor: The tensor.
+    """
     return torch.tensor(
         mat,
         dtype=get_dtype(dtype),
@@ -279,10 +291,28 @@ def create_tensor(mat: np.ndarray, dtype: DTypeName) -> torch.Tensor:
 
 
 def as_numpy(value: torch.Tensor) -> np.ndarray:
+    """
+    Converts a tensor into a numpy array.
+
+    Args:
+        value (torch.Tensor): The tensor.
+
+    Returns:
+        np.ndarray: The numpy array.
+    """
     return value.detach().cpu().numpy()
 
 
 def serialize_tensor(value: torch.Tensor) -> bytes:
+    """
+    Serializes a tensor into a (compressed) byte sequence.
+
+    Args:
+        value (torch.Tensor): The tensor to serialize.
+
+    Returns:
+        bytes: The serialized byte sequence.
+    """
     bout = io.BytesIO()
     numpy_type = to_numpy_type(value.dtype)
     with gzip.GzipFile(fileobj=bout, mode="wb") as fout:
@@ -291,12 +321,38 @@ def serialize_tensor(value: torch.Tensor) -> bytes:
 
 
 def deserialize_tensor(content: bytes, dtype: DTypeName) -> torch.Tensor:
+    """
+    Deserializes a tensor from a byte sequence.
+
+    Args:
+        content (bytes): The byte sequence.
+        dtype (DTypeName): The expected dtype.
+
+    Returns:
+        torch.Tensor: The tensor.
+    """
     binp = io.BytesIO(content)
     with gzip.GzipFile(fileobj=binp, mode="r") as finp:
         return create_tensor(np.load(finp), dtype)
 
 
 def pad_tensor(value: torch.Tensor, shape: list[int]) -> torch.Tensor:
+    """
+    Pads a tensor to a given shape. Each dimension where the tensor is smaller
+    than the desired shape gets padded with 0s at the end.
+
+    Args:
+        value (torch.Tensor): The tensor to pad.
+        shape (list[int]): The desired shape. Each dimension must be either
+            equal or larger than the corresponding dimension of the tensor.
+
+    Raises:
+        ValueError: If the number of dimensions differs or the desired shape
+            has smaller dimensions than the corresponding tensor dimension.
+
+    Returns:
+        torch.Tensor: The padded tensor.
+    """
     own_shape = list(value.shape)
     if len(own_shape) != len(shape):
         raise ValueError(f"cannot match shapes: {own_shape} {shape}")
