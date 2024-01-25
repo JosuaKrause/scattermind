@@ -13,6 +13,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Provides a limited implementation of a dictionary that can be properly
+sub-classed."""
 from collections.abc import Iterable
 from typing import Generic, overload, TypeVar
 

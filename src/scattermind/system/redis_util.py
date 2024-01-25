@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Utility functions for redis."""
 import os
 import threading
 import uuid
@@ -45,15 +46,30 @@ from scattermind.system.util import (
 
 
 TEST_SALT_LOCK = threading.RLock()
+"""Lock to ensure each test using redis gets a different salt for keys."""
 TEST_SALT: dict[str, str] = {}
+"""A dictionary of test salts by test name."""
 
 
 def is_test() -> bool:
+    """
+    Whether we are currently running a pytest test.
+
+    Returns:
+        bool: True if running a pytest test.
+    """
     test_id = os.getenv("PYTEST_CURRENT_TEST")
     return test_id is not None
 
 
 def get_test_salt() -> str | None:
+    """
+    Returns the redis salt for the current test. The salt is to be used as
+    prefix for all keys used by test case.
+
+    Returns:
+        str | None: The salt or None if we are not running a test.
+    """
     test_id = os.getenv("PYTEST_CURRENT_TEST")
     if test_id is None:
         return None
@@ -68,6 +84,12 @@ def get_test_salt() -> str | None:
 
 
 def get_test_config() -> RedisConfig:
+    """
+    Get the redis connection details for test cases.
+
+    Returns:
+        RedisConfig: The redis connection details.
+    """
     return {
         "host": "localhost",
         "port": 6380,
@@ -78,15 +100,37 @@ def get_test_config() -> RedisConfig:
 
 
 DataMode = Literal["size", "time"]
+"""Whether the redis cache is limited by space or via expiration."""
 DM_SIZE: DataMode = "size"
+"""Indicates that the redis cache is limited in size."""
 DM_TIME: DataMode = "time"
+"""Indicates that the redis cache is limited by expiring keys after a set
+time."""
 
 
 def bytes_to_redis(value: bytes) -> str:
+    """
+    Convert a byte sequence to a value that can be used as redis value.
+
+    Args:
+        value (bytes): The byte sequence.
+
+    Returns:
+        str: The converted value.
+    """
     return as_base85(value)
 
 
 def redis_to_bytes(text: str) -> bytes:
+    """
+    Convert a previously encoded redis value back into a byte sequence.
+
+    Args:
+        text (str): The value from redis.
+
+    Returns:
+        bytes: The byte sequence.
+    """
     return from_base85(text)
 
 
@@ -101,31 +145,90 @@ def maybe_redis_to_bytes(text: None) -> None:
 
 
 def maybe_redis_to_bytes(text: str | None) -> bytes | None:
+    """
+    Convert a previously encoded redis value back into a byte sequence.
+    This function allows None as input and returns None in this case.
+
+    Args:
+        text (str | None): The value from redis or None.
+
+    Returns:
+        bytes: The byte sequence or None if the value was None.
+    """
     if text is None:
         return None
     return redis_to_bytes(text)
 
 
 def tensor_to_redis(value: torch.Tensor) -> str:
+    """
+    Convert a tensor into a string that can be saved on redis.
+
+    Args:
+        value (torch.Tensor): The tensor.
+
+    Returns:
+        str: The string.
+    """
     return bytes_to_redis(serialize_tensor(value))
 
 
 def redis_to_tensor(text: str, dtype: DTypeName) -> torch.Tensor:
+    """
+    Convert a previously encoded redis value back into a tensor.
+
+    Args:
+        text (str): The redis value.
+        dtype (DTypeName): The expected dtype.
+
+    Returns:
+        torch.Tensor: The tensor.
+    """
     return deserialize_tensor(redis_to_bytes(text), dtype)
 
 
 def robj_to_redis(obj: Mapping) -> str:
+    """
+    Convert a JSON serializable object into a redis value.
+
+    Args:
+        obj (Mapping): The JSON serializable object.
+
+    Returns:
+        str: The redis value.
+    """
     return json_compact(obj)
 
 
 def redis_to_robj(text: str) -> dict:
+    """
+    Convert a redis value back into the JSON serializable object.
+
+    Args:
+        text (str): The redis value.
+
+    Returns:
+        dict: The JSON serializable object.
+    """
     return json_read(text)
 
 
 TVCObj = dict[str, str]
+"""A serializable `TaskValueContainer` where values are converted to redis
+compatible strings."""
 
 
 def tvc_to_robj(tvc: TaskValueContainer) -> TVCObj:
+    """
+    Convert a task value container into a dictionary that can be encoded as
+    JSON. The tensors are converted using ::py:function:`tensor_to_redis`.
+
+    Args:
+        tvc (TaskValueContainer): The task value container.
+
+    Returns:
+        TVCObj: A JSON serializable object.
+    """
     return {
         key: tensor_to_redis(value)
         for key, value in tvc.items()
@@ -133,6 +236,17 @@ def tvc_to_robj(tvc: TaskValueContainer) -> TVCObj:
 
 
 def robj_to_tvc(obj: TVCObj, value_format: DataFormat) -> TaskValueContainer:
+    """
+    Convert a JSON serializable object back into a task value container.
+
+    Args:
+        obj (TVCObj): The JSON serializable object.
+        value_format (DataFormat): The expected format of the task value
+            container.
+
+    Returns:
+        TaskValueContainer: The task value container.
+    """
     return TaskValueContainer({
         name: fmt.check_tensor(redis_to_tensor(obj[name], fmt.dtype()))
         for name, fmt in value_format.items()
@@ -140,15 +254,45 @@ def robj_to_tvc(obj: TVCObj, value_format: DataFormat) -> TaskValueContainer:
 
 
 def tvc_to_redis(tvc: TaskValueContainer) -> str:
+    """
+    Convert a task value container into a redis value string. The tensors
+    are converted using ::py:function:`tensor_to_redis`.
+
+    Args:
+        tvc (TaskValueContainer): The task value container.
+
+    Returns:
+        TVCObj: A redis value string.
+    """
     return robj_to_redis(tvc_to_robj(tvc))
 
 
 def redis_to_tvc(text: str, value_format: DataFormat) -> TaskValueContainer:
+    """
+    Convert a redis value back into a task value container.
+
+    Args:
+        text (str): The redis value.
+        value_format (DataFormat): The expected format of the task value
+            container.
+
+    Returns:
+        TaskValueContainer: The task value container.
+    """
     return robj_to_tvc(redis_to_robj(text), value_format)
 
 
 class RStack:
+    """
+    A dictionary stack in redis. Keys can be shadowed in stack frames.
+    """
     def __init__(self, rt: RedisClientAPI) -> None:
+        """
+        Creates a dictionary stack for the given redis client.
+
+        Args:
+            rt (RedisClientAPI): The redis client.
+        """
         self._rt = rt
 
         self._set_value = self._set_value_script()

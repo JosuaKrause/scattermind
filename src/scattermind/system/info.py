@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Provides classes that manage information about tensor data."""
 from collections.abc import Sequence
 
 import torch
@@ -60,6 +61,15 @@ class DataInfo:
         return list(self._dims)
 
     def valid_shape(self, shape: list[int]) -> bool:
+        """
+        Whether the given shape are valid for this data info.
+
+        Args:
+            shape (list[int]): The shape.
+
+        Returns:
+            bool: True if all fixed dimensions match the shape.
+        """
         if len(shape) != len(self._dims):
             return False
         for six in self._sdims:
@@ -68,6 +78,17 @@ class DataInfo:
         return True
 
     def max_shape(self, shapes: list[list[int]]) -> list[int]:
+        """
+        Computes the shape that can fit all shapes given by the list.
+        Fixed dimensions are assumed to be the same (performing this check is
+        left to the caller)
+
+        Args:
+            shapes (list[list[int]]): The list of shapes.
+
+        Returns:
+            list[int]: The shape that can fit all given shapes.
+        """
         max_shape = [0 if dim is None else dim for dim in self._dims]
         for vdim in self._vdims:
             for shape in shapes:
@@ -142,14 +163,35 @@ class DataInfo:
         return value
 
     def is_uniform(self) -> bool:
+        """
+        Whether the specified shape is uniform.
+
+        Returns:
+            bool: True if there are no variable dimensions.
+        """
         return not self._vdims
 
     @staticmethod
     def from_json(obj: DataInfoJSON) -> 'DataInfo':
+        """
+        Reads data info from a JSON serializable representation.
+
+        Args:
+            obj (DataInfoJSON): The representation to read.
+
+        Returns:
+            DataInfo: The data info object.
+        """
         dtype, shape = obj
         return DataInfo(get_dtype_name(dtype), as_shape(shape))
 
     def to_json(self) -> DataInfoJSON:
+        """
+        Converts the data info into a JSON serializable representation.
+
+        Returns:
+            DataInfoJSON: The representation.
+        """
         return (self.dtype(), self.shape())
 
     def __eq__(self, other: object) -> bool:
@@ -206,12 +248,27 @@ class DataFormat(DictHelper[DataInfo]):
     """
     @staticmethod
     def data_format_from_json(obj: DataFormatJSON) -> 'DataFormat':
+        """
+        Reads a data format from a JSON serializable object.
+
+        Args:
+            obj (DataFormatJSON): The object.
+
+        Returns:
+            DataFormat: The data format.
+        """
         return DataFormat({
             name: DataInfo.from_json(info_obj)
             for name, info_obj in obj.items()
         })
 
     def data_format_to_json(self) -> DataFormatJSON:
+        """
+        Converts the data info into a JSON serializable representation.
+
+        Returns:
+            DataFormatJSON: The JSON serializable representation.
+        """
         return {
             name: data_info.to_json()
             for name, data_info in self.items()
