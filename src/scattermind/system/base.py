@@ -377,8 +377,9 @@ SelfD = TypeVar('SelfD', bound='DataId')  # pylint: disable=invalid-name
 
 class DataId:
     """
-    A data id is used to identify a piece of data in temporary storage.
-    The exact format of a data id is left to the storage to decide.
+    A data id is used to identify a piece of data in temporary storage
+    (payload data). The exact format of a data id is left to the storage to
+    decide.
     """
     def __init__(self, raw_id: str) -> None:
         """

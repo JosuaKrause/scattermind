@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""An in-memory payload data store."""
 import threading
 
 from scattermind.system.base import DataId, L_LOCAL, Locality
@@ -20,6 +21,8 @@ from scattermind.system.payload.data import DataStore
 
 
 class LocalDataId(DataId):
+    """The data id type for the in-memory payload data store. The id is from
+    a simple integer sequence."""
     @staticmethod
     def validate_id(raw_id: str) -> bool:
         try:
@@ -30,7 +33,16 @@ class LocalDataId(DataId):
 
 
 class LocalDataStore(DataStore):
+    """An in-memory payload data store. Ids are assigned via integer sequence.
+    When the maximum number of entries is reached the oldest (smallest integer
+    value) ids get purged first."""
     def __init__(self, max_size: int) -> None:
+        """
+        Create a local payload data store.
+
+        Args:
+            max_size (int): The maximum number of entries.
+        """
         super().__init__()
         self._size = 0
         self._max_size = max_size

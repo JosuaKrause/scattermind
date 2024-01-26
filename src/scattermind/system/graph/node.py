@@ -119,6 +119,22 @@ class Node:
                 self.do_unload()
 
     def is_pure(self, queue_pool: QueuePool) -> bool:
+        """
+        Whether the computation of the node is "pure", i.e., whether the result
+        of the node is deterministic and *only* depends on its inputs (and
+        static settings).
+
+        See also :py:method::`
+        scattermind.system.payload.data.DataStore#is_content_addressable`.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+
+        Returns:
+            bool: True if the node returns the same result for same inputs
+                given the settings are the same.
+        """
+        # FIXME actually implement a way of caching node outputs
         return self.do_is_pure(self._graph, queue_pool)
 
     def do_is_pure(self, graph: 'Graph', queue_pool: QueuePool) -> bool:

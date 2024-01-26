@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Provides classes to handle payload data efficiently."""
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
