@@ -13,6 +13,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A RAM based readonly access. It has a writer interface initially fill the
+data. It is most commonly used for test cases."""
 import threading
 from io import BytesIO, SEEK_END, SEEK_SET
 
@@ -22,6 +24,8 @@ from scattermind.system.readonly.writer import RoAWriter
 
 
 class RAMAccess(ReadonlyAccess[str], RoAWriter[str]):
+    """A RAM based readonly access. It has a writer interface initially fill
+    the data. It is most commonly used for test cases."""
     def __init__(self) -> None:
         super().__init__()
         self._objs: dict[str, BytesIO] = {}

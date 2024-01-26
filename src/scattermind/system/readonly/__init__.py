@@ -13,3 +13,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Provides a unified interface for nodes to access external data.
+While nodes could, in theory, access data via normal file system operations,
+this would not be very portable and wouldn't provide a good user experience.
+Through the `readonly` interfaces a node can access data through a unspecified
+key value store of blobs. The blobs can be read via random access. The data is
+meant to be unchangeable (hence `readonly`) and is most commonly used for
+stored weights."""
