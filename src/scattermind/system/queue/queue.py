@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Provides the queue and queue pool."""
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
@@ -108,7 +109,14 @@ class Queue:
 
 
 class QueuePool(Module):
+    """
+    A queue pool keeps track of all queues. It connects nodes via queues.
+    It also maintains information about graph input and output queues and their
+    formats. A client pool needs to be connected to the queue pool in order to
+    be able to handle tasks.
+    """
     def __init__(self) -> None:
+        """Create an empty queue pool."""
         super().__init__()
         self._client_pool: ClientPool | None = None
         self._entry_graph: GraphId | None = None
@@ -125,26 +133,76 @@ class QueuePool(Module):
         self._queue_strategy: QueueStrategy | None = None
 
     def set_client_pool(self, client_pool: ClientPool) -> None:
+        """
+        Connects the client pool. This can be done only once.
+
+        Args:
+            client_pool (ClientPool): The client pool.
+
+        Raises:
+            ValueError: If the client pool is already set.
+        """
         if self._client_pool is not None:
             raise ValueError("client pool already initialized")
         self._client_pool = client_pool
 
     def get_client_pool(self) -> ClientPool:
+        """
+        Retrieve the associated client pool.
+
+        Raises:
+            ValueError: If the client pool hasn't been initialized yet.
+
+        Returns:
+            ClientPool: The client pool.
+        """
         if self._client_pool is None:
             raise ValueError("client pool not initialized")
         return self._client_pool
 
     def set_entry_graph(self, graph_id: GraphId) -> None:
+        """
+        Sets the entry graph.
+
+        Args:
+            graph_id (GraphId): The graph that gets the overall input of the
+                execution graph.
+
+        Raises:
+            ValueError: If the entry graph has already been initialized.
+        """
         if self._entry_graph is not None:
             raise ValueError("entry graph already initialized")
         self._entry_graph = graph_id
 
     def get_entry_graph(self) -> GraphId:
+        """
+        Retrieves the entry graph.
+
+        Raises:
+            ValueError: If the entry graph hasn't been set.
+
+        Returns:
+            GraphId: The graph that gets the overall input of the
+                execution graph.
+        """
         if self._entry_graph is None:
             raise ValueError("entry graph not initialized")
         return self._entry_graph
 
     def add_graph(self, graph_id: GraphId, gname: GName, desc: str) -> None:
+        """
+        Initialize a new (sub-)graph. Graphs need to be uniquely identifyable
+        via graph id and name.
+
+        Args:
+            graph_id (GraphId): The graph id.
+            gname (GName): The graph name.
+            desc (str): The description of the graph.
+
+        Raises:
+            ValueError: If the graph id or name are ambiguous.
+        """
         if graph_id in self._graph_names:
             raise ValueError(f"duplicate graph {graph_id}")
         if gname in self._graph_ids:
@@ -154,23 +212,78 @@ class QueuePool(Module):
         self._graph_descs[graph_id] = desc
 
     def get_graph_id(self, gname: GName) -> GraphId:
+        """
+        Get the graph id for the given name.
+
+        Args:
+            gname (GName): The name of the graph.
+
+        Returns:
+            GraphId: The associated graph id.
+        """
         return self._graph_ids[gname]
 
     def get_graph_name(self, graph_id: GraphId) -> GName:
+        """
+        Get the graph name for the given id.
+
+        Args:
+            graph_id (GraphId): The id of the graph.
+
+        Returns:
+            GName: The associated graph name.
+        """
         return self._graph_names[graph_id]
 
     def get_graphs(self) -> list[GraphId]:
+        """
+        Gets all (sub-)graphs served by this queue pool.
+
+        Returns:
+            list[GraphId]: The list of graph ids.
+        """
         return list(self._graph_names.keys())
 
     def get_graph_description(self, graph_id: GraphId) -> str:
+        """
+        Retrieve the description of the given graph.
+
+        Args:
+            graph_id (GraphId): The graph id.
+
+        Returns:
+            str: The description.
+        """
         return self._graph_descs[graph_id]
 
     def set_input_node(self, graph_id: GraphId, node: 'Node') -> None:
+        """
+        Sets the input node of a graph.
+
+        Args:
+            graph_id (GraphId): The graph id.
+            node (Node): The input node.
+
+        Raises:
+            ValueError: If the input node for the graph is already set.
+        """
         if graph_id in self._input_nodes:
             raise ValueError(f"input node for {graph_id} already initialized")
         self._input_nodes[graph_id] = node
 
     def get_input_node(self, graph_id: GraphId) -> 'Node':
+        """
+        Retrieve the input node of the given graph.
+
+        Args:
+            graph_id (GraphId): The graph id.
+
+        Raises:
+            ValueError: If the input node has not been set.
+
+        Returns:
+            Node: The input node.
+        """
         res = self._input_nodes.get(graph_id)
         if res is None:
             raise ValueError(f"input node for {graph_id} not initialized")
@@ -178,12 +291,34 @@ class QueuePool(Module):
 
     def set_input_format(
             self, graph_id: GraphId, input_format: DataFormat) -> None:
+        """
+        Sets the input format of the graph.
+
+        Args:
+            graph_id (GraphId): The graph id.
+            input_format (DataFormat): The expected input format.
+
+        Raises:
+            ValueError: If the input format has already been defined.
+        """
         if graph_id in self._input_formats:
             raise ValueError(
                 f"input format for {graph_id} already initialized")
         self._input_formats[graph_id] = input_format
 
     def get_input_format(self, graph_id: GraphId) -> DataFormat:
+        """
+        Gets the input format of the graph.
+
+        Args:
+            graph_id (GraphId): The graph id.
+
+        Raises:
+            ValueError: If the input format has not been defined.
+
+        Returns:
+            DataFormat: The expected input format.
+        """
         res = self._input_formats.get(graph_id)
         if res is None:
             raise ValueError(f"input format for {graph_id} not initialized")
@@ -191,45 +326,136 @@ class QueuePool(Module):
 
     def set_output_format(
             self, graph_id: GraphId, output_format: DataFormat) -> None:
+        """
+        Set the output format of the graph.
+
+        Args:
+            graph_id (GraphId): The graph id.
+            output_format (DataFormat): The expected output format.
+
+        Raises:
+            ValueError: If the output format has already been set.
+        """
         if graph_id in self._output_formats:
             raise ValueError(
                 f"output format for {graph_id} already initialized")
         self._output_formats[graph_id] = output_format
 
     def get_output_format(self, graph_id: GraphId) -> DataFormat:
+        """
+        Get the output format of the graph.
+
+        Args:
+            graph_id (GraphId): The graph id.
+
+        Raises:
+            ValueError: If the output format has not been set.
+
+        Returns:
+            DataFormat: The expected output format.
+        """
         res = self._output_formats.get(graph_id)
         if res is None:
             raise ValueError(f"output format for {graph_id} not initialized")
         return res
 
     def set_output_value_map(self, graph_id: GraphId, vmap: ValueMap) -> None:
+        """
+        Set the output map which maps the output of nodes in the graph to
+        fields in the output of the graph.
+
+        Args:
+            graph_id (GraphId): The graph id.
+            vmap (ValueMap): The output map.
+
+        Raises:
+            ValueError: If the output map has already been set.
+        """
         if graph_id in self._output_vmaps:
             raise ValueError("output value map already initialized")
         self._output_vmaps[graph_id] = vmap
 
     def get_output_value_map(self, graph_id: GraphId) -> ValueMap:
+        """
+        Retrieve the output map which maps the output of nodes in the graph to
+        fields in the output of the graph.
+
+        Args:
+            graph_id (GraphId): The graph id.
+
+        Returns:
+            ValueMap: The output map.
+        """
         return self._output_vmaps[graph_id]
 
     def set_node_strategy(self, node_strategy: NodeStrategy) -> None:
+        """
+        Sets the strategy for choosing which node to process next.
+
+        Args:
+            node_strategy (NodeStrategy): The strategy.
+        """
         self._node_strategy = node_strategy
 
     def get_node_strategy(self) -> NodeStrategy:
+        """
+        Gets the current strategy for choosing which node to process next.
+
+        Raises:
+            ValueError: If no strategy has been set.
+
+        Returns:
+            NodeStrategy: The strategy.
+        """
         if self._node_strategy is None:
             raise ValueError("node strategy not set!")
         return self._node_strategy
 
     def set_queue_strategy(self, queue_strategy: QueueStrategy) -> None:
+        """
+        Sets the strategy for choosing which task to process next for a given
+        queue.
+
+        Args:
+            queue_strategy (QueueStrategy): The strategy.
+        """
         self._queue_strategy = queue_strategy
 
     def get_queue_strategy(self) -> QueueStrategy:
+        """
+        Gets the strategy for choosing which task to process next for a given
+        queue.
+
+        Raises:
+            ValueError: If the strategy has not been set.
+
+        Returns:
+            QueueStrategy: The strategy.
+        """
         if self._queue_strategy is None:
             raise ValueError("queue strategy not set!")
         return self._queue_strategy
 
     def get_all_nodes(self) -> Iterable['Node']:
+        """
+        Get all nodes registered in the queue pool.
+
+        Yields:
+            Node: The node.
+        """
         yield from self._nodes
 
     def register_node(self, node: 'Node') -> None:
+        """
+        Register a node with the queue pool.
+
+        Args:
+            node (Node): The node.
+
+        Raises:
+            ValueError: If the input queue id of the node exists already
+                in the pool.
+        """
         qid = node.get_input_queue()
         if qid in self._input_queues:
             raise ValueError(
@@ -239,18 +465,57 @@ class QueuePool(Module):
         self._nodes.add(node)
 
     def get_queue(self, qid: QueueId) -> Queue:
+        """
+        Retrieve the queue associated with the given id.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            Queue: The queue object.
+        """
         return Queue(self, qid)
 
     def get_consumer_node(self, qid: QueueId) -> 'Node':
+        """
+        Retrieve the node consuming the given queue.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            Node: The node consuming the queue.
+        """
         return self._input_queues[qid]
 
     def get_all_queues(self) -> Iterable[QueueId]:
+        """
+        Return all registered queues.
+
+        Yields:
+            QueueId: The queue id.
+        """
         yield from self._input_queues
 
     def pick_node(
             self,
             logger: EventStream,
             current_node: 'Node | None') -> tuple['Node', bool]:
+        """
+        Pick a node to process next.
+
+        Args:
+            logger (EventStream): The logger.
+            current_node (Node | None): The previously processed node or None
+                if no node has been processed yet.
+
+        Returns:
+            tuple[Node, bool]: A tuple of the next node to process (or None if
+                no processing is needed at the moment) and a boolean that if
+                True indicates that the node has changed wrt. the previous
+                node. In that case the previous node needs to be unloaded and
+                the new node needs to be loaded.
+        """
         strategy = self.get_node_strategy()
         entry_graph_id = self.get_entry_graph()
         candidate_node = self.get_input_node(entry_graph_id)
@@ -308,6 +573,16 @@ class QueuePool(Module):
             self,
             store: DataStore,
             original_input: TaskValueContainer) -> TaskId:
+        """
+        Enqueues a task to the overall input queue.
+
+        Args:
+            store (DataStore): The data store for storing the payload data.
+            original_input (TaskValueContainer): The input data.
+
+        Returns:
+            TaskId: The new task id.
+        """
         cpool = self.get_client_pool()
         task_id = cpool.create_task(original_input)
         self._enqueue_task_id(cpool, store, task_id)
@@ -319,6 +594,18 @@ class QueuePool(Module):
             store: DataStore,
             task_id: TaskId,
             error_info: ErrorInfo) -> None:
+        """
+        Enqueue a previously created task again to the overall input queue.
+
+        Args:
+            logger (EventStream): The logger.
+            store (DataStore): The data store for storing the payload data.
+            task_id (TaskId): The existing task id.
+            error_info (ErrorInfo): The error that triggered the requeue.
+
+        Raises:
+            AssertionError: If the task is already / still in a queue.
+        """
         cpool = self.get_client_pool()
         cpool.set_error(task_id, error_info)
         new_retries = cpool.inc_retries(task_id)
@@ -341,6 +628,16 @@ class QueuePool(Module):
             logger: EventStream,
             store: DataStore,
             task: ComputeTask) -> None:
+        """
+        Process the results of a computation on a task.
+
+        Args:
+            logger (EventStream): The logger.
+            store (DataStore): The data store for storing the payload data.
+            task (ComputeTask): The task that has the current result ready
+                but has not committed and pushed the task to a new queue if
+                any.
+        """
         cpool = self.get_client_pool()
         data_id_type = store.data_id_type()
         task_id = task.get_task_id()
@@ -400,6 +697,15 @@ class QueuePool(Module):
             out_queue.push_task_id(task_id)
 
     def get_task_status(self, task_id: TaskId) -> TaskStatus:
+        """
+        Retrieve the status of the given task.
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            TaskStatus: The status of the task.
+        """
         return self.get_client_pool().get_status(task_id)
 
     def _enqueue_task_id(
@@ -407,6 +713,14 @@ class QueuePool(Module):
             cpool: ClientPool,
             store: DataStore,
             task_id: TaskId) -> None:
+        """
+        Raw enqueueing a task to the overall input.
+
+        Args:
+            cpool (ClientPool): The client pool.
+            store (DataStore): The data store for storing the payload data.
+            task_id (TaskId): The task id.
+        """
         entry_graph_id = self.get_entry_graph()
         input_format = self.get_input_format(entry_graph_id)
         cpool.init_data(store, task_id, input_format)
@@ -420,6 +734,17 @@ class QueuePool(Module):
             cpool: ClientPool,
             qid: QueueId,
             task_id: TaskId) -> ComputeTask:
+        """
+        Retrieve the current state of the given task.
+
+        Args:
+            cpool (ClientPool): The client pool.
+            qid (QueueId): The queue id.
+            task_id (TaskId): The task id.
+
+        Returns:
+            ComputeTask: The state of the task.
+        """
         node = self.get_consumer_node(qid)
         return ComputeTask(cpool, task_id, node.get_value_map())
 
@@ -428,6 +753,17 @@ class QueuePool(Module):
             qid: QueueId,
             batch_size: int,
             executor_id: ExecutorId) -> list[ComputeTask]:
+        """
+        Claim tasks for computing.
+
+        Args:
+            qid (QueueId): The queue.
+            batch_size (int): The desired number of tasks.
+            executor_id (ExecutorId): The executor that claims the tasks.
+
+        Returns:
+            list[ComputeTask]: The list of claimed tasks as states.
+        """
         cpool = self.get_client_pool()
         task_ids = cpool.set_bulk_status(
             self.claim_tasks(qid, batch_size, executor_id), TASK_STATUS_BUSY)
@@ -437,6 +773,15 @@ class QueuePool(Module):
         ]
 
     def get_unclaimed_compute_tasks(self, qid: QueueId) -> list[ComputeTask]:
+        """
+        Get tasks in the queue that have not been claimed yet.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            list[ComputeTask]: The list of unclaimed tasks as states.
+        """
         cpool = self.get_client_pool()
         return [
             self.get_compute_task(cpool, qid, task_id)
@@ -444,13 +789,38 @@ class QueuePool(Module):
         ]
 
     def get_task_weight(self, task_id: TaskId) -> float:
+        """
+        Compute the weight / pressure of a given task.
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            float: The weight of the task.
+        """
         strategy = self.get_queue_strategy()
         return strategy.compute_weight(self.get_client_pool(), task_id)
 
     def push_task_id(self, qid: QueueId, task_id: TaskId) -> None:
+        """
+        Push a task to a queue.
+
+        Args:
+            qid (QueueId): The queue id.
+            task_id (TaskId): The task id.
+        """
         raise NotImplementedError()
 
     def get_unclaimed_tasks(self, qid: QueueId) -> list[TaskId]:
+        """
+        Retrieve unclaimed tasks in a queue.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            list[TaskId]: A list of unclaimed tasks as task ids.
+        """
         raise NotImplementedError()
 
     def claim_tasks(
@@ -458,10 +828,33 @@ class QueuePool(Module):
             qid: QueueId,
             batch_size: int,
             executor_id: ExecutorId) -> list[TaskId]:
+        """
+        Claim tasks for execution.
+
+        Args:
+            qid (QueueId): The queue id.
+            batch_size (int): The desired number of tasks to claim.
+            executor_id (ExecutorId): The executor that claims the tasks.
+
+        Returns:
+            list[TaskId]: A list of claimed tasks as task ids.
+        """
         raise NotImplementedError()
 
     def unclaim_tasks(
             self, qid: QueueId, executor_id: ExecutorId) -> list[TaskId]:
+        """
+        Unclaim tasks of an executor and make them available in the queue
+        again.
+
+        Args:
+            qid (QueueId): The queue id.
+            executor_id (ExecutorId): The executor id.
+
+        Returns:
+            list[TaskId]: The list of tasks that were associated with the
+                executor as task ids.
+        """
         raise NotImplementedError()
 
     def expect_task_weight(
@@ -470,23 +863,90 @@ class QueuePool(Module):
             byte_size: int,
             qid: QueueId,
             executor_id: ExecutorId) -> None:
+        """
+        Estimate the weight and payload size for the given queue by the given
+        executor.
+
+        Args:
+            weight (float): The estimated weight that will be pushed to the
+                queue.
+            byte_size (int): The estimated amount of bytes that will be pushed
+                to the queue.
+            qid (QueueId): The affected queue.
+            executor_id (ExecutorId): The executor that will push.
+        """
         raise NotImplementedError()
 
     def clear_expected_task_weight(
             self, qid: QueueId, executor_id: ExecutorId) -> None:
+        """
+        Clear previously expected task weights and payload sizes for an
+        executor.
+
+        Args:
+            qid (QueueId): The affected queue.
+            executor_id (ExecutorId): The executor.
+        """
         raise NotImplementedError()
 
     def get_expected_new_task_weight(self, qid: QueueId) -> float:
+        """
+        The sum of all currently expected new task weights for the given queue.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            float: The total expected weight on that queue.
+        """
         raise NotImplementedError()
 
     def get_expected_byte_size(self, qid: QueueId) -> int:
+        """
+        The sum of all currently expected new payload sizes for the given
+        queue.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            int: The total expected payload size on that queue.
+        """
         raise NotImplementedError()
 
     def get_queue_length(self, qid: QueueId) -> int:
+        """
+        Retrieves the current length of the given queue.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            int: The current length of the queue.
+        """
         raise NotImplementedError()
 
     def get_incoming_byte_size(self, qid: QueueId) -> int:
+        """
+        Compute the current incoming payload size on the given queue.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            int: The current payload size of the queue.
+        """
         raise NotImplementedError()
 
     def maybe_get_queue(self, task_id: TaskId) -> QueueId | None:
+        """
+        Retrieve the queue the given task is in if any.
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            QueueId | None: The queue the task is in or None if the task is not
+                in a queue.
+        """
         raise NotImplementedError()
