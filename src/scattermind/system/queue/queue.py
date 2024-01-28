@@ -50,61 +50,169 @@ if TYPE_CHECKING:
 
 
 class Queue:
+    """Convenient access to queue functionality without having to work with
+    queue ids."""
     def __init__(self, queue_pool: 'QueuePool', qid: QueueId) -> None:
+        """
+        Creates a queue wrapper.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+            qid (QueueId): The queue id.
+        """
         self._queue_pool = queue_pool
         self._qid = qid.ensure_queue()
 
     def get_id(self) -> QueueId:
+        """
+        Get the queue id.
+
+        Returns:
+            QueueId: The queue id.
+        """
         return self._qid
 
     def get_consumer_node(self) -> 'Node':
+        """
+        Retrieves the node that consumes this queue.
+
+        Returns:
+            Node: The node.
+        """
         return self._queue_pool.get_consumer_node(self._qid)
 
     def get_unclaimed_tasks(self) -> list[ComputeTask]:
+        """
+        Retrieves all unclaimed tasks in this queue.
+
+        Returns:
+            list[ComputeTask]: The list of unclaimed tasks as states.
+        """
         return self._queue_pool.get_unclaimed_compute_tasks(self._qid)
 
     def get_expected_new_task_weight(self) -> float:
+        """
+        Retrieves all current expected total new task weights of the queue.
+        This does not take the actual current total task weight / backpressure
+        into account.
+
+        Returns:
+            float: The total expected task weight.
+        """
         return self._queue_pool.get_expected_new_task_weight(self._qid)
 
     def get_queue_length(self) -> int:
+        """
+        Retrieves the current length of the queue.
+
+        Returns:
+            int: The length of the queue.
+        """
         return self._queue_pool.get_queue_length(self._qid)
 
     def get_expected_byte_size(self) -> int:
+        """
+        Retrieves the current expected payload size of the queue.
+        This does not take the actual current payload size into account.
+
+        Returns:
+            int: The total expected payload size of the queue.
+        """
         return self._queue_pool.get_expected_byte_size(self._qid)
 
     def get_incoming_byte_size(self) -> int:
+        """
+        Retrieves the actual current payload size of the queue.
+
+        Returns:
+            int: The total current payload size of the queue.
+        """
         return self._queue_pool.get_incoming_byte_size(self._qid)
 
     def total_backpressure(self) -> float:
+        """
+        Retrieves the actual current backpressure / weight of the queue.
+
+        Returns:
+            float: The total weight currently in the queue.
+        """
         res = 0.0
         for task in self.get_unclaimed_tasks():
             res += task.get_total_weight_in()
         return res
 
     def comparative_backpressure(self) -> float:
+        """
+        Computes the current backpressure / weight of the queue.
+
+        Returns:
+            float: A comparable backpressure. The number makes only sense in
+                comparison to other queues. It does not give an absolute
+                estimate of the required work in the queue.
+        """
         res = 0.0
         for task in self.get_unclaimed_tasks():
             res += task.get_simple_weight_in()
         return res
 
     def total_expected_pressure(self) -> float:
+        """
+        Computes the total expected pressure in the queue.
+
+        Returns:
+            float: The total expected pressure.
+        """
         total_weight = self.get_expected_new_task_weight()
         return total_weight * self.get_expected_byte_size()
 
     def comparative_expected_pressure(self) -> float:
+        """
+        Computes the currently expected pressure in the queue.
+
+        Returns:
+            float: A comparable pressure. The number makes only sense in
+                comparison to other queues. It does not give an absolute
+                estimate of the required expected new work in the queue.
+        """
         return self.get_expected_new_task_weight()
 
     def claim_tasks(
             self,
             batch_size: int,
             executor_id: ExecutorId) -> list[ComputeTask]:
+        """
+        Claim tasks on the queue for computation.
+
+        Args:
+            batch_size (int): The desired number of tasks to claim.
+            executor_id (ExecutorId): The executor claiming the tasks.
+
+        Returns:
+            list[ComputeTask]: The claimed tasks as state.
+        """
         return self._queue_pool.claim_compute_tasks(
             self._qid, batch_size, executor_id)
 
     def unclaim_tasks(self, executor_id: ExecutorId) -> list[TaskId]:
+        """
+        Unclaim all tasks of an executor.
+
+        Args:
+            executor_id (ExecutorId): The executor.
+
+        Returns:
+            list[TaskId]: The tasks that were previously claimed by the
+                executor as task id.
+        """
         return self._queue_pool.unclaim_tasks(self._qid, executor_id)
 
     def push_task_id(self, task_id: TaskId) -> None:
+        """
+        Pushes a task to the queue.
+
+        Args:
+            task_id (TaskId): The task id.
+        """
         return self._queue_pool.push_task_id(self._qid, task_id)
 
 
