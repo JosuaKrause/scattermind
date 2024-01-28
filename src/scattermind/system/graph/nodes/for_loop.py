@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Call a subgraph repeatedly until a counter reaches 0."""
 import numpy as np
 
 from scattermind.system.base import QueueId
@@ -27,6 +28,7 @@ from scattermind.system.torch_util import create_tensor
 
 
 class ForLoop(Node):
+    """Call a subgraph repeatedly until a counter reaches 0."""
     def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
         return True
 

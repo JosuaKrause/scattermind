@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Square a square matrix."""
 import torch
 
 from scattermind.system.client.client import ComputeTask
@@ -25,6 +26,7 @@ from scattermind.system.readonly.access import ReadonlyAccess
 
 
 class MatSquare(Node):
+    """Multiply a square matrix with itself."""
     def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
         return True
 

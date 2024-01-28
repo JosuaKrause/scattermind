@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Branch execution based on a condition."""
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.node import Node
@@ -23,6 +24,8 @@ from scattermind.system.readonly.access import ReadonlyAccess
 
 
 class IfOp(Node):
+    """Branch execution based on a condition (boolean tensor of shape
+    `[1]`)."""
     def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
         return True
 

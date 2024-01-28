@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A node in the execution graph."""
 import threading
 from typing import TYPE_CHECKING
 
@@ -32,11 +33,25 @@ if TYPE_CHECKING:
 
 
 INTERNAL_NODE_PREFIX = "scattermind.system.graph.nodes"
+"""Python module prefix for built-in nodes."""
 
 
 # FIXME redis
 class Node:
+    """
+    A node of the execution graph. Overwrite this class to implement new
+    functionality.
+    """
     def __init__(self, kind: str, graph: 'Graph', node_id: NodeId) -> None:
+        """
+        Creates a node. If overwriting this constructor keep the signature the
+        same. Use node arguments to provide node customization.
+
+        Args:
+            kind (str): The kind of the node.
+            graph (Graph): The graph of the node.
+            node_id (NodeId): The node id.
+        """
         self._kind = kind
         self._graph = graph
         self._node_id = node_id
@@ -44,18 +59,52 @@ class Node:
         self._load_lock = threading.RLock()
 
     def get_kind(self) -> str:
+        """
+        The kind of the node.
+
+        Returns:
+            str: The kind.
+        """
         return self._kind
 
     def get_id(self) -> NodeId:
+        """
+        The id of the node.
+
+        Returns:
+            NodeId: The id.
+        """
         return self._node_id
 
     def get_name(self) -> NName:
+        """
+        Retrieves the name of the node.
+
+        Returns:
+            NName: The name.
+        """
         return self._graph.get_node_name(self._node_id)
 
     def get_graph(self) -> GraphId:
+        """
+        Retrieves the graph the node belongs to.
+
+        Returns:
+            GraphId: The graph id.
+        """
         return self._graph.get_graph_of(self.get_id())
 
     def get_context_info(self, queue_pool: QueuePool) -> ContextInfo:
+        """
+        Provide information about the node.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+
+        Returns:
+            ContextInfo: Returns information about the id, name, graph, and
+                graph name associated with the node.
+        """
         graph_id = self.get_graph()
         return {
             "node": self.get_id(),

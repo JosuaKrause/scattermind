@@ -75,6 +75,30 @@ class Graph:
             args: NodeArguments,
             fixed_input_queue_id: QueueId | None,
             vmap: ValueMap) -> None:
+        """
+        Add a node to the graph.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+            graph_id (GraphId): The graph id of the graph the node belongs to.
+            kind (str): The node type. See
+                ::py:function:`scattermind.system.graph.loader.load_node`.
+            name (NName): The name of the node.
+            node_id (NodeId | None): The (optional) node id. If None, the id
+                gets inferred from the name of the node and the graph. The node
+                id can be specified to allow node renames without changing all
+                ids.
+            args (NodeArguments): The arguments for constructing the node.
+            fixed_input_queue_id (QueueId | None): The (optional) input queue
+                id. If None, the id gets inferred from the name of the node and
+                the graph. The input queue id can be specified to allow node
+                renames without changing all ids.
+            vmap (ValueMap): The value map that specifies the locations of the
+                inputs of the node.
+
+        Raises:
+            ValueError: If there is a problem adding the node.
+        """
         gname = queue_pool.get_graph_name(graph_id)
         if node_id is None:
             node_id = NodeId.create(gname, name)
@@ -100,15 +124,51 @@ class Graph:
         queue_pool.register_node(node)
 
     def get_input_queue(self, node_id: NodeId) -> QueueId:
+        """
+        Retrieves the input queue of the given node.
+
+        Args:
+            node_id (NodeId): The node id.
+
+        Returns:
+            QueueId: The queue id.
+        """
         return self._input_ids[node_id]
 
     def get_graph_of(self, node_id: NodeId) -> GraphId:
+        """
+        Retrieves the graph the given node is a part of.
+
+        Args:
+            node_id (NodeId): The node id.
+
+        Returns:
+            GraphId: The graph id.
+        """
         return self._graph[node_id]
 
     def get_node(self, node_id: NodeId) -> Node:
+        """
+        Retrieves the node object for the given id.
+
+        Args:
+            node_id (NodeId): The node id.
+
+        Returns:
+            Node: The node object.
+        """
         return self._nodes[node_id]
 
     def get_value_map(self, node_id: NodeId) -> ValueMap:
+        """
+        Retrieves the value map for the inputs of the given node.
+
+        Args:
+            node_id (NodeId): The node id.
+
+        Returns:
+            ValueMap: The value map for the given node.
+        """
         return self._vmaps[node_id]
 
     def add_edge(
@@ -117,6 +177,17 @@ class Graph:
             output_node_id: NodeId,
             output_queue: QName,
             input_queue_id: QueueId) -> None:
+        """
+        Connects an output of a node to an input queue.
+
+        Args:
+            output_node_id (NodeId): The node id.
+            output_queue (QName): The name of the output of the node.
+            input_queue_id (QueueId): The input queue id to connect to.
+
+        Raises:
+            ValueError: If there is a problem adding the edge.
+        """
         output_ids = self._output_ids.get(output_node_id)
         if output_ids is None:
             output_ids = {}
@@ -127,15 +198,46 @@ class Graph:
         output_ids[output_queue] = input_queue_id
 
     def get_output_queues(self, node_id: NodeId) -> list[QueueId]:
+        """
+        Retrieves all output queues of a given node.
+
+        Args:
+            node_id (NodeId): The node id.
+
+        Returns:
+            list[QueueId]: The list of output queue ids.
+        """
         return [
             self.get_output_queue(node_id, QName(qname))
             for qname in self.get_node(node_id).get_outputs()
         ]
 
     def get_output_queue(self, node_id: NodeId, qname: QName) -> QueueId:
+        """
+        Retrieves the output queue for a given node and output name.
+
+        Args:
+            node_id (NodeId): The node id.
+            qname (QName): The output name.
+
+        Returns:
+            QueueId: The queue id.
+        """
         return self._output_ids[node_id][qname]
 
     def is_pure(self, queue_pool: QueuePool, graph_id: GraphId) -> bool:
+        """
+        Whether the given graph is pure, that is, the output of the graph
+        depends only on the input of the graph and the settings of the nodes.
+        Only pure graphs can cache inputs.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+            graph_id (GraphId): The graph id.
+
+        Returns:
+            bool: A graph is pure if all its nodes are pure.
+        """
         for node in self.traverse_graph(queue_pool, graph_id):
             if not node.is_pure(queue_pool):
                 return False
@@ -143,6 +245,17 @@ class Graph:
 
     def traverse_graph(
             self, queue_pool: QueuePool, graph_id: GraphId) -> list[Node]:
+        """
+        Fully traverse an execution graph. Each reachable node of the graph
+        gets returned exactly once.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+            graph_id (GraphId): The graph id.
+
+        Returns:
+            list[Node]: The list of reachable nodes.
+        """
         node = queue_pool.get_input_node(graph_id)
         res: list[Node] = []
         self.collect_nodes(queue_pool, node, res)
@@ -153,7 +266,16 @@ class Graph:
             queue_pool: QueuePool,
             start: Node,
             result: list[Node]) -> None:
-        seen = set()
+        """
+        Collect all nodes reachable from the given start node. Each reachable
+        node gets returned exactly once.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+            start (Node): The start node.
+            result (list[Node]): Reachable nodes get added to this list.
+        """
+        seen = {start}
         stack = [start]
         while stack:
             cur = stack.pop()

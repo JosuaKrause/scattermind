@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Loads a node."""
 from typing import TYPE_CHECKING
 
 from scattermind.system.base import NodeId
@@ -30,6 +31,23 @@ def load_node(
         graph: 'Graph',
         kind: str,
         node_id: NodeId) -> 'Node':
+    """
+    Load a node for the given graph.
+
+    Args:
+        graph (Graph): The graph.
+        kind (str): The kind of the node. This can be built-in node names or
+            fully qualified python module names to load a node via plugin.
+        node_id (NodeId): The node id to assign to the ndoe.
+
+    Raises:
+        ModuleNotFoundError: If provided a python module name that cannot be
+            resolved.
+        ValueError: If the built-in name is not known.
+
+    Returns:
+        Node: The loaded node.
+    """
     kind_name = kind
     if "." not in kind:
         kind = f"{INTERNAL_NODE_PREFIX}.{kind}"

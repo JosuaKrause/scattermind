@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Load a constant tensor."""
 import torch
 
 from scattermind.system.base import NodeId
@@ -26,6 +27,7 @@ from scattermind.system.readonly.access import ReadonlyAccess
 
 
 class LoadConstant(Node):
+    """Load a constant tensor."""
     def __init__(self, kind: str, graph: Graph, node_id: NodeId) -> None:
         super().__init__(kind, graph, node_id)
         self._constant: torch.Tensor | None = None

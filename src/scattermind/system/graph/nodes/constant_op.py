@@ -13,6 +13,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Perform an element-wise binary operation with a constant operand on a
+tensor."""
 from collections.abc import Callable
 from typing import cast, get_args, Literal
 
@@ -32,10 +34,14 @@ OpName = Literal[
     "add",
     "mul",
 ]
+"""The operations supported by the `constant_op` node."""
 ALL_OPS: set[OpName] = set(get_args(OpName))
+"""All operations supported by the `constant_op` node."""
 
 
 class ConstantOp(Node):
+    """Perform an element-wise binary operation with a constant operand on a
+    tensor."""
     def __init__(self, kind: str, graph: Graph, node_id: NodeId) -> None:
         super().__init__(kind, graph, node_id)
         self._op: Callable[[torch.Tensor], torch.Tensor] | None = None

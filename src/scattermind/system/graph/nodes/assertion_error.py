@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Node triggering an error."""
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.node import Node
 from scattermind.system.info import DataFormatJSON
@@ -22,6 +23,8 @@ from scattermind.system.readonly.access import ReadonlyAccess
 
 
 class AssertionErrorNode(Node):
+    """If a task reaches this node an error is raised for the task. Put this
+    behind an `if_op` to reject faulty tasks."""
     def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
         return True
 

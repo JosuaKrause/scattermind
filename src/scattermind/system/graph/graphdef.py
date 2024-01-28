@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A JSON specification of a graph."""
 from typing import TypedDict
 
 from typing_extensions import NotRequired
@@ -50,7 +51,10 @@ NodeDefJSON = TypedDict('NodeDefJSON', {
     "vmap": NotRequired[ValueMapJSON],
 })
 """
-Node definition. `node_id` is optional. `name` is a readable name.
+Node definition. `node_id` is optional. `name` is a readable name. `kind` is
+the node kind. `args` are node arguments. `qin` is the optional input queue id.
+`outs` defines where the task goes next for a given output. `vmap` maps the
+inputs of the node to locations in the stack frame.
 """
 
 # FIXME implement blocks
@@ -76,6 +80,14 @@ GraphDefJSON = TypedDict('GraphDefJSON', {
 })
 """
 Graph definition. `name` and `description` are for information purposes only.
+`graph_id` is the optional fixed graph id. It is inferred from the name if not
+specified. `input` specifies the node where the initial input is pushed to.
+`input_format` specifies the expected format of the graph input.
+`output_format` specified the expected format of the graph output. `vmap` maps
+the outputs of the graph to locations in the stack frame. `nodes` is a list of
+all nodes of the graph. `is_block` specifies that the whole graph should be
+computed in one go instead pushing tasks to queues and picking them up for
+computation. If a graph is a block, only the input queue of the graph is used.
 """
 
 FullGraphDefJSON = TypedDict('FullGraphDefJSON', {
@@ -143,6 +155,19 @@ def graph_to_json(graph: Graph, queue_pool: QueuePool) -> FullGraphDefJSON:
 
 
 def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
+    """
+    Parses a JSON graph definition and converts it into a graph object.
+
+    Args:
+        queue_pool (QueuePool): The queue pool.
+        def_obj (FullGraphDefJSON): The JSON graph definition.
+
+    Raises:
+        ValueError: If the graph could not be loaded.
+
+    Returns:
+        Graph: The graph object.
+    """
     graph = Graph()
     for gobj in def_obj["graphs"]:
         gname = GName(gobj["name"])

@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Call a subgraph for execution and present its results as the node's."""
 from scattermind.system.base import QueueId
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.graph.graph import Graph
@@ -25,6 +26,10 @@ from scattermind.system.readonly.access import ReadonlyAccess
 
 
 class Call(Node):
+    """
+    Call a subgraph for execution. The node arguments are the inputs to the
+    subgraph and the output of the node is the output of the subgraph.
+    """
     def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
         return graph.is_pure(queue_pool, graph.get_graph_of(self.get_id()))
 

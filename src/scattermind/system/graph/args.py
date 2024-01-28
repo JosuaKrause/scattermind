@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Provides node arguments."""
 from typing import cast, Literal, overload
 
 from scattermind.system.info import DataFormatJSON, DataInfo, DataInfoJSON
@@ -35,6 +36,7 @@ ArgType = Literal[
     "dtype",
     "data",
 ]
+"""Available argument types as string names."""
 
 
 ArgumentType = (
@@ -48,6 +50,7 @@ ArgumentType = (
     | DTypeName
     | DataAccess
 )
+"""Available argument types as python types as seen in the JSON."""
 ArgumentRetType = (
     str
     | int
@@ -60,18 +63,45 @@ ArgumentRetType = (
     | DTypeName
     | DataAccess
 )
+"""Available argument types as python types as returned from the argument
+parser. This differs from the JSON types in that the types are parsed to the
+internal types. Example: A graph name is `str` in the JSON types but `GName`
+returned by the argument parser."""
 NodeArguments = dict[str, ArgumentType]
+"""A dictionary specifying all JSON node argument values."""
 
 
 class NodeArg:
+    """
+    A node arguments parser.
+    """
     def __init__(self, name: str, arg: ArgumentType) -> None:
+        """
+        Creates a node argument.
+
+        Args:
+            name (str): The name of the argument.
+            arg (ArgumentType): The argument as it appears in the JSON.
+        """
         self._name = name
         self._arg = arg
 
     def name(self) -> str:
+        """
+        The argument name.
+
+        Returns:
+            str: The name.
+        """
         return self._name
 
     def raw(self) -> ArgumentType:
+        """
+        The argument as it appears in the JSON.
+
+        Returns:
+            ArgumentType: The raw external argument.
+        """
         return self._arg
 
     @overload
@@ -119,6 +149,20 @@ class NodeArg:
         ...
 
     def get(self, type_name: ArgType) -> ArgumentRetType:
+        """
+        Parses the argument and converts it into the internal type.
+
+        Args:
+            type_name (ArgType): The name of the argument type. This should be
+                a literal string to make type checking infer the return
+                type correctly.
+
+        Raises:
+            ValueError: If the argument could not be parsed.
+
+        Returns:
+            ArgumentRetType: The argument converted to the internal type.
+        """
         val = self._arg
         if type_name == "str":
             return f"{val}"
@@ -155,6 +199,16 @@ class NodeArg:
 
     @staticmethod
     def from_node_arguments(args: NodeArguments) -> 'NodeArgs':
+        """
+        Converts a raw JSON argument dictionary into a dictionary with
+        parseable arguments.
+
+        Args:
+            args (NodeArguments): The raw JSON dictionary.
+
+        Returns:
+            NodeArgs: Dictionary allowing to parse the arguments.
+        """
         return {
             arg_name: NodeArg(arg_name, arg_val)
             for arg_name, arg_val in args.items()
@@ -162,6 +216,15 @@ class NodeArg:
 
     @staticmethod
     def to_node_arguments(args: 'NodeArgs') -> NodeArguments:
+        """
+        Convert parseable arguments back to a JSON representation.
+
+        Args:
+            args (NodeArgs): The argument dictionary.
+
+        Returns:
+            NodeArguments: A JSON argument dictionary.
+        """
         return {
             arg_name: arg_val.raw()
             for arg_name, arg_val in args.items()
@@ -169,3 +232,4 @@ class NodeArg:
 
 
 NodeArgs = dict[str, NodeArg]
+"""A dictionary mapping argument names to parseable node arguments."""
