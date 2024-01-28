@@ -40,6 +40,7 @@ EXPIRE_DEFAULT = 60 * 60.0  # TODO: make configurable
 
 
 class RedisDataStore(DataStore):
+    """A redis based payload data store."""
     def __init__(self, cfg: RedisConfig, mode: DataMode) -> None:
         """
         Creates a redis based payload data storage.

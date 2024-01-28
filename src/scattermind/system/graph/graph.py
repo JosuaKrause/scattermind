@@ -53,6 +53,15 @@ class Graph:
         return self._names[node_id]
 
     def get_node_arguments(self, node_id: NodeId) -> NodeArgs:
+        """
+        Retrieves the arguments for the given node.
+
+        Args:
+            node_id (NodeId): The node id.
+
+        Returns:
+            NodeArgs: The arguments for the node.
+        """
         return self._args[node_id]
 
     def add_node(

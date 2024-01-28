@@ -13,12 +13,19 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Parses command line arguments of the scattermind CLI."""
 import argparse
 
 from scattermind.app.worker import worker_start
 
 
 def parse_args_worker(parser: argparse.ArgumentParser) -> None:
+    """
+    Parse command line arguments for a scattermind worker.
+
+    Args:
+        parser (argparse.ArgumentParser): The argument parser.
+    """
     parser.add_argument(
         "--graph",
         type=str,
@@ -36,6 +43,12 @@ def parse_args_worker(parser: argparse.ArgumentParser) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse command line arguments for the scattermind CLI.
+
+    Returns:
+        argparse.Namespace: The argument parser.
+    """
     parser = argparse.ArgumentParser(description="Run a scattermind command.")
     subparser = parser.add_subparsers(title="Commands")
 

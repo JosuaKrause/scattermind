@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Loads a client pool."""
 from typing import Literal, TypedDict
 
 from redipy import RedisConfig
@@ -24,16 +25,34 @@ from scattermind.system.plugins import load_plugin
 LocalClientPoolModule = TypedDict('LocalClientPoolModule', {
     "name": Literal["local"],
 })
+"""RAM-only client pool module configuration."""
 RedisClientPoolModule = TypedDict('RedisClientPoolModule', {
     "name": Literal["redis"],
     "cfg": RedisConfig,
 })
+"""Redis base client pool module configuration. `cfg` are the redis connection
+settings."""
 
 
 ClientPoolModule = LocalClientPoolModule | RedisClientPoolModule
+"""A client pool module configuration."""
 
 
 def load_client_pool(module: ClientPoolModule) -> ClientPool:
+    """
+    Load a client pool from a module configuration. The `name` key can be a
+    valid python module path to load a plugin.
+
+    Args:
+        module (ClientPoolModule): The module configuration.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+
+    Returns:
+        ClientPool: The client pool.
+    """
+    # pylint: disable=import-outside-toplevel
     if "." in module["name"]:
         kwargs = dict(module)
         plugin = load_plugin(ClientPool, f"{kwargs.pop('name')}")

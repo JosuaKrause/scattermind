@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A scattermind worker process."""
 import json
 from typing import cast
 
@@ -22,6 +23,13 @@ from scattermind.system.graph.graphdef import FullGraphDefJSON
 
 
 def worker_start(*, config_file: str, graph_def_file: str) -> None:
+    """
+    Load configuration, graph, and start execution.
+
+    Args:
+        config_file (str): The configuration file.
+        graph_def_file (str): The graph definition file.
+    """
     with open(config_file, "rb") as fin:
         config_obj = cast(ConfigJSON, json.load(fin))
     config = load_config(ExecutorId.create, config_obj)

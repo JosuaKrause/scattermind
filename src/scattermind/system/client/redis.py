@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A redis client pool."""
 from collections.abc import Iterable
 from typing import Literal, TypeVar
 
@@ -56,6 +57,7 @@ from scattermind.system.util import get_time_str, seconds_since
 
 
 DT = TypeVar('DT', bound=DataId)
+"""The `DataId` subclass understood by a given `DataStore` implementation."""
 
 
 KeyName = Literal[
@@ -71,9 +73,11 @@ KeyName = Literal[
     "result",  # TVC str
     "error",  # ErrorJSON str
 ]
+"""Base keys for different storage categories."""
 
 
 class RedisClientPool(ClientPool):
+    """A redis based client pool."""
     def __init__(self, cfg: RedisConfig) -> None:
         super().__init__()
         self._redis = Redis("redis", cfg=cfg, redis_module="client")
@@ -85,6 +89,16 @@ class RedisClientPool(ClientPool):
 
     @staticmethod
     def key(name: KeyName, task_id: TaskId) -> str:
+        """
+        Computes the full key.
+
+        Args:
+            name (KeyName): The base key.
+            task_id (TaskId): The task id.
+
+        Returns:
+            str: The full key.
+        """
         return f"{name}:{task_id.to_parseable()}"
 
     def set_value(
@@ -93,6 +107,15 @@ class RedisClientPool(ClientPool):
             name: KeyName,
             task_id: TaskId,
             value: str) -> None:
+        """
+        Sets the value for the given key.
+
+        Args:
+            pipe (PipelineAPI): The redis pipeline.
+            name (KeyName): The base key.
+            task_id (TaskId): The task.
+            value (str): The value to set.
+        """
         pipe.set(self.key(name, task_id), value)
 
     def delete(
@@ -100,12 +123,30 @@ class RedisClientPool(ClientPool):
             pipe: PipelineAPI,
             name: KeyName,
             task_id: TaskId) -> None:
+        """
+        Deletes the value of the given key.
+
+        Args:
+            pipe (PipelineAPI): The redis pipeline.
+            name (KeyName): The base key.
+            task_id (TaskId): The task.
+        """
         pipe.delete(self.key(name, task_id))
 
     def get_value(
             self,
             name: KeyName,
             task_id: TaskId) -> str | None:
+        """
+        Get the value of the given key.
+
+        Args:
+            name (KeyName): The base key.
+            task_id (TaskId): The task.
+
+        Returns:
+            str | None: The value or None if it is not set.
+        """
         return self._redis.get(self.key(name, task_id))
 
     def create_task(

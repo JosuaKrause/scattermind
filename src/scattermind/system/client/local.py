@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A RAM-only client pool."""
 import threading
 from collections.abc import Iterable
 from typing import TypeVar
@@ -42,10 +43,15 @@ from scattermind.system.util import get_time_str, seconds_since
 
 
 DT = TypeVar('DT', bound=DataId)
+"""The `DataId` subclass understood by a given `DataStore` implementation."""
 
 
 class LocalClientPool(ClientPool):
+    """A RAM-only client pool."""
     def __init__(self) -> None:
+        """
+        Creates a RAM-only client pool.
+        """
         super().__init__()
         self._values: dict[TaskId, TaskValueContainer] = {}
         self._status: dict[TaskId, TaskStatus] = {}
