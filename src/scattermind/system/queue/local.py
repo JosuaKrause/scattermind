@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A RAM-only implementation of a queue pool."""
 import threading
 
 from scattermind.system.base import (
@@ -27,7 +28,15 @@ from scattermind.system.queue.queue import QueuePool
 
 
 class LocalQueuePool(QueuePool):
+    """A RAM-only implementation of a queue pool."""
     def __init__(self, *, check_assertions: bool) -> None:
+        """
+        Creates a local queue pool.
+
+        Args:
+            check_assertions (bool): Whether to check assertions (what queue
+                is a given task in?).
+        """
         super().__init__()
         self._check_assertions = check_assertions
         self._assert_tasks: dict[TaskId, QueueId] = {}

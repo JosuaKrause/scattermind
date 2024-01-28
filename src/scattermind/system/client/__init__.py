@@ -13,3 +13,5 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Client pools manage tasks. All information to start running a task or
+reading results from a task are stored in the client pool."""

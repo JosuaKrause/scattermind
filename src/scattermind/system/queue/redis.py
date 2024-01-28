@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A redis implementation of a queue pool."""
 from typing import Literal
 
 from redipy import ExecFunction, Redis, RedisConfig
@@ -39,9 +40,11 @@ KeyName = Literal[
     "claims",  # list str
     "expect",  # hash (byte_size, weight)
 ]
+"""Base keys for different storage categories."""
 
 
 class RedisQueuePool(QueuePool):
+    """Redis baked queue pool."""
     def __init__(self, *, cfg: RedisConfig, check_assertions: bool) -> None:
         super().__init__()
         self._redis = Redis("redis", cfg=cfg, redis_module="queues")
@@ -54,24 +57,77 @@ class RedisQueuePool(QueuePool):
 
     @staticmethod
     def key(name: KeyName, remain: str) -> str:
+        """
+        Computes the full key.
+
+        Args:
+            name (KeyName): The base key.
+            remain (str): The remainder of the key.
+
+        Returns:
+            str: The full key.
+        """
         return f"{name}:{remain}"
 
     @classmethod
     def key_assert(cls, task_id: TaskId) -> str:
+        """
+        Computes the full key for queue assertions. A queue assertion is the
+        back link from a task to a queue. This can be used to check whether
+        a task is currently in a different queue at the same time (which must
+        never happen).
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            str: The full queue assertion key. The type of the key is a direct
+                value.
+        """
         return cls.key("asserts", task_id.to_parseable())
 
     @classmethod
     def key_tasks(cls, qid: QueueId) -> str:
+        """
+        Computes the full key for task queues.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            str: The full task queue key. The type of the key is a zset.
+        """
         return cls.key("tasks", qid.to_parseable())
 
     @classmethod
     def key_claims(cls, executor_id: ExecutorId, qid: QueueId) -> str:
+        """
+        Computes the full key for claims.
+
+        Args:
+            executor_id (ExecutorId): The claiming executor.
+            qid (QueueId): The queue id.
+
+        Returns:
+            str: The full claims key. The type of the key is a list.
+        """
         return cls.key(
             "claims", f"{executor_id.to_parseable()}:{qid.to_parseable()}")
 
     @classmethod
     def key_expect(
             cls, qid: QueueId, field: Literal["byte_size", "weight"]) -> str:
+        """
+        Computes the full key for expected values.
+
+        Args:
+            qid (QueueId): The queue id.
+            field (Literal[&quot;byte_size&quot;, &quot;weight&quot;]): Whether
+                the value denotes payload size or weight.
+
+        Returns:
+            str: The full expected values key. The type of the key is a hash.
+        """
         return cls.key(
             "expect", f"{qid.to_parseable()}:{field}")
 
