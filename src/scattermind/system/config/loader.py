@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Loads a configuration from a JSON file."""
 from collections.abc import Callable
 from typing import TypedDict
 
@@ -47,12 +48,16 @@ StrategyModule = TypedDict('StrategyModule', {
     "node": NodeStrategyModule,
     "queue": QueueStrategyModule,
 })
+"""Module for selecting the node and the queue strategy."""
 
 
 LoggerDef = TypedDict('LoggerDef', {
     "listeners": list[EventListenerDef],
     "disable_events": list[str],
 })
+"""Define the logger. `listeners` is a list of all listeners that process the
+logs. `disable_events` is list of patterns to filter or include certain log
+types."""
 
 
 ConfigJSON = TypedDict('ConfigJSON', {
@@ -64,11 +69,22 @@ ConfigJSON = TypedDict('ConfigJSON', {
     "readonly_access": ReadonlyAccessModule,
     "logger": LoggerDef,
 })
+"""The configuration JSON."""
 
 
 def load_config(
         exec_gen: Callable[[], ExecutorId],
         config_obj: ConfigJSON) -> Config:
+    """
+    Load a configuration from a JSON.
+
+    Args:
+        exec_gen (Callable[[], ExecutorId]): The executor generator function.
+        config_obj (ConfigJSON): The configuration JSON.
+
+    Returns:
+        Config: The configuration.
+    """
     config = Config()
     logger = EventStream()
     logger_obj = config_obj["logger"]
@@ -95,6 +111,21 @@ def load_test(
         max_store_size: int = 1024 * 1024,
         parallelism: int = 0,
         batch_size: int = 5) -> Config:
+    """
+    Load a configuration for unit tests.
+
+    Args:
+        is_redis (bool): Whether the test uses redis.
+        max_store_size (int, optional): The maximum payload data store size
+            for local stores. Defaults to 1024*1024.
+        parallelism (int, optional): Whether use multiple executor managers
+            via threads. Defaults to 0.
+        batch_size (int, optional): The batch size defining the number of
+            tasks that get computed together. Defaults to 5.
+
+    Returns:
+        Config: The configuration.
+    """
     executor_manager: ExecutorManagerModule
     client_pool: ClientPoolModule
     data_store: DataStoreModule
