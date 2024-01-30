@@ -13,3 +13,5 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Provides strategies for choosing which node to compute next and which
+tasks in a queue to pick up first."""

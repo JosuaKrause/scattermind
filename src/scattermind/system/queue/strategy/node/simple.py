@@ -13,10 +13,13 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A simple node strategy."""
 from scattermind.system.queue.strategy.strategy import NodeStrategy
 
 
 class SimpleNodeStrategy(NodeStrategy):
+    """The simple node strategy tallies up the queue length and pressure and
+    scales it down by cost to load."""
     def own_score(
             self,
             *,

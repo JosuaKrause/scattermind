@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A singular executor that terminates when all tasks are processed."""
 from collections.abc import Callable
 
 from scattermind.system.base import ExecutorId, L_EITHER, Locality
@@ -22,6 +23,8 @@ from scattermind.system.logger.log import EventStream
 
 
 class SingleExecutorManager(ExecutorManager):
+    """Manager for a singular executor that terminates when all tasks are
+    processed."""
     def __init__(self, own_id: ExecutorId, *, batch_size: int) -> None:
         super().__init__(own_id, batch_size)
         self._is_active = False

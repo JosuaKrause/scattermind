@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Loads strategies."""
 from typing import Literal, TypedDict
 
 from scattermind.system.plugins import load_plugin
@@ -25,12 +26,28 @@ from scattermind.system.queue.strategy.strategy import (
 SimpleNodeStrategyModule = TypedDict('SimpleNodeStrategyModule', {
     "name": Literal["simple"],
 })
+"""Configuration for a simple node strategy."""
 
 
 NodeStrategyModule = SimpleNodeStrategyModule
+"""Configuration for node strategies."""
 
 
 def load_node_strategy(module: NodeStrategyModule) -> NodeStrategy:
+    """
+    Loads a node strategy.
+
+    Args:
+        module (NodeStrategyModule): The configuration. If `name` is a fully
+            qualified python module it will be loaded as plugin.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+
+    Returns:
+        NodeStrategy: The node strategy.
+    """
+    # pylint: disable=import-outside-toplevel
     if "." in module["name"]:
         kwargs = dict(module)
         plugin = load_plugin(NodeStrategy, f"{kwargs.pop('name')}")
@@ -46,12 +63,28 @@ def load_node_strategy(module: NodeStrategyModule) -> NodeStrategy:
 SimpleQueueStrategyModule = TypedDict('SimpleQueueStrategyModule', {
     "name": Literal["simple"],
 })
+"""Configuration for a simple queue strategy."""
 
 
 QueueStrategyModule = SimpleQueueStrategyModule
+"""Configuration for queue strategies."""
 
 
 def load_queue_strategy(module: QueueStrategyModule) -> QueueStrategy:
+    """
+    Loads a queue strategy.
+
+    Args:
+        module (QueueStrategyModule): The configuration. If `name` is a fully
+            qualified python module it will be loaded as plugin.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+
+    Returns:
+        QueueStrategy: The queue strategy.
+    """
+    # pylint: disable=import-outside-toplevel
     if "." in module["name"]:
         kwargs = dict(module)
         plugin = load_plugin(QueueStrategy, f"{kwargs.pop('name')}")

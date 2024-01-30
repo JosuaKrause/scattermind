@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Loads an executor manager."""
 from collections.abc import Callable
 from typing import Literal, TypedDict
 
@@ -25,23 +26,46 @@ SingleExecutorManagerModule = TypedDict('SingleExecutorManagerModule', {
     "name": Literal["single"],
     "batch_size": int,
 })
+"""A singular executor that terminates once all tasks are processed."""
 ThreadExecutorManagerModule = TypedDict('ThreadExecutorManagerModule', {
     "name": Literal["thread"],
     "batch_size": int,
     "parallelism": int,
     "sleep_on_idle": float,
 })
+"""A thread executor that continues executing until the process is terminated
+or all executors are released. `parallelism` defines the number of worker
+threads."""
 
 
 ExecutorManagerModule = (
     SingleExecutorManagerModule
     | ThreadExecutorManagerModule
 )
+"""Executor manager configuration."""
 
 
 def load_executor_manager(
         exec_gen: Callable[[], ExecutorId],
         module: ExecutorManagerModule) -> ExecutorManager:
+    """
+    Load an executor manager.
+
+    Args:
+        exec_gen (Callable[[], ExecutorId]): Generator for new executor ids.
+            This function might be called multiple times depending on the
+            executor manager.
+        module (ExecutorManagerModule): The executor manager configuration.
+            The `name` field can be a fully qualified python module to load
+            a plugin.
+
+    Raises:
+        ValueError: If configuration is invalid.
+
+    Returns:
+        ExecutorManager: The executor manager.
+    """
+    # pylint: disable=import-outside-toplevel
     if "." in module["name"]:
         kwargs = dict(module)
         plugin = load_plugin(ExecutorManager, f"{kwargs.pop('name')}")

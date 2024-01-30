@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A simple queue strategy."""
 from scattermind.system.base import TaskId
 from scattermind.system.client.client import ClientPool
 from scattermind.system.queue.strategy.strategy import QueueStrategy
@@ -20,6 +21,8 @@ from scattermind.system.queue.strategy.strategy import QueueStrategy
 
 class SimpleQueueStrategy(  # pylint: disable=too-few-public-methods
         QueueStrategy):
+    """The simple queue strategy directly uses the raw weight of the task but
+    adjusting it using the number of retries."""
     def compute_weight(
             self,
             cpool: ClientPool,
