@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Test invalid configurations."""
 import pytest
 
 from scattermind.system.base import (
@@ -45,6 +46,7 @@ from scattermind.system.readonly.loader import load_readonly_access
 
 
 def test_loaders() -> None:
+    """Test loading modules with invalid configurations."""
     with pytest.raises(ValueError, match=r"unknown node strategy"):
         load_node_strategy({"name": "foo"})  # type: ignore
     with pytest.raises(ValueError, match=r"unknown queue strategy"):
@@ -73,6 +75,7 @@ def test_loaders() -> None:
 
 
 def test_queue_pool() -> None:
+    """Test invalid configurations and graphs."""
     config = Config()
 
     with pytest.raises(ValueError, match=r"graph not initialized"):
@@ -227,6 +230,7 @@ def test_queue_pool() -> None:
 
 
 def test_ids() -> None:
+    """Test invalid ids."""
     executor_id = ExecutorId.create()
     assert executor_id == ExecutorId.parse(executor_id.to_parseable())
     with pytest.raises(ValueError, match=r"invalid prefix for ExecutorId"):
@@ -284,6 +288,12 @@ def test_ids() -> None:
 
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_compute_task(is_redis: bool) -> None:
+    """
+    Test invalid tasks.
+
+    Args:
+        is_redis (bool): Whether we use redis.
+    """
     config = load_test(is_redis=is_redis)
     cpool = config.get_client_pool()
     task_id = cpool.create_task(TaskValueContainer())

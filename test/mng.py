@@ -13,6 +13,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Functionality for splitting up unit tests and merging back results via XML.
+"""
 import collections
 import os
 import re
@@ -21,21 +23,50 @@ from xml.etree import ElementTree as ET
 
 
 TEST_FILE_PATTERN = re.compile(r"^test_.*\.py$")
+"""Regex to find test files."""
 XML_EXT = ".xml"
+"""XML file extension."""
 DEFAULT_TEST_DURATION = 10.0
+"""Estimated test duration for new tests."""
 
 
 def listdir(folder: str) -> Iterable[str]:
+    """
+    Lists all files in a folder.
+
+    Args:
+        folder (str): The folder.
+
+    Yields:
+        str: Name of a file or directory in the folder.
+    """
     yield from sorted(os.listdir(folder))
 
 
 def find_tests(folder: str) -> Iterable[str]:
+    """
+    Find tests in the given folder.
+
+    Args:
+        folder (str): The folder.
+
+    Yields:
+        str: The full file path of test files.
+    """
     for item in listdir(folder):
         if not os.path.isdir(item) and TEST_FILE_PATTERN.match(item):
             yield os.path.join(folder, item)
 
 
 def merge_results(base_folder: str, out_filename: str) -> None:
+    """
+    Merges test result XML files.
+
+    Args:
+        base_folder (str): The folder containing the XML files with test
+            results.
+        out_filename (str): The final XML file name.
+    """
     testsuites = ET.Element("testsuites")
     combined = ET.SubElement(testsuites, "testsuite")
     parts_folder = os.path.join(base_folder, "parts")
@@ -73,6 +104,18 @@ def merge_results(base_folder: str, out_filename: str) -> None:
 
 
 def split_tests(filepath: str, total_nodes: int, cur_node: int) -> None:
+    """
+    Splits the unit tests across multiple execution nodes balancing execution
+    time.
+
+    Args:
+        filepath (str): The path to the previous merged XML test result file.
+        total_nodes (int): The total number of execution nodes.
+        cur_node (int): The id of the current execution node.
+
+    Raises:
+        ValueError: If the arguments are invalid.
+    """
     _, fname = os.path.split(filepath)
     base = "test"
     if not fname.endswith(XML_EXT):

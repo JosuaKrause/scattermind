@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Utility functions for unit tests."""
 import os
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, TypeVar
@@ -32,9 +33,16 @@ T = TypeVar('T')
 
 
 IS_GH_ACTION: bool | None = None
+"""Lookup value whether the current process is run by github actions."""
 
 
 def is_github_action() -> bool:
+    """
+    Whether the current process is run by github actions.
+
+    Returns:
+        bool: True, if the execution happens from a github actions runner.
+    """
     global IS_GH_ACTION  # pylint: disable=global-statement
 
     if IS_GH_ACTION is None:
@@ -43,6 +51,13 @@ def is_github_action() -> bool:
 
 
 def skip_on_gha_if(condition: bool, reason: str) -> None:
+    """
+    Instructs the test to be skipped if it is run on github actions.
+
+    Args:
+        condition (bool): If True, the test will be skipped on github actions.
+        reason (str): The reason for the skip.
+    """
     if is_github_action() and condition:
         pytest.skip(reason)
 
@@ -54,6 +69,23 @@ def wait_for_tasks(
         timeinc: float = 0.1,
         timeout: float = 0.5,
         ) -> Iterable[tuple['TaskId', 'ResponseObject', T]]:
+    """
+    Wait for scattermind tasks to complete. The function does not check by
+    itself whether the expected result was returned. But the function ensures
+    that all tasks were returned.
+
+    Args:
+        config (Config): The configuration.
+        tasks (list[tuple[TaskId, T]]): A list of tasks and expected results.
+        timeinc (float, optional): The increment of internal waiting
+            between checks. Defaults to 0.1.
+        timeout (float, optional): The maximum time to wait for any task
+            to complete. Defaults to 0.5.
+
+    Yields:
+        tuple[TaskId, ResponseObject, T]: The task, its response, and the
+            expected result.
+    """
     task_ids: list['TaskId'] = []
     expected: dict['TaskId', T] = {}
     for task_id, expected_result in tasks:

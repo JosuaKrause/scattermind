@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Test basic execution graphs."""
 import numpy as np
 import pytest
 
@@ -33,6 +34,14 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 @pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
+    """
+    Test constant operator.
+
+    Args:
+        base (list[list[float]]): The base value.
+        batch_size (int): The batch size for processing.
+        is_redis (bool): Whether to use redis.
+    """
     shape = [len(base), len(base[0])]
     config = load_test(batch_size=batch_size, is_redis=is_redis)
     config.load_graph({
@@ -102,6 +111,14 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_cop_chain(
         base: list[list[float]], batch_size: int, is_redis: bool) -> None:
+    """
+    Test chaining constant operators.
+
+    Args:
+        base (list[list[float]]): The base value.
+        batch_size (int): The batch size for processing.
+        is_redis (bool): Whether to use redis.
+    """
     shape = [len(base), len(base[0])]
     config = load_test(batch_size=batch_size, is_redis=is_redis)
     config.load_graph({

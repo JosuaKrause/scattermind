@@ -13,12 +13,20 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A CLI tool for dividing up tests across executor nodes and merging their
+results. This is used by github actions to have multiple runners."""
 import argparse
 
 from .mng import merge_results, split_tests
 
 
 def parse_args_split_tests(parser: argparse.ArgumentParser) -> None:
+    """
+    Parses arguments for splitting tests across multiple executor nodes.
+
+    Args:
+        parser (argparse.ArgumentParser): The argument subparser.
+    """
     parser.add_argument(
         "--filepath",
         default="test-results/results.xml",
@@ -35,6 +43,12 @@ def parse_args_split_tests(parser: argparse.ArgumentParser) -> None:
 
 
 def parse_args_merge_results(parser: argparse.ArgumentParser) -> None:
+    """
+    Parses arguments for merging test results.
+
+    Args:
+        parser (argparse.ArgumentParser): The argument subparser.
+    """
     parser.add_argument(
         "--dir",
         default="test-results",
@@ -49,6 +63,12 @@ def parse_args_merge_results(parser: argparse.ArgumentParser) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parses the CLI arguments.
+
+    Returns:
+        argparse.Namespace: The parsed arguments.
+    """
     parser = argparse.ArgumentParser(description="Test Utilities")
     subparser = parser.add_subparsers(title="Commands")
 
@@ -74,6 +94,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def run() -> None:
+    """Run the CLI tool."""
     args = parse_args()
     args.func(args)
 

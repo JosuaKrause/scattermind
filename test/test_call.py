@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Test calling subgraphs."""
 import time
 from test.util import wait_for_tasks
 
@@ -37,6 +38,14 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_simple_call(
         batch_size: int, parallelism: int, is_redis: bool) -> None:
+    """
+    Test a simple subgraph call.
+
+    Args:
+        batch_size (int): The batch size.
+        parallelism (int): The parallelism of the executor.
+        is_redis (bool): Whether to use redis.
+    """
     set_debug_output_length(7)
     config = load_test(
         batch_size=batch_size, parallelism=parallelism, is_redis=is_redis)

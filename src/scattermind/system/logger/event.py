@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Event types for the logging system."""
 import datetime
 from typing import Literal, TypedDict
 
@@ -27,6 +28,7 @@ ErrorEvent = TypedDict('ErrorEvent', {
     "traceback": list[str],
     "code": ErrorCode,
 })
+"""An event to report errors."""
 
 
 RetryEvent = TypedDict('RetryEvent', {
@@ -36,24 +38,29 @@ RetryEvent = TypedDict('RetryEvent', {
     "code": ErrorCode,
     "retries": int,
 })
+"""Event to report that a task had to retry processing. This event can contain
+an error that triggered the retry."""
 
 
 WarningEvent = TypedDict('WarningEvent', {
     "name": Literal["warning"],
     "message": str,
 })
+"""A event to report warnings."""
 
 
 TaskEvent = TypedDict('TaskEvent', {
     "name": Literal["tasks"],
     "tasks": list[TaskId],
 })
+"""An event affecting a collection of tasks."""
 
 
 NodeEvent = TypedDict('NodeEvent', {
     "name": Literal["node"],
     "action": Literal["load", "unload"],
 })
+"""Event to indicate that a node has been loaded or unloaded."""
 
 
 OutputEvent = TypedDict('OutputEvent', {
@@ -62,6 +69,7 @@ OutputEvent = TypedDict('OutputEvent', {
     "stdout": str,
     "stderr": str,
 })
+"""Event collecting writes to stdout or stderr."""
 
 
 QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
@@ -71,12 +79,15 @@ QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
     "expected_pressure": float,
     "score": float,
 })
+"""Event to report the status of a queue."""
 
 
 ExecutorEvent = TypedDict('ExecutorEvent', {
     "name": Literal["executor"],
     "action": Literal["start", "stop"],
 })
+"""Event to indicate that an executor has been started or stopped. A stop event
+might not always be fired."""
 
 
 AnyEvent = (
@@ -89,6 +100,7 @@ AnyEvent = (
     | QueueMeasureEvent
     | ExecutorEvent
 )
+"""An event that can be logged to the event stream."""
 
 
 EventInfo = TypedDict('EventInfo', {
@@ -97,3 +109,5 @@ EventInfo = TypedDict('EventInfo', {
     "ctx": ContextInfo,
     "event": AnyEvent,
 })
+"""Full information and context for events that can be logged to the event
+stream."""

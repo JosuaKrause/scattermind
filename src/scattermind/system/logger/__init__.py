@@ -13,3 +13,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Provides the custom logging for scattermind. Logging can be both messages,
+as well as, statistics about the runtime. Different backends can be used to
+compile statistics and provide monitoring capabilities."""

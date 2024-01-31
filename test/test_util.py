@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Tests for the utility modules."""
 from typing import Any
 
 import numpy as np
@@ -43,6 +44,7 @@ NestedList = Any
 
 
 def test_serialize() -> None:
+    """Test serializing tensors."""
     set_system_device_cpu()
 
     def test_ser(mat: np.ndarray, dtype: DTypeName) -> None:
@@ -63,6 +65,7 @@ def test_serialize() -> None:
 
 
 def test_pad() -> None:
+    """Test padding tensors."""
 
     def test(
             shape: list[int],
@@ -139,6 +142,7 @@ def test_pad() -> None:
 
 
 def test_mask() -> None:
+    """Test masking tensors."""
 
     def test(
             own_shape: list[int],
@@ -190,6 +194,7 @@ def test_mask() -> None:
 
 
 def test_lists() -> None:
+    """Test pad lists."""
 
     def create(
             arr: NestedList, dtype_name: DTypeName = "float") -> torch.Tensor:
@@ -224,6 +229,7 @@ def test_lists() -> None:
 
 
 def test_str() -> None:
+    """Test string conversion to tensor."""
 
     def rt_str(text: str) -> None:
         assert tensor_to_str(str_to_tensor(text)) == text
@@ -235,6 +241,7 @@ def test_str() -> None:
 
 
 def test_invalid() -> None:
+    """Test invalid arguments to utility functions."""
     with pytest.raises(ValueError, match=r"cannot match shapes"):
         mask_from_shape([1, 2, 3], [2, 2])
     with pytest.raises(ValueError, match=r"cannot shrink tensor"):

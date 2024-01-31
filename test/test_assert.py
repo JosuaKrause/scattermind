@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Test errors in nodes."""
 import time
 from test.util import wait_for_tasks
 
@@ -39,6 +40,14 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_assertion_error(
         batch_size: int, parallelism: int, is_redis: bool) -> None:
+    """
+    Test causing an assertion error for some tasks.
+
+    Args:
+        batch_size (int): The batch size.
+        parallelism (int): The parallelism.
+        is_redis (bool): Whether to use redis.
+    """
     set_debug_output_length(7)
     config = load_test(
         batch_size=batch_size, parallelism=parallelism, is_redis=is_redis)

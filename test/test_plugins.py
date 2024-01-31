@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Tests loading plugins."""
 import os
 import shutil
 import uuid
@@ -57,6 +58,7 @@ T = TypeVar('T')
 
 
 def test_plugins() -> None:
+    """Test loading plugins."""
     root = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
     plugins_base = os.path.normpath(os.path.join(root, "plugins/test/"))
     test_id = f"test_{uuid.uuid4().hex}"
@@ -154,5 +156,6 @@ def test_plugins() -> None:
 
 
 def test_invalid_plugins() -> None:
+    """Test loading invalid plugins."""
     with pytest.raises(ValueError, match=r"ambiguous or missing plugin"):
         load_plugin(ClientPool, "plugins.test")

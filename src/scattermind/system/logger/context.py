@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Provides context for logging or error reporting."""
 import contextlib
 import threading
 from collections.abc import Callable, Iterator, Mapping
@@ -28,6 +29,7 @@ T = TypeVar('T')
 
 
 TH_LOCAL = threading.local()
+"""The thread local holding the current context."""
 
 
 ContextInfo = TypedDict('ContextInfo', {
@@ -38,6 +40,7 @@ ContextInfo = TypedDict('ContextInfo', {
     "node": NotRequired[NodeId | None],
     "node_name": NotRequired[NName | None],
 })
+"""Context of the current execution state."""
 
 
 ContextJSON = TypedDict('ContextJSON', {
@@ -48,9 +51,19 @@ ContextJSON = TypedDict('ContextJSON', {
     "node": NotRequired[str | None],
     "node_name": NotRequired[str | None],
 })
+"""Context of the current execution state as a JSONable object."""
 
 
 def to_ctx_json(info: ContextInfo) -> ContextJSON:
+    """
+    Convert a context into a JSONable object.
+
+    Args:
+        info (ContextInfo): The context.
+
+    Returns:
+        ContextJSON: A JSONable object.
+    """
 
     def mapval(val: T | None, transform: Callable[[T], str]) -> str | None:
         if val is None:
@@ -68,6 +81,15 @@ def to_ctx_json(info: ContextInfo) -> ContextJSON:
 
 
 def from_ctx_json(ctx: Mapping) -> ContextInfo:
+    """
+    Parses a JSON object as context.
+
+    Args:
+        ctx (Mapping): The JSON object.
+
+    Returns:
+        ContextInfo: The context.
+    """
 
     def mapval(val: str | None, transform: Callable[[str], T]) -> T | None:
         if val is None:
@@ -85,7 +107,9 @@ def from_ctx_json(ctx: Mapping) -> ContextInfo:
 
 
 NAME_CTX = "ctx"
+"""Name of the standard context."""
 NAME_PREEXC_CTX = "preexc_ctx"
+"""Name of the pre-exception context."""
 
 
 def _get_context() -> ContextInfo:
@@ -114,6 +138,12 @@ def _set_preexc_context(ctx: ContextInfo) -> None:
 
 @contextlib.contextmanager
 def add_context(add_info: ContextInfo) -> Iterator[None]:
+    """
+    Provides a resource block with additional context information.
+
+    Args:
+        add_info (ContextInfo): The additional context information.
+    """
     old_ctx = _get_context()
     new_ctx = old_ctx.copy()
     new_ctx.update(add_info)
@@ -130,22 +160,56 @@ def add_context(add_info: ContextInfo) -> Iterator[None]:
 
 
 def get_ctx() -> ContextInfo:
+    """
+    Retrieves the current context.
+
+    Returns:
+        ContextInfo: The context.
+    """
     return _get_context().copy()
 
 
 def ctx_fmt() -> str:
+    """
+    Formats the current context.
+
+    Returns:
+        str: The context as string.
+    """
     return ctx_format(get_ctx())
 
 
 def get_preexc_ctx() -> ContextInfo:
+    """
+    Retrieves the context from before the exception was raised. If no exception
+    was raised then the context is the same as the current context.
+
+    Returns:
+        ContextInfo: The pre-exception context.
+    """
     return _get_preexc_context().copy()
 
 
 def preexc_ctx_fmt() -> str:
+    """
+    Formats the pre-exception context.
+
+    Returns:
+        str: The pre-exception context as string.
+    """
     return ctx_format(get_preexc_ctx())
 
 
 def ctx_format(ctx: ContextInfo) -> str:
+    """
+    Formats a context.
+
+    Args:
+        ctx (ContextInfo): The context.
+
+    Returns:
+        str: The context as string.
+    """
     executor = ctx.get("executor")
     task = ctx.get("task")
     graph_id = ctx.get("graph")
@@ -175,6 +239,16 @@ def ctx_format(ctx: ContextInfo) -> str:
 
 
 def to_replace_context(ctx: ContextInfo) -> ContextInfo:
+    """
+    Adds missing fields as None so when using the given context for adding
+    to another context all fields are overwritten.
+
+    Args:
+        ctx (ContextInfo): The original (partial) context.
+
+    Returns:
+        ContextInfo: A new context containing all fields.
+    """
     return {
         "executor": ctx.get("executor"),
         "task": ctx.get("task"),

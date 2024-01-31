@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Test scattermind under low memory conditions."""
 import time
 from test.util import wait_for_tasks
 
@@ -36,6 +37,13 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 @pytest.mark.parametrize("base", [[[1.0]], [[1.0, 2.0], [3.0, 4.0]]])
 @pytest.mark.parametrize("batch_size", [1, 2, 3, 10, 20])
 def test_low_mem(base: list[list[float]], batch_size: int) -> None:
+    """
+    Test scattermind under low memory conditions for the payload data store.
+
+    Args:
+        base (list[list[float]]): The base value.
+        batch_size (int): The batch size.
+    """
     # FIXME work out a way to enable redis here
     shape = [len(base), len(base[0])]
     config = load_test(

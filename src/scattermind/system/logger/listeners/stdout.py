@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Prints all events to stdout."""
 from typing import Any
 
 from scattermind.system.logger.context import ctx_format
@@ -22,6 +23,7 @@ from scattermind.system.util import fmt_time
 
 
 class StdoutListener(EventListener):
+    """Prints all events to stdout."""
     def __init__(
             self,
             *,

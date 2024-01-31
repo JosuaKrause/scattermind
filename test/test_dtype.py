@@ -13,6 +13,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Test dtypes."""
 from typing import get_args
 
 import pytest
@@ -28,6 +29,7 @@ from scattermind.system.torch_util import (
 
 
 def test_dtype() -> None:
+    """Test dtypes."""
     for dtype in get_args(DTypeName):
         torch_dtype = get_dtype(dtype)
         other_dtype = get_dtype(dtype_to_str(torch_dtype))
@@ -44,6 +46,7 @@ def test_dtype() -> None:
 
 
 def test_invalid_dtype() -> None:
+    """Test invalid dtypes."""
     with pytest.raises(ValueError, match=r"invalid dtype"):
         get_dtype("foo")
     with pytest.raises(ValueError, match=r"invalid dtype"):
