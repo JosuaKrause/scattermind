@@ -14,16 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """Configurations connect modules together to make scattermind work."""
-import time
-from collections.abc import Iterable
 from typing import cast, TypeVar
 
+from scattermind.api.api import ScattermindAPI
 from scattermind.system.base import L_EITHER, Locality, Module, TaskId
 from scattermind.system.client.client import ClientPool
 from scattermind.system.executor.executor import ExecutorManager
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.graphdef import FullGraphDefJSON, json_to_graph
-from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.log import EventStream
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import TaskValueContainer
@@ -34,20 +32,14 @@ from scattermind.system.queue.queue import (
 )
 from scattermind.system.readonly.access import ReadonlyAccess
 from scattermind.system.readonly.writer import RoAWriter
-from scattermind.system.response import (
-    ResponseObject,
-    TASK_STATUS_DONE,
-    TASK_STATUS_ERROR,
-    TASK_STATUS_READY,
-    TaskStatus,
-)
+from scattermind.system.response import ResponseObject, TaskStatus
 
 
 ModuleT = TypeVar('ModuleT', bound=Module)
 """A module type."""
 
 
-class Config:
+class Config(ScattermindAPI):
     """Configurations connect different modules together and ensures their
     compatibility. This class also serves as somewhat external API."""
     def __init__(self) -> None:
@@ -155,6 +147,15 @@ class Config:
         if self._emng is None:
             raise ValueError("executor manager not initialized")
         return self._emng
+
+    def is_api(self) -> bool:
+        """
+        Whether this config is an API and cannot be used to execute tasks.
+
+        Returns:
+            bool: True, if no executor manager is set.
+        """
+        return self._emng is None
 
     def set_data_store(self, store: DataStore) -> None:
         """
@@ -319,53 +320,19 @@ class Config:
         return self.get_queue_pool().get_queue_strategy()
 
     def load_graph(self, graph_def: FullGraphDefJSON) -> None:
-        """
-        Load the full graph from a JSON definition.
-
-        Args:
-            graph_def (FullGraphDefJSON): The JSON definition of the graph.
-        """
         graph = json_to_graph(self.get_queue_pool(), graph_def)
         self.set_graph(graph)
 
     def enqueue(self, value: TaskValueContainer) -> TaskId:
-        """
-        Enqueues a task.
-
-        Args:
-            value (TaskValueContainer): The task's input values.
-
-        Returns:
-            TaskId: The task id.
-        """
         store = self.get_data_store()
         queue_pool = self.get_queue_pool()
         return queue_pool.enqueue_task(store, value)
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
-        """
-        Get the status of the given task.
-
-        Args:
-            task_id (TaskId): The task id.
-
-        Returns:
-            TaskStatus: The status of the task.
-        """
         cpool = self.get_client_pool()
         return cpool.get_status(task_id)
 
     def get_result(self, task_id: TaskId) -> TaskValueContainer | None:
-        """
-        Retrieve the results of a task.
-
-        Args:
-            task_id (TaskId): The task id.
-
-        Returns:
-            TaskValueContainer | None: The results of the task or None if no
-                results are available.
-        """
         cpool = self.get_client_pool()
         queue_pool = self.get_queue_pool()
         graph_id = queue_pool.get_entry_graph()
@@ -373,16 +340,6 @@ class Config:
         return cpool.get_final_output(task_id, output_format)
 
     def get_response(self, task_id: TaskId) -> ResponseObject:
-        """
-        Retrieve the response of a task. The response gives a summary of
-        various elements of a task.
-
-        Args:
-            task_id (TaskId): The task id.
-
-        Returns:
-            ResponseObject: The response.
-        """
         cpool = self.get_client_pool()
         queue_pool = self.get_queue_pool()
         graph_id = queue_pool.get_entry_graph()
@@ -390,12 +347,6 @@ class Config:
         return cpool.get_response(task_id, output_format)
 
     def clear_task(self, task_id: TaskId) -> None:
-        """
-        Remove all data associated with the task.
-
-        Args:
-            task_id (TaskId): The task id.
-        """
         cpool = self.get_client_pool()
         cpool.clear_task(task_id)
 
@@ -413,59 +364,3 @@ class Config:
             return emng.execute_batch(logger, queue_pool, store, roa)
 
         executor_manager.execute(logger, work)
-
-    def wait_for(
-            self,
-            task_ids: list[TaskId],
-            *,
-            timeinc: float = 1.0,
-            timeout: float = 10.0,
-            ) -> Iterable[tuple[TaskId, ResponseObject]]:
-        """
-        Wait for a collection of tasks to complete.
-
-        Args:
-            task_ids (list[TaskId]): The tasks to wait for.
-            timeinc (float, optional): The increment of internal waiting
-                between checks. Defaults to 1.0.
-            timeout (float, optional): The maximum time to wait for any task
-                to complete. Defaults to 10.0.
-
-        Yields:
-            tuple[TaskId, ResponseObject]: Whenever the next task finishes.
-                If the wait times out all remaining tasks are returned (which
-                will have an in-progress status). A tuple of task id and its
-                response.
-        """
-        assert timeinc > 0.0
-        assert timeout > 0.0
-        cur_ids = list(task_ids)
-        already: set[TaskId] = set()
-        start_time = time.monotonic()
-        while cur_ids:
-            task_id = cur_ids.pop(0)
-            status = self.get_status(task_id)
-            print(f"{ctx_fmt()} wait for {task_id} {status}")
-            if status in (
-                    TASK_STATUS_READY,
-                    TASK_STATUS_DONE,
-                    TASK_STATUS_ERROR):
-                yield (task_id, self.get_response(task_id))
-                start_time = time.monotonic()
-                continue
-            cur_ids.append(task_id)
-            if task_id not in already:
-                already.add(task_id)
-                continue
-            already.clear()
-            elapsed = time.monotonic() - start_time
-            if elapsed >= timeout:
-                break
-            if elapsed + timeinc > timeout:
-                wait_time = timeout - elapsed
-            else:
-                wait_time = timeinc
-            if wait_time > 0.0:
-                time.sleep(wait_time)
-        for task_id in cur_ids:  # FIXME write timeout test?
-            yield (task_id, self.get_response(task_id))

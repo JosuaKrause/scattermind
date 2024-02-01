@@ -95,7 +95,7 @@ def test_assertion_error(
     tasks: list[tuple[TaskId, bool]] = [
         (
             config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array([tix % 3 > 0]), "bool"),
+                "value": create_tensor(np.array([tix % 3 > 0]), dtype="bool"),
             })),
             tix % 3 > 0,
         )

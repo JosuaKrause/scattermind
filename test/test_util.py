@@ -41,6 +41,7 @@ from scattermind.system.torch_util import (
 
 
 NestedList = Any
+"""A nested list."""
 
 
 def test_serialize() -> None:
@@ -48,7 +49,7 @@ def test_serialize() -> None:
     set_system_device_cpu()
 
     def test_ser(mat: np.ndarray, dtype: DTypeName) -> None:
-        tensor = create_tensor(mat, dtype)
+        tensor = create_tensor(mat, dtype=dtype)
         other = deserialize_tensor(serialize_tensor(tensor), dtype)
         torch.testing.assert_close(tensor, other)
 
@@ -72,9 +73,9 @@ def test_pad() -> None:
             mat: NestedList,
             padded: NestedList,
             dtype_name: DTypeName) -> None:
-        val = create_tensor(np.array(mat), dtype_name)
+        val = create_tensor(np.array(mat), dtype=dtype_name)
         out = pad_tensor(val, shape)
-        expected = create_tensor(np.array(padded), dtype_name)
+        expected = create_tensor(np.array(padded), dtype=dtype_name)
         torch.testing.assert_close(out, expected)
         mask = mask_from_shape(list(val.shape), list(out.shape))
         assert list(mask.shape) == list(out.shape)
@@ -149,7 +150,7 @@ def test_mask() -> None:
             shape: list[int],
             padded: NestedList) -> None:
         out = mask_from_shape(own_shape, shape)
-        expected = create_tensor(np.array(padded), "bool")
+        expected = create_tensor(np.array(padded), dtype="bool")
         torch.testing.assert_close(out, expected)
         assert extract_shape(out) == own_shape
 
@@ -238,6 +239,49 @@ def test_str() -> None:
     rt_str("this is a long string!")
     rt_str("line\nbreaks")
     rt_str("Hello\u9a6c\u514b😀")
+
+
+def test_infer() -> None:
+    """Test inferring dtypes."""
+
+    def test(
+            val: torch.Tensor,
+            expected: NestedList,
+            shape: list[int],
+            dtype_name: DTypeName) -> None:
+        assert list(val.shape) == shape
+        expected = create_tensor(np.array(expected), dtype=dtype_name)
+        torch.testing.assert_close(val, expected)
+
+    test(create_tensor([[[]]], dtype=None), [[[]]], [0, 0, 0], "float")
+    test(
+        create_tensor([[[1], [2]], [[3], [4]]], dtype=None),
+        [[[1], [2]], [[3], [4]]],
+        [2, 2, 1],
+        "int")
+    test(
+        create_tensor([[[.1, .2], [.3, .4]]], dtype=None),
+        [[[.1, .2], [.3, .4]]],
+        [1, 2, 2],
+        "float")
+
+    test(
+        create_tensor(np.array([[[]]], dtype=np.float32), dtype=None),
+        [[[]]],
+        [0, 0, 0],
+        "float32")
+    test(
+        create_tensor(
+            np.array([[[1], [2]], [[3], [4]]], dtype=np.int8), dtype=None),
+        [[[1], [2]], [[3], [4]]],
+        [2, 2, 1],
+        "int8")
+    test(
+        create_tensor(
+            np.array([[[.1, .2], [.3, .4]]], dtype=np.float16), dtype=None),
+        [[[.1, .2], [.3, .4]]],
+        [1, 2, 2],
+        "float16")
 
 
 def test_invalid() -> None:

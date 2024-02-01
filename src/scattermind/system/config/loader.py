@@ -105,6 +105,34 @@ def load_config(
     return config
 
 
+def load_as_api(config_obj: ConfigJSON) -> Config:
+    """
+    Load a configuration from a JSON without loading an executor manager.
+
+    Args:
+        config_obj (ConfigJSON): The configuration JSON.
+
+    Returns:
+        Config: The API configuration.
+    """
+    config = Config()
+    logger = EventStream()
+    logger_obj = config_obj["logger"]
+    for listener_def in logger_obj["listeners"]:
+        logger.add_listener(
+            load_event_listener(listener_def, logger_obj["disable_events"]))
+    config.set_logger(logger)
+    config.set_data_store(load_store(config_obj["data_store"]))
+    config.set_queue_pool(load_queue_pool(config_obj["queue_pool"]))
+    config.set_client_pool(load_client_pool(config_obj["client_pool"]))
+    strategy_obj = config_obj["strategy"]
+    config.set_node_strategy(load_node_strategy(strategy_obj["node"]))
+    config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
+    config.set_readonly_access(
+        load_readonly_access(config_obj["readonly_access"]))
+    return config
+
+
 def load_test(
         *,
         is_redis: bool,

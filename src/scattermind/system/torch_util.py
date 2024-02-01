@@ -16,7 +16,7 @@
 """Utility functions for pytorch."""
 import gzip
 import io
-from typing import cast, Literal
+from typing import Any, cast, Literal
 
 import numpy as np
 import torch
@@ -128,6 +128,24 @@ TORCH_NUMPY_MAP: dict[torch.dtype, np.dtype] = {
 """Mapping from torch dtypes to numpy dtypes."""
 
 
+TORCH_NUMPY_REV_MAP: dict[np.dtype, torch.dtype] = {
+    np.dtype("bool"): torch.bool,
+    np.dtype("complex128"): torch.complex128,
+    np.dtype("complex64"): torch.complex64,
+    np.dtype("float16"): torch.float16,
+    np.dtype("float32"): torch.float32,
+    np.dtype("float64"): torch.float64,
+    np.dtype("half"): torch.half,
+    np.dtype("int16"): torch.int16,
+    np.dtype("int32"): torch.int32,
+    np.dtype("int64"): torch.int64,
+    np.dtype("int8"): torch.int8,
+    np.dtype("short"): torch.short,
+    np.dtype("uint8"): torch.uint8,
+}
+"""Mapping from numpy dtypes to torch dtypes."""
+
+
 def get_dtype_name(dtype: str) -> DTypeName:
     """
     Converts a string into a `DTypeName`.
@@ -227,6 +245,25 @@ def to_numpy_type(dtype: torch.dtype) -> np.dtype:
     return res
 
 
+def from_numpy_type(dtype: np.dtype) -> torch.dtype:
+    """
+    Convert a numpy dtype to a torch dtype.
+
+    Args:
+        dtype (np.dtype): The numpy dtype.
+
+    Raises:
+        ValueError: If there is no corresponding torch dtype.
+
+    Returns:
+        type[torch.dtype]: The torch dtype.
+    """
+    res = TORCH_NUMPY_REV_MAP.get(dtype)
+    if res is None:
+        raise ValueError(f"unknown dtype: {dtype}")
+    return res
+
+
 SYS_DEVICE: torch.device | None = None
 """The system device for torch objects."""
 
@@ -272,21 +309,44 @@ def get_system_device() -> torch.device:
     return SYS_DEVICE
 
 
-def create_tensor(mat: np.ndarray, dtype: DTypeName) -> torch.Tensor:
+def create_tensor(
+        mat: np.ndarray | list[Any],
+        *,
+        dtype: DTypeName | None) -> torch.Tensor:
     """
     Creates a tensor from a numpy array with a given dtype. The tensor will be
     placed in the system device (:py:function::`get_system_device`).
 
     Args:
-        mat (np.ndarray): The tensor content.
-        dtype (DTypeName): The tensor dtype.
+        mat (np.ndarray | list[Any]): The tensor content.
+        dtype (DTypeName | None): The tensor dtype. If None,
+            the type gets inferred from the content. This might not always
+            work correctly.
 
     Returns:
         torch.Tensor: The tensor.
     """
+    if dtype is None:
+        if isinstance(mat, np.ndarray):
+            dtype_obj = from_numpy_type(mat.dtype)
+        else:
+            dtype = "float"
+            arr = mat
+            while isinstance(arr, list):
+                if len(arr) > 0:
+                    arr = arr[0]
+                else:
+                    break
+            if isinstance(arr, int):
+                dtype = "int"
+            elif not isinstance(arr, (float, list)):
+                raise ValueError(f"could not determine dtype for {mat}")
+            dtype_obj = get_dtype(dtype)
+    else:
+        dtype_obj = get_dtype(dtype)
     return torch.tensor(
         mat,
-        dtype=get_dtype(dtype),
+        dtype=dtype_obj,
         device=get_system_device())
 
 
@@ -333,7 +393,7 @@ def deserialize_tensor(content: bytes, dtype: DTypeName) -> torch.Tensor:
     """
     binp = io.BytesIO(content)
     with gzip.GzipFile(fileobj=binp, mode="r") as finp:
-        return create_tensor(np.load(finp), dtype)
+        return create_tensor(np.load(finp), dtype=dtype)
 
 
 def pad_tensor(value: torch.Tensor, shape: list[int]) -> torch.Tensor:
@@ -437,7 +497,8 @@ def mask_from_shape(own_shape: list[int], shape: list[int]) -> torch.Tensor:
     dtype_name: DTypeName = "bool"
     dtype = get_dtype(dtype_name)
     value = create_tensor(
-        np.ones(tuple(own_shape), dtype=to_numpy_type(dtype)), dtype_name)
+        np.ones(tuple(own_shape), dtype=to_numpy_type(dtype)),
+        dtype=dtype_name)
     return pad_tensor(value, shape)
 
 
@@ -553,7 +614,7 @@ def str_to_tensor(text: str) -> torch.Tensor:
     """
     return create_tensor(
         np.array(list(text.encode("utf-8")), dtype=np.dtype("uint8")),
-        "uint8")
+        dtype="uint8")
 
 
 def tensor_to_str(value: torch.Tensor) -> str:

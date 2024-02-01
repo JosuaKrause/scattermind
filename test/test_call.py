@@ -53,7 +53,7 @@ def test_simple_call(
     cpath = "procedure_const_0"
     with writer.open_write(cpath) as fout:
         constant_0 = fout.as_data_str(fout.write_tensor(
-            create_tensor(np.array([[1.0, 0.0], [0.0, 1.0]]), "float")))
+            create_tensor(np.array([[1.0, 0.0], [0.0, 1.0]]), dtype="float")))
     config.load_graph({
         "graphs": [
             {
@@ -205,7 +205,7 @@ def test_simple_call(
                 "value": create_tensor(np.array([
                     [-tix, tix + 1],
                     [-tix, tix + 2],
-                ]), "float"),
+                ]), dtype="float"),
             })),
             np.array([
                 [1.0 - 4.0 * tix, 1.0],

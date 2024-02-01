@@ -78,7 +78,7 @@ class ForLoop(Node):
         for task, value in state.get_values().iter_values():
             val = value["stack"]
             if not val.shape[0]:
-                val = create_tensor(np.array([init_value]), "int")
+                val = create_tensor(np.array([init_value]), dtype="int")
             else:
                 val[-1] -= 1
             out = state.create_single(val)

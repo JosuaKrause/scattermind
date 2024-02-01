@@ -83,7 +83,7 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
             config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array(base) * tix, "float"),
+                "value": create_tensor(np.array(base) * tix, dtype="float"),
             })),
             np.array(base) * tix * 2.0,
         )
@@ -175,7 +175,7 @@ def test_cop_chain(
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
             config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array(base) * tix, "float"),
+                "value": create_tensor(np.array(base) * tix, dtype="float"),
             })),
             np.array(base) * tix * 2.0 + 1.0,
         )
