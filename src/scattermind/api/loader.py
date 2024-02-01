@@ -18,7 +18,7 @@ from scattermind.api.api import ScattermindAPI
 from scattermind.system.config.loader import ConfigJSON, load_as_api
 
 
-def load_config(config_obj: ConfigJSON) -> ScattermindAPI:
+def load_api(config_obj: ConfigJSON) -> ScattermindAPI:
     """
     Load a scattermind API from a JSON.
 
