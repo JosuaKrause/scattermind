@@ -253,7 +253,7 @@ def test_infer() -> None:
         expected = create_tensor(np.array(expected), dtype=dtype_name)
         torch.testing.assert_close(val, expected)
 
-    test(create_tensor([[[]]], dtype=None), [[[]]], [0, 0, 0], "float")
+    test(create_tensor([[[]]], dtype=None), [[[]]], [1, 1, 0], "float")
     test(
         create_tensor([[[1], [2]], [[3], [4]]], dtype=None),
         [[[1], [2]], [[3], [4]]],
@@ -268,7 +268,7 @@ def test_infer() -> None:
     test(
         create_tensor(np.array([[[]]], dtype=np.float32), dtype=None),
         [[[]]],
-        [0, 0, 0],
+        [1, 1, 0],
         "float32")
     test(
         create_tensor(
