@@ -411,3 +411,16 @@ class ExecutorManager(Module):
                 function until it returns True (i.e., work is done).
         """
         raise NotImplementedError()
+
+    @staticmethod
+    def allow_parallel() -> bool:
+        """
+        Whether creating multiple executors to achieve local parallelism is
+        supported. The call to ::py:method:`execute` happens only to one
+        executor in this case so the executor manager needs to ensure that it
+        is properly propagated to the other local executors.
+
+        Returns:
+            bool: True, if local parallelism is supported.
+        """
+        raise NotImplementedError()

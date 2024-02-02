@@ -70,3 +70,7 @@ class SingleExecutorManager(ExecutorManager):
                         "name": "executor",
                         "action": "stop",
                     })
+
+    @staticmethod
+    def allow_parallel() -> bool:
+        return False

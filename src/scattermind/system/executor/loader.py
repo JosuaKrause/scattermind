@@ -45,6 +45,38 @@ ExecutorManagerModule = (
 """Executor manager configuration."""
 
 
+def _load_executor_manager(
+        exec_gen: Callable[[], ExecutorId],
+        module: ExecutorManagerModule,
+        ) -> tuple[Callable[[], ExecutorManager], bool]:
+    # pylint: disable=import-outside-toplevel
+    if "." in module["name"]:
+        kwargs = dict(module)
+        plugin = load_plugin(ExecutorManager, f"{kwargs.pop('name')}")
+        batch_size = int(f"{kwargs.pop('batch_size')}")
+        return (
+            lambda: plugin(exec_gen(), batch_size=batch_size, **kwargs),
+            plugin.allow_parallel(),
+        )
+    if module["name"] == "single":
+        from scattermind.system.executor.single import SingleExecutorManager
+        return (
+            lambda: SingleExecutorManager(
+                exec_gen(), batch_size=module["batch_size"]),
+            SingleExecutorManager.allow_parallel(),
+        )
+    if module["name"] == "thread":
+        from scattermind.system.executor.thread import ThreadExecutorManager
+        return (
+            lambda: ThreadExecutorManager(
+                exec_gen(),
+                batch_size=module["batch_size"],
+                sleep_on_idle=module["sleep_on_idle"]),
+            ThreadExecutorManager.allow_parallel(),
+        )
+    raise ValueError(f"unknown executor manager: {module['name']}")
+
+
 def load_executor_manager(
         exec_gen: Callable[[], ExecutorId],
         module: ExecutorManagerModule) -> ExecutorManager:
@@ -65,24 +97,9 @@ def load_executor_manager(
     Returns:
         ExecutorManager: The executor manager.
     """
-    # pylint: disable=import-outside-toplevel
-    if "." in module["name"]:
-        kwargs = dict(module)
-        plugin = load_plugin(ExecutorManager, f"{kwargs.pop('name')}")
-        batch_size = int(f"{kwargs.pop('batch_size')}")
-        return plugin(exec_gen(), batch_size=batch_size, **kwargs)
-    if module["name"] == "single":
-        from scattermind.system.executor.single import SingleExecutorManager
-        return SingleExecutorManager(
-            exec_gen(), batch_size=module["batch_size"])
-    if module["name"] == "thread":
-        from scattermind.system.executor.thread import ThreadExecutorManager
-        tems = [
-            ThreadExecutorManager(
-                exec_gen(),
-                batch_size=module["batch_size"],
-                sleep_on_idle=module["sleep_on_idle"])
-            for _ in range(module["parallelism"])
-        ]
-        return tems[0]
-    raise ValueError(f"unknown executor manager: {module['name']}")
+    constructor, has_parallelism = _load_executor_manager(exec_gen, module)
+    local_parallelism = int(module.get("parallelism", 1))  # type: ignore
+    if has_parallelism and local_parallelism > 1:
+        ems = [constructor() for _ in range(local_parallelism)]
+        return ems[0]
+    return constructor()

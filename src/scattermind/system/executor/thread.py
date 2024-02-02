@@ -185,3 +185,7 @@ class ThreadExecutorManager(ExecutorManager):
                 same_logger = self.get_logger() is logger
                 if (not same_work or not same_logger) and is_active:
                     exe.execute(logger, work)
+
+    @staticmethod
+    def allow_parallel() -> bool:
+        return True
