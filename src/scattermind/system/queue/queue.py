@@ -28,6 +28,7 @@ from scattermind.system.client.client import ClientPool, ComputeTask
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt, get_ctx
 from scattermind.system.logger.error import ErrorInfo, to_retry_event
+from scattermind.system.logger.event import QueueMeasureEvent
 from scattermind.system.logger.log import EventStream
 from scattermind.system.names import GName, QualifiedName, ValueMap
 from scattermind.system.payload.data import DataStore
@@ -637,30 +638,51 @@ class QueuePool(Module):
         entry_graph_id = self.get_entry_graph()
         candidate_node = self.get_input_node(entry_graph_id)
         candidate_score = 0.0
-        for node in self.get_all_nodes():
+
+        def process_node(node: 'Node') -> float:
             cur_graph_id = node.get_graph()
             cur_graph_name = self.get_graph_name(cur_graph_id)
             qid = node.get_input_queue()
             queue = self.get_queue(qid)
-            length = queue.get_queue_length()
-            pressure = queue.total_backpressure()
-            expected_pressure = queue.total_expected_pressure()
-            claimants = queue.claimant_count()
+            qme: QueueMeasureEvent = {
+                "name": "queue_input",
+            }
+
+            def queue_length() -> int:
+                queue_length = queue.get_queue_length()
+                qme["length"] = queue_length
+                return queue_length
+
+            def pressure() -> float:
+                pressure = queue.total_backpressure()
+                qme["pressure"] = pressure
+                return pressure
+
+            def expected_pressure() -> float:
+                expected_pressure = queue.total_expected_pressure()
+                qme["expected_pressure"] = expected_pressure
+                return expected_pressure
+
+            def cost_to_load() -> float:
+                cost_to_load = node.get_load_cost()
+                qme["cost"] = cost_to_load
+                return cost_to_load
+
+            def claimants() -> int:
+                claimants = queue.claimant_count()
+                qme["claimants"] = claimants
+                return claimants
+
             score = strategy.other_score(
-                queue_length=length,
+                queue_length=queue_length,
                 pressure=pressure,
                 expected_pressure=expected_pressure,
-                cost_to_load=node.get_load_cost(),
+                cost_to_load=cost_to_load,
                 claimants=claimants)
+            qme["score"] = score
             logger.log_event(
                 "measure.queue.input",
-                {
-                    "name": "queue_input",
-                    "length": length,
-                    "pressure": pressure,
-                    "expected_pressure": expected_pressure,
-                    "score": score,
-                },
+                qme,
                 adjust_ctx={
                     "executor": None,
                     "task": None,
@@ -669,24 +691,60 @@ class QueuePool(Module):
                     "node": node.get_id(),
                     "node_name": node.get_name(),
                 })
+            return score
+
+        for node in self.get_all_nodes():
+            score = process_node(node)
             if score > candidate_score:
                 candidate_score = score
                 candidate_node = node
         if current_node is None:
             return (candidate_node, True)
-        qid = current_node.get_input_queue()
-        own_queue = self.get_queue(qid)
-        own_length = own_queue.get_queue_length()
-        own_pressure = own_queue.total_backpressure()
-        own_expected_pressure = own_queue.total_expected_pressure()
-        own_claimants = own_queue.claimant_count()
-        own_score = strategy.own_score(
-            queue_length=own_length,
-            pressure=own_pressure,
-            expected_pressure=own_expected_pressure,
-            cost_to_load=current_node.get_load_cost(),
-            claimants=own_claimants)
-        if strategy.want_to_switch(own_score, candidate_score):
+        own_queue = self.get_queue(current_node.get_input_queue())
+
+        def own_queue_length() -> int:
+            return own_queue.get_queue_length()
+
+        def own_pressure() -> float:
+            return own_queue.total_backpressure()
+
+        def own_expected_pressure() -> float:
+            return own_queue.total_expected_pressure()
+
+        def own_cost_to_load() -> float:
+            return current_node.get_load_cost()
+
+        def own_claimants() -> int:
+            return own_queue.claimant_count()
+
+        other_queue = self.get_queue(candidate_node.get_input_queue())
+
+        def other_queue_length() -> int:
+            return other_queue.get_queue_length()
+
+        def other_pressure() -> float:
+            return other_queue.total_backpressure()
+
+        def other_expected_pressure() -> float:
+            return other_queue.total_expected_pressure()
+
+        def other_cost_to_load() -> float:
+            return candidate_node.get_load_cost()
+
+        def other_claimants() -> int:
+            return other_queue.claimant_count()
+
+        if strategy.want_to_switch(
+                own_queue_length=own_queue_length,
+                own_pressure=own_pressure,
+                own_expected_pressure=own_expected_pressure,
+                own_cost_to_load=own_cost_to_load,
+                own_claimants=own_claimants,
+                other_queue_length=other_queue_length,
+                other_pressure=other_pressure,
+                other_expected_pressure=other_expected_pressure,
+                other_cost_to_load=other_cost_to_load,
+                other_claimants=other_claimants):
             return (candidate_node, candidate_node != current_node)
         return (current_node, False)
 

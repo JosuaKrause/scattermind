@@ -15,7 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """Event types for the logging system."""
 import datetime
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from scattermind.system.base import TaskId
 from scattermind.system.logger.context import ContextInfo
@@ -74,10 +74,12 @@ OutputEvent = TypedDict('OutputEvent', {
 
 QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
     "name": Literal["queue_input"],
-    "length": int,
-    "pressure": float,
-    "expected_pressure": float,
-    "score": float,
+    "length": NotRequired[int],
+    "pressure": NotRequired[float],
+    "expected_pressure": NotRequired[float],
+    "cost": NotRequired[float],
+    "claimants": NotRequired[int],
+    "score": NotRequired[float],
 })
 """Event to report the status of a queue."""
 
