@@ -41,7 +41,7 @@ class LocalQueuePool(QueuePool):
         self._check_assertions = check_assertions
         self._assert_tasks: dict[TaskId, QueueId] = {}
         self._task_ids: dict[QueueId, list[tuple[float, TaskId]]] = {}
-        self._claims: dict[ExecutorId, dict[QueueId, list[TaskId]]] = {}
+        self._claims: dict[QueueId, dict[ExecutorId, list[TaskId]]] = {}
         self._expect: dict[QueueId, dict[ExecutorId, tuple[float, int]]] = {}
         self._lock = threading.RLock()
 
@@ -80,18 +80,18 @@ class LocalQueuePool(QueuePool):
             task_ids = self._task_ids.get(qid, [])
             # FIXME: keep a sorted list instead of sorting every time
             task_ids.sort(reverse=True, key=lambda elem: elem[0])
-            qclaims = self._claims.get(executor_id)
-            if qclaims is None:
-                qclaims = {}
-                self._claims[executor_id] = qclaims
-            claims = qclaims.get(qid)
+            claims = self._claims.get(qid)
             if claims is None:
-                claims = []
-                qclaims[qid] = claims
+                claims = {}
+                self._claims[qid] = claims
+            qclaims = claims.get(executor_id)
+            if qclaims is None:
+                qclaims = []
+                claims[executor_id] = qclaims
             res: list[TaskId] = []
             while task_ids and len(res) < batch_size:
                 _, task_id = task_ids.pop(0)
-                claims.append(task_id)
+                qclaims.append(task_id)
                 res.append(task_id)
             if self._check_assertions:
                 assert_tasks = self._assert_tasks
@@ -107,11 +107,16 @@ class LocalQueuePool(QueuePool):
             print(f"{ctx_fmt()} claim {res} in {qid} remaining {task_ids}")
             return res
 
+    def claimant_count(self, qid: QueueId) -> int:
+        with self._lock:
+            qclaims = self._claims.get(qid, {})
+            return len(qclaims)
+
     def unclaim_tasks(
             self, qid: QueueId, executor_id: ExecutorId) -> list[TaskId]:
         with self._lock:
-            qclaims = self._claims.get(executor_id, {})
-            return qclaims.pop(qid, [])
+            qclaims = self._claims.get(qid, {})
+            return qclaims.pop(executor_id, [])
 
     def expect_task_weight(
             self,

@@ -100,19 +100,23 @@ class RedisQueuePool(QueuePool):
         return cls.key("tasks", qid.to_parseable())
 
     @classmethod
-    def key_claims(cls, executor_id: ExecutorId, qid: QueueId) -> str:
+    def key_claims(cls, qid: QueueId, executor_id: ExecutorId | None) -> str:
         """
         Computes the full key for claims.
 
         Args:
-            executor_id (ExecutorId): The claiming executor.
             qid (QueueId): The queue id.
+            executor_id (ExecutorId | None): The claiming executor. If None,
+                this segment is ignored.
 
         Returns:
             str: The full claims key. The type of the key is a list.
         """
+        if executor_id is None:
+            return cls.key(
+                "claims", f"{qid.to_parseable()}:")
         return cls.key(
-            "claims", f"{executor_id.to_parseable()}:{qid.to_parseable()}")
+            "claims", f"{qid.to_parseable()}:{executor_id.to_parseable()}")
 
     @classmethod
     def key_expect(
@@ -202,7 +206,7 @@ class RedisQueuePool(QueuePool):
         res = self._claim_tasks(
             keys={
                 "task_key": self.key_tasks(qid),
-                "claims_key": self.key_claims(executor_id, qid),
+                "claims_key": self.key_claims(qid, executor_id),
                 "assert_key_base": "asserts",
             },
             args={
@@ -216,9 +220,15 @@ class RedisQueuePool(QueuePool):
             return [TaskId.parse(elem) for elem in res]
         raise AssertionError(res)
 
+    def claimant_count(self, qid: QueueId) -> int:
+        # FIXME: add functionality in redipy
+        redis = self._redis.maybe_get_redis_runtime()
+        assert redis is not None
+        return redis.keys_count(self.key_claims(qid, None))
+
     def unclaim_tasks(
             self, qid: QueueId, executor_id: ExecutorId) -> list[TaskId]:
-        claims_key = self.key_claims(executor_id, qid)
+        claims_key = self.key_claims(qid, executor_id)
         return [
             TaskId.parse(elem)
             for elem in

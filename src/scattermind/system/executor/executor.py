@@ -199,8 +199,8 @@ class ExecutorManager(Module):
             success = False
             maybe_requeue: dict[TaskId, ErrorInfo] = {}
             try:
-                with logger.log_output("output.node", "execute"):
-                    node.execute_tasks(state)
+                # with logger.log_output("output.node", "execute"):
+                node.execute_tasks(state)
                 success = True
             except NoTasksToCompute as nttc:
                 r_msg = (

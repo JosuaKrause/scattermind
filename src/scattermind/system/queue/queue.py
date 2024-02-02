@@ -81,6 +81,15 @@ class Queue:
         """
         return self._queue_pool.get_consumer_node(self._qid)
 
+    def claimant_count(self) -> int:
+        """
+        Retrieves the number of executors having claims on this queue.
+
+        Returns:
+            int: The number of executors having claims on the queue.
+        """
+        return self._queue_pool.claimant_count(self._qid)
+
     def get_unclaimed_tasks(self) -> list[ComputeTask]:
         """
         Retrieves all unclaimed tasks in this queue.
@@ -636,11 +645,13 @@ class QueuePool(Module):
             length = queue.get_queue_length()
             pressure = queue.total_backpressure()
             expected_pressure = queue.total_expected_pressure()
+            claimants = queue.claimant_count()
             score = strategy.other_score(
                 queue_length=length,
                 pressure=pressure,
                 expected_pressure=expected_pressure,
-                cost_to_load=node.get_load_cost())
+                cost_to_load=node.get_load_cost(),
+                claimants=claimants)
             logger.log_event(
                 "measure.queue.input",
                 {
@@ -668,11 +679,13 @@ class QueuePool(Module):
         own_length = own_queue.get_queue_length()
         own_pressure = own_queue.total_backpressure()
         own_expected_pressure = own_queue.total_expected_pressure()
+        own_claimants = own_queue.claimant_count()
         own_score = strategy.own_score(
             queue_length=own_length,
             pressure=own_pressure,
             expected_pressure=own_expected_pressure,
-            cost_to_load=current_node.get_load_cost())
+            cost_to_load=current_node.get_load_cost(),
+            claimants=own_claimants)
         if strategy.want_to_switch(own_score, candidate_score):
             return (candidate_node, candidate_node != current_node)
         return (current_node, False)
@@ -946,6 +959,18 @@ class QueuePool(Module):
 
         Returns:
             list[TaskId]: A list of claimed tasks as task ids.
+        """
+        raise NotImplementedError()
+
+    def claimant_count(self, qid: QueueId) -> int:
+        """
+        Retrieves the number of executors having claims on the given queue.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            int: The number of executors having claims on the queue.
         """
         raise NotImplementedError()
 

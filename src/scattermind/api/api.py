@@ -140,7 +140,7 @@ class ScattermindAPI:
             task_ids: list[TaskId],
             *,
             timeinc: float = 1.0,
-            timeout: float = 10.0,
+            timeout: float | None = 10.0,
             ) -> Iterable[tuple[TaskId, ResponseObject]]:
         """
         Wait for a collection of tasks to complete.
@@ -149,8 +149,9 @@ class ScattermindAPI:
             task_ids (list[TaskId]): The tasks to wait for.
             timeinc (float, optional): The increment of internal waiting
                 between checks. Defaults to 1.0.
-            timeout (float, optional): The maximum time to wait for any task
-                to complete. Defaults to 10.0.
+            timeout (float | None, optional): The maximum time to wait for any
+                task to complete. If None, no timeout is enforced. Defaults to
+                10.0.
 
         Yields:
             tuple[TaskId, ResponseObject]: Whenever the next task finishes.
@@ -159,7 +160,7 @@ class ScattermindAPI:
                 response.
         """
         assert timeinc > 0.0
-        assert timeout > 0.0
+        assert timeout is None or timeout > 0.0
         cur_ids = list(task_ids)
         already: set[TaskId] = set()
         start_time = time.monotonic()
@@ -179,9 +180,9 @@ class ScattermindAPI:
                 continue
             already.clear()
             elapsed = time.monotonic() - start_time
-            if elapsed >= timeout:
+            if timeout is not None and elapsed >= timeout:
                 break
-            if elapsed + timeinc > timeout:
+            if timeout is not None and elapsed + timeinc > timeout:
                 wait_time = timeout - elapsed
             else:
                 wait_time = timeinc

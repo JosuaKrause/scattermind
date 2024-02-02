@@ -26,8 +26,12 @@ class SimpleNodeStrategy(NodeStrategy):
             queue_length: int,
             pressure: float,
             expected_pressure: float,
-            cost_to_load: float) -> float:
-        return (queue_length + expected_pressure + pressure) / cost_to_load
+            cost_to_load: float,
+            claimants: int) -> float:
+        add: float = queue_length
+        if claimants <= 1:
+            add += 10000 * (pressure + 1) / (queue_length + 1)
+        return (add + expected_pressure + pressure) / cost_to_load
 
     def other_score(
             self,
@@ -35,8 +39,12 @@ class SimpleNodeStrategy(NodeStrategy):
             queue_length: int,
             pressure: float,
             expected_pressure: float,
-            cost_to_load: float) -> float:
-        return (queue_length + expected_pressure + pressure) / cost_to_load
+            cost_to_load: float,
+            claimants: int) -> float:
+        add: float = queue_length
+        if claimants == 0:
+            add += 10000 * (pressure + 1) / (queue_length + 1)
+        return (add + expected_pressure + pressure) / cost_to_load
 
     def want_to_switch(self, own_score: float, other_score: float) -> bool:
         return other_score > own_score

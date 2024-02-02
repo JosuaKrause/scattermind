@@ -29,7 +29,8 @@ class NodeStrategy:
             queue_length: int,
             pressure: float,
             expected_pressure: float,
-            cost_to_load: float) -> float:
+            cost_to_load: float,
+            claimants: int) -> float:
         """
         Computes the score of the currently active node. Higher scores are
         better.
@@ -40,6 +41,8 @@ class NodeStrategy:
             expected_pressure (float): The upcoming (expected new) pressure
                 that potentially will be added to the input queue.
             cost_to_load (float): The cost to load the node.
+            claimants (int): The number of executors currently laying claim
+                to the node.
 
         Returns:
             float: The score of the node. Higher values are better.
@@ -52,7 +55,8 @@ class NodeStrategy:
             queue_length: int,
             pressure: float,
             expected_pressure: float,
-            cost_to_load: float) -> float:
+            cost_to_load: float,
+            claimants: int) -> float:
         """
         Computes the score of other nodes. Higher scores are better.
 
@@ -62,6 +66,8 @@ class NodeStrategy:
             expected_pressure (float): The upcoming (expected new) pressure
                 that potentially will be added to the input queue.
             cost_to_load (float): The cost to load the node.
+            claimants (int): The number of executors currently laying claim
+                to the node.
 
         Returns:
             float: The score of the node. Higher values are better. Only the
