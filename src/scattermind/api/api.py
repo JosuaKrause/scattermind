@@ -190,3 +190,30 @@ class ScattermindAPI:
                 time.sleep(wait_time)
         for task_id in cur_ids:  # FIXME write timeout test?
             yield (task_id, self.get_response(task_id))
+
+    def entry_graph_name(self) -> str:
+        """
+        Retrieves the name of the entry graph.
+
+        Returns:
+            str: The graph name.
+        """
+        raise NotImplementedError()
+
+    def main_inputs(self) -> set[str]:
+        """
+        Retrieves the inputs of the main graph.
+
+        Returns:
+            set[str]: The names of the input fields.
+        """
+        raise NotImplementedError()
+
+    def main_outputs(self) -> set[str]:
+        """
+        Retrieves the outputs of the main graph.
+
+        Returns:
+            set[str]: The names of the output fields.
+        """
+        raise NotImplementedError()

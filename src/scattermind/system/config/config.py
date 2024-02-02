@@ -364,3 +364,17 @@ class Config(ScattermindAPI):
             return emng.execute_batch(logger, queue_pool, store, roa)
 
         executor_manager.execute(logger, work)
+
+    def entry_graph_name(self) -> str:
+        queue_pool = self.get_queue_pool()
+        return queue_pool.get_graph_name(queue_pool.get_entry_graph()).get()
+
+    def main_inputs(self) -> set[str]:
+        queue_pool = self.get_queue_pool()
+        inputs = queue_pool.get_input_format(queue_pool.get_entry_graph())
+        return set(inputs.keys())
+
+    def main_outputs(self) -> set[str]:
+        queue_pool = self.get_queue_pool()
+        output = queue_pool.get_output_format(queue_pool.get_entry_graph())
+        return set(output.keys())
