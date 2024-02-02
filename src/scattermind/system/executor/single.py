@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A singular executor that terminates when all tasks are processed."""
 from collections.abc import Callable
 
 from scattermind.system.base import ExecutorId, L_EITHER, Locality
@@ -7,6 +23,8 @@ from scattermind.system.logger.log import EventStream
 
 
 class SingleExecutorManager(ExecutorManager):
+    """Manager for a singular executor that terminates when all tasks are
+    processed."""
     def __init__(self, own_id: ExecutorId, *, batch_size: int) -> None:
         super().__init__(own_id, batch_size)
         self._is_active = False
@@ -52,3 +70,7 @@ class SingleExecutorManager(ExecutorManager):
                         "name": "executor",
                         "action": "stop",
                     })
+
+    @staticmethod
+    def allow_parallel() -> bool:
+        return False

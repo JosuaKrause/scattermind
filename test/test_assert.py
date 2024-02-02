@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Test errors in nodes."""
 import time
 from test.util import wait_for_tasks
 
@@ -24,6 +40,14 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_assertion_error(
         batch_size: int, parallelism: int, is_redis: bool) -> None:
+    """
+    Test causing an assertion error for some tasks.
+
+    Args:
+        batch_size (int): The batch size.
+        parallelism (int): The parallelism.
+        is_redis (bool): Whether to use redis.
+    """
     set_debug_output_length(7)
     config = load_test(
         batch_size=batch_size, parallelism=parallelism, is_redis=is_redis)
@@ -71,7 +95,7 @@ def test_assertion_error(
     tasks: list[tuple[TaskId, bool]] = [
         (
             config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array([tix % 3 > 0]), "bool"),
+                "value": create_tensor(np.array([tix % 3 > 0]), dtype="bool"),
             })),
             tix % 3 > 0,
         )

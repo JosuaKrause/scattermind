@@ -1,3 +1,21 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""This module defines name classes. The classes guarantee that no invalid
+characters are used in a name. Names are comparable for equality and can be
+used as keys in dictionaries."""
 NAME_SEP = ":"
 """Separator for names and queue id generation."""
 INVALID_CHARACTERS = {
@@ -14,19 +32,45 @@ INVALID_CHARACTERS = {
     "\f",
     "\v",
 }
+"""Characters specifically forbidden as characters in names."""
 
 
 class NameStr:
+    """A class to define a general name."""
     def __init__(self, name: str) -> None:
+        """
+        Creates a name from the given string.
+
+        Args:
+            name (str): The raw string.
+
+        Raises:
+            ValueError: If the name is not valid.
+        """
         if not self.is_valid_name(name):
             raise ValueError(f"name {name} is not valid")
         self._name = name
 
     def get(self) -> str:
+        """
+        Gets the raw name string.
+
+        Returns:
+            str: The name as string.
+        """
         return self._name
 
     @staticmethod
     def is_valid_name(name: str) -> bool:
+        """
+        Verifies that the raw name string is valid.
+
+        Args:
+            name (str): The raw name string.
+
+        Returns:
+            bool: Whether the string represents a valid name.
+        """
         return (
             len(name) > 0
             and NAME_SEP not in name
@@ -54,19 +98,42 @@ class NameStr:
 
 
 class NName(NameStr):
-    pass
+    """Name of a execution node. Node names are deterministically converted
+    into node ids internally."""
 
 
 class QName(NameStr):
-    pass
+    """Name of a queue. Queue names are deterministically converted into queue
+    ids internally."""
 
 
 class GName(NameStr):
-    pass
+    """Name of a graph. Graph names are deterministically converted into graph
+    ids internally."""
 
 
 class QualifiedName:
+    """A qualified name describes a value field and how to access it. It
+    combines a node name and a value field name. The node name can be None
+    to describe input value fields. In the execution graph json definition
+    qualified names are the node name separated by ':' from the value field
+    name as defined in the node.
+
+    Examples: 'node_2:out' addresses the output value field 'out' from the
+    node named 'node_2'. ':text' addresses the input value field 'text' of
+    the current execution graph."""
     def __init__(self, nname: NName | None, vname: str) -> None:
+        """
+        Creates a qualified name from its individual parts.
+
+        Args:
+            nname (NName | None): The node name or None to specify the input
+                of the current execution graph.
+            vname (str): The value field name of the node or execution graph.
+
+        Raises:
+            ValueError: If the value field name is not valid.
+        """
         if not self.is_valid_name(vname):
             raise ValueError(f"value name {vname} is not valid")
         self._nname = nname
@@ -74,6 +141,15 @@ class QualifiedName:
 
     @staticmethod
     def is_valid_name(vname: str) -> bool:
+        """
+        Whether the given value field name is valid.
+
+        Args:
+            vname (str): The raw value field name string.
+
+        Returns:
+            bool: Whether the name is valid.
+        """
         return (
             len(vname) > 0
             and NAME_SEP not in vname
@@ -81,15 +157,46 @@ class QualifiedName:
         )
 
     def get_value_name(self) -> str:
+        """
+        Get the raw value field name string.
+
+        Returns:
+            str: The raw string.
+        """
         return self._vname
 
     def to_parseable(self) -> str:
+        """
+        Get a parseable representation of the qualified name as it would be
+        found in the execution graph json.
+
+        Examples: 'node_2:out' addresses the output value field 'out' from the
+        node named 'node_2'. ':text' addresses the input value field 'text' of
+        the current execution graph (the node name is None in this case).
+
+        Returns:
+            str: The qualified name.
+        """
         if self._nname is None:
             return f"{NAME_SEP}{self._vname}"
         return f"{self._nname.get()}{NAME_SEP}{self._vname}"
 
     @staticmethod
     def parse(text: str) -> 'QualifiedName':
+        """
+        Parses a string into a qualified name. The format is expected to be
+        '{node name}:{value field name}' or ':{value field name}' for the
+        input of the current execution graph.
+
+        Args:
+            text (str): The string to parse.
+
+        Raises:
+            ValueError: If the input is invalid.
+
+        Returns:
+            QualifiedName: The qualified name.
+        """
         if NAME_SEP not in text:
             raise ValueError(
                 f"{text} is not a qualified name: 'node:value'")
@@ -119,3 +226,6 @@ class QualifiedName:
 
 
 ValueMap = dict[str, QualifiedName]
+"""A map of input value field names to output qualified names. This is used
+to connect inputs of a node to the correct outputs of previous nodes or an
+input of the current execution graph."""

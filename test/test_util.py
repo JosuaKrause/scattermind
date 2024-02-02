@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Tests for the utility modules."""
 from typing import Any
 
 import numpy as np
@@ -25,13 +41,15 @@ from scattermind.system.torch_util import (
 
 
 NestedList = Any
+"""A nested list."""
 
 
 def test_serialize() -> None:
+    """Test serializing tensors."""
     set_system_device_cpu()
 
     def test_ser(mat: np.ndarray, dtype: DTypeName) -> None:
-        tensor = create_tensor(mat, dtype)
+        tensor = create_tensor(mat, dtype=dtype)
         other = deserialize_tensor(serialize_tensor(tensor), dtype)
         torch.testing.assert_close(tensor, other)
 
@@ -48,15 +66,16 @@ def test_serialize() -> None:
 
 
 def test_pad() -> None:
+    """Test padding tensors."""
 
     def test(
             shape: list[int],
             mat: NestedList,
             padded: NestedList,
             dtype_name: DTypeName) -> None:
-        val = create_tensor(np.array(mat), dtype_name)
+        val = create_tensor(np.array(mat), dtype=dtype_name)
         out = pad_tensor(val, shape)
-        expected = create_tensor(np.array(padded), dtype_name)
+        expected = create_tensor(np.array(padded), dtype=dtype_name)
         torch.testing.assert_close(out, expected)
         mask = mask_from_shape(list(val.shape), list(out.shape))
         assert list(mask.shape) == list(out.shape)
@@ -124,13 +143,14 @@ def test_pad() -> None:
 
 
 def test_mask() -> None:
+    """Test masking tensors."""
 
     def test(
             own_shape: list[int],
             shape: list[int],
             padded: NestedList) -> None:
         out = mask_from_shape(own_shape, shape)
-        expected = create_tensor(np.array(padded), "bool")
+        expected = create_tensor(np.array(padded), dtype="bool")
         torch.testing.assert_close(out, expected)
         assert extract_shape(out) == own_shape
 
@@ -175,6 +195,7 @@ def test_mask() -> None:
 
 
 def test_lists() -> None:
+    """Test pad lists."""
 
     def create(
             arr: NestedList, dtype_name: DTypeName = "float") -> torch.Tensor:
@@ -209,6 +230,7 @@ def test_lists() -> None:
 
 
 def test_str() -> None:
+    """Test string conversion to tensor."""
 
     def rt_str(text: str) -> None:
         assert tensor_to_str(str_to_tensor(text)) == text
@@ -219,7 +241,51 @@ def test_str() -> None:
     rt_str("Hello\u9a6c\u514b😀")
 
 
+def test_infer() -> None:
+    """Test inferring dtypes."""
+
+    def test(
+            val: torch.Tensor,
+            expected: NestedList,
+            shape: list[int],
+            dtype_name: DTypeName) -> None:
+        assert list(val.shape) == shape
+        expected = create_tensor(np.array(expected), dtype=dtype_name)
+        torch.testing.assert_close(val, expected)
+
+    test(create_tensor([[[]]], dtype=None), [[[]]], [1, 1, 0], "float")
+    test(
+        create_tensor([[[1], [2]], [[3], [4]]], dtype=None),
+        [[[1], [2]], [[3], [4]]],
+        [2, 2, 1],
+        "int")
+    test(
+        create_tensor([[[.1, .2], [.3, .4]]], dtype=None),
+        [[[.1, .2], [.3, .4]]],
+        [1, 2, 2],
+        "float")
+
+    test(
+        create_tensor(np.array([[[]]], dtype=np.float32), dtype=None),
+        [[[]]],
+        [1, 1, 0],
+        "float32")
+    test(
+        create_tensor(
+            np.array([[[1], [2]], [[3], [4]]], dtype=np.int8), dtype=None),
+        [[[1], [2]], [[3], [4]]],
+        [2, 2, 1],
+        "int8")
+    test(
+        create_tensor(
+            np.array([[[.1, .2], [.3, .4]]], dtype=np.float16), dtype=None),
+        [[[.1, .2], [.3, .4]]],
+        [1, 2, 2],
+        "float16")
+
+
 def test_invalid() -> None:
+    """Test invalid arguments to utility functions."""
     with pytest.raises(ValueError, match=r"cannot match shapes"):
         mask_from_shape([1, 2, 3], [2, 2])
     with pytest.raises(ValueError, match=r"cannot shrink tensor"):

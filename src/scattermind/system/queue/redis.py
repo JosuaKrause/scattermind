@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A redis implementation of a queue pool."""
 from typing import Literal
 
 from redipy import ExecFunction, Redis, RedisConfig
@@ -24,9 +40,11 @@ KeyName = Literal[
     "claims",  # list str
     "expect",  # hash (byte_size, weight)
 ]
+"""Base keys for different storage categories."""
 
 
 class RedisQueuePool(QueuePool):
+    """Redis baked queue pool."""
     def __init__(self, *, cfg: RedisConfig, check_assertions: bool) -> None:
         super().__init__()
         self._redis = Redis("redis", cfg=cfg, redis_module="queues")
@@ -39,24 +57,81 @@ class RedisQueuePool(QueuePool):
 
     @staticmethod
     def key(name: KeyName, remain: str) -> str:
+        """
+        Computes the full key.
+
+        Args:
+            name (KeyName): The base key.
+            remain (str): The remainder of the key.
+
+        Returns:
+            str: The full key.
+        """
         return f"{name}:{remain}"
 
     @classmethod
     def key_assert(cls, task_id: TaskId) -> str:
+        """
+        Computes the full key for queue assertions. A queue assertion is the
+        back link from a task to a queue. This can be used to check whether
+        a task is currently in a different queue at the same time (which must
+        never happen).
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            str: The full queue assertion key. The type of the key is a direct
+                value.
+        """
         return cls.key("asserts", task_id.to_parseable())
 
     @classmethod
     def key_tasks(cls, qid: QueueId) -> str:
+        """
+        Computes the full key for task queues.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            str: The full task queue key. The type of the key is a zset.
+        """
         return cls.key("tasks", qid.to_parseable())
 
     @classmethod
-    def key_claims(cls, executor_id: ExecutorId, qid: QueueId) -> str:
+    def key_claims(cls, qid: QueueId, executor_id: ExecutorId | None) -> str:
+        """
+        Computes the full key for claims.
+
+        Args:
+            qid (QueueId): The queue id.
+            executor_id (ExecutorId | None): The claiming executor. If None,
+                this segment is ignored.
+
+        Returns:
+            str: The full claims key. The type of the key is a list.
+        """
+        if executor_id is None:
+            return cls.key(
+                "claims", f"{qid.to_parseable()}:")
         return cls.key(
-            "claims", f"{executor_id.to_parseable()}:{qid.to_parseable()}")
+            "claims", f"{qid.to_parseable()}:{executor_id.to_parseable()}")
 
     @classmethod
     def key_expect(
             cls, qid: QueueId, field: Literal["byte_size", "weight"]) -> str:
+        """
+        Computes the full key for expected values.
+
+        Args:
+            qid (QueueId): The queue id.
+            field (Literal[&quot;byte_size&quot;, &quot;weight&quot;]): Whether
+                the value denotes payload size or weight.
+
+        Returns:
+            str: The full expected values key. The type of the key is a hash.
+        """
         return cls.key(
             "expect", f"{qid.to_parseable()}:{field}")
 
@@ -75,15 +150,12 @@ class RedisQueuePool(QueuePool):
             pipe.zadd(self.key_tasks(qid), {
                 task_id.to_parseable(): weight,
             })
-            pipe.execute()
 
     def get_unclaimed_tasks(self, qid: QueueId) -> list[TaskId]:
-        # FIXME use functionality of 0.4.0 -- workaround here
-        with getattr(self._redis, "_rt").get_connection() as conn:
-            res = conn.zrange(self.key_tasks(qid), 0, -1)
-            if res is None:
-                return []
-            return [TaskId.parse(elem.decode("utf-8")) for elem in res]
+        res = self._redis.zrange(self.key_tasks(qid), 0, -1)
+        if res is None:
+            return []
+        return [TaskId.parse(elem) for elem in res]
 
     def _claim_tasks_script(self) -> ExecFunction:
         ctx = FnContext()
@@ -134,7 +206,7 @@ class RedisQueuePool(QueuePool):
         res = self._claim_tasks(
             keys={
                 "task_key": self.key_tasks(qid),
-                "claims_key": self.key_claims(executor_id, qid),
+                "claims_key": self.key_claims(qid, executor_id),
                 "assert_key_base": "asserts",
             },
             args={
@@ -148,16 +220,20 @@ class RedisQueuePool(QueuePool):
             return [TaskId.parse(elem) for elem in res]
         raise AssertionError(res)
 
+    def claimant_count(self, qid: QueueId) -> int:
+        # FIXME: add functionality in redipy
+        redis = self._redis.maybe_get_redis_runtime()
+        assert redis is not None
+        return redis.keys_count(self.key_claims(qid, None))
+
     def unclaim_tasks(
             self, qid: QueueId, executor_id: ExecutorId) -> list[TaskId]:
-        # FIXME use functionality of 0.4.0 -- workaround here
-        claims_key = self.key_claims(executor_id, qid)
-        res: list[TaskId] = []
-        while True:
-            batch = self._redis.lpop(claims_key, 100)
-            if not batch:
-                return res
-            res.extend((TaskId.parse(elem) for elem in batch))
+        claims_key = self.key_claims(qid, executor_id)
+        return [
+            TaskId.parse(elem)
+            for elem in
+            self._redis.lrange(claims_key, 0, -1)
+        ]
 
     def expect_task_weight(
             self,

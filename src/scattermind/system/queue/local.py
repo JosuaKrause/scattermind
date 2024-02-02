@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A RAM-only implementation of a queue pool."""
 import threading
 
 from scattermind.system.base import (
@@ -12,12 +28,20 @@ from scattermind.system.queue.queue import QueuePool
 
 
 class LocalQueuePool(QueuePool):
+    """A RAM-only implementation of a queue pool."""
     def __init__(self, *, check_assertions: bool) -> None:
+        """
+        Creates a local queue pool.
+
+        Args:
+            check_assertions (bool): Whether to check assertions (what queue
+                is a given task in?).
+        """
         super().__init__()
         self._check_assertions = check_assertions
         self._assert_tasks: dict[TaskId, QueueId] = {}
         self._task_ids: dict[QueueId, list[tuple[float, TaskId]]] = {}
-        self._claims: dict[ExecutorId, dict[QueueId, list[TaskId]]] = {}
+        self._claims: dict[QueueId, dict[ExecutorId, list[TaskId]]] = {}
         self._expect: dict[QueueId, dict[ExecutorId, tuple[float, int]]] = {}
         self._lock = threading.RLock()
 
@@ -56,18 +80,18 @@ class LocalQueuePool(QueuePool):
             task_ids = self._task_ids.get(qid, [])
             # FIXME: keep a sorted list instead of sorting every time
             task_ids.sort(reverse=True, key=lambda elem: elem[0])
-            qclaims = self._claims.get(executor_id)
-            if qclaims is None:
-                qclaims = {}
-                self._claims[executor_id] = qclaims
-            claims = qclaims.get(qid)
+            claims = self._claims.get(qid)
             if claims is None:
-                claims = []
-                qclaims[qid] = claims
+                claims = {}
+                self._claims[qid] = claims
+            qclaims = claims.get(executor_id)
+            if qclaims is None:
+                qclaims = []
+                claims[executor_id] = qclaims
             res: list[TaskId] = []
             while task_ids and len(res) < batch_size:
                 _, task_id = task_ids.pop(0)
-                claims.append(task_id)
+                qclaims.append(task_id)
                 res.append(task_id)
             if self._check_assertions:
                 assert_tasks = self._assert_tasks
@@ -83,11 +107,16 @@ class LocalQueuePool(QueuePool):
             print(f"{ctx_fmt()} claim {res} in {qid} remaining {task_ids}")
             return res
 
+    def claimant_count(self, qid: QueueId) -> int:
+        with self._lock:
+            qclaims = self._claims.get(qid, {})
+            return len(qclaims)
+
     def unclaim_tasks(
             self, qid: QueueId, executor_id: ExecutorId) -> list[TaskId]:
         with self._lock:
-            qclaims = self._claims.get(executor_id, {})
-            return qclaims.pop(qid, [])
+            qclaims = self._claims.get(qid, {})
+            return qclaims.pop(executor_id, [])
 
     def expect_task_weight(
             self,

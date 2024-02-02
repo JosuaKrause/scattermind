@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Executor that computes the execution graph."""
 import time
 import traceback
 from collections.abc import Callable
@@ -19,31 +35,83 @@ from scattermind.system.readonly.access import ReadonlyAccess
 
 
 class Executor:
+    """A wrapper to handle executor control methods more easily.
+    This is used to represent (other) executors for operations."""
     def __init__(
             self, emng: 'ExecutorManager', executor_id: ExecutorId) -> None:
+        """
+        Create an executor object.
+
+        Args:
+            emng (ExecutorManager): The executor manager.
+            executor_id (ExecutorId): The executor id.
+        """
         self._emng = emng
         self._executor_id = executor_id
 
     def get_id(self) -> ExecutorId:
+        """
+        Get the executor id.
+
+        Returns:
+            ExecutorId: The executor id.
+        """
         return self._executor_id
 
     def is_active(self) -> bool:
+        """
+        Whether the exxecutor is currently active.
+
+        Returns:
+            bool: True if the executor is active.
+        """
         return self._emng.is_active(self._executor_id)
 
     def release(self) -> None:
+        """
+        Releases the executor and removes it from the pool whenever possible.
+        """
         return self._emng.release_executor(self._executor_id)
 
 
 class ExecutorManager(Module):
+    """
+    An executor manager handles starting and stopping executors, running the
+    execution loop, and various housekeeping operations (such as releasing
+    unresponsive executors). In a distributed setting each executor runs an
+    executor manager so redundant operations (e.g., housekeeping) must be
+    performed in a safe, asynchronous, and idempotent way.
+    """
     def __init__(self, own_id: ExecutorId, batch_size: int) -> None:
+        """
+        Creates an executor manager for the given executor id.
+
+        Args:
+            own_id (ExecutorId): The executor id.
+            batch_size (int): The batch size for processing tasks of the
+                given executor.
+        """
         self._node: Node | None = None
         self._own_id = own_id
         self._batch_size = batch_size
 
     def get_own_id(self) -> ExecutorId:
+        """
+        Get the own executor id.
+
+        Returns:
+            ExecutorId: The executor id of the executor associated with this
+                manager.
+        """
         return self._own_id
 
     def as_executor(self) -> Executor:
+        """
+        Provide itself as an executor object.
+
+        Returns:
+            Executor: The executor object.
+        """
         return Executor(self, self._own_id)
 
     def update_node(
@@ -51,6 +119,19 @@ class ExecutorManager(Module):
             logger: EventStream,
             queue_pool: QueuePool,
             roa: ReadonlyAccess) -> Node:
+        """
+        Potentially update the currently active node. If a node change is
+        needed or no node was active before the new node is loaded and the
+        old node is unloaded.
+
+        Args:
+            logger (EventStream): The logger.
+            queue_pool (QueuePool): The queue pool.
+            roa (ReadonlyAccess): The readonly data access.
+
+        Returns:
+            Node: The (new) active node.
+        """
         own_id = self._own_id
         node = self._node
         new_node, switch = queue_pool.pick_node(logger, node)
@@ -63,6 +144,8 @@ class ExecutorManager(Module):
                 "tally.node.load", {"name": "node", "action": "load"})
             new_node.load(own_id, roa)
             self._node = new_node
+            logger.log_event(
+                "tally.node.load", {"name": "node", "action": "load_done"})
         assert self._node is not None
         return self._node
 
@@ -72,6 +155,21 @@ class ExecutorManager(Module):
             queue_pool: QueuePool,
             store: DataStore,
             roa: ReadonlyAccess) -> bool:
+        """
+        Execute one batch of tasks. The active node might change based on
+        the node strategy. Errors while executing are handled and appropriate
+        steps are taken.
+
+        Args:
+            logger (EventStream): The logger.
+            queue_pool (QueuePool): The queue pool.
+            store (DataStore): The payload data store.
+            roa (ReadonlyAccess): The readonly data access.
+
+        Returns:
+            bool: Whether computation has occurred. If False no tasks were
+                available for execution.
+        """
         own_id = self._own_id
         node = self.update_node(logger, queue_pool, roa)
         with add_context(node.get_context_info(queue_pool)):
@@ -179,6 +277,16 @@ class ExecutorManager(Module):
             logger: EventStream,
             queue_pool: QueuePool,
             store: DataStore) -> None:
+        """
+        Reclaim tasks from inactive executors. Tasks whose execution was not
+        complete for their current node (results were not committed) are made
+        available in their queue again.
+
+        Args:
+            logger (EventStream): The logger.
+            queue_pool (QueuePool): The queue pool.
+            store (DataStore): The payload data store.
+        """
         for executor in self.get_all_executors():
             if executor.is_active():
                 continue
@@ -190,6 +298,16 @@ class ExecutorManager(Module):
             queue_pool: QueuePool,
             store: DataStore,
             executor: Executor) -> None:
+        """
+        Unclaims tasks from an unresponsive executor and makes them available
+        in their queue again. This increases the retries count of the tasks.
+
+        Args:
+            logger (EventStream): The logger.
+            queue_pool (QueuePool): The queue pool.
+            store (DataStore): The payload data store.
+            executor (Executor): The unresponsive executor.
+        """
         executor_id = executor.get_id()
         with add_context({"executor": executor_id}):
             for qid in queue_pool.get_all_queues():
@@ -210,6 +328,14 @@ class ExecutorManager(Module):
         executor.release()
 
     def release_all(self, *, timeout: float | None = None) -> None:
+        """
+        Release all executors. This usually results in halting all execution.
+
+        Args:
+            timeout (float | None, optional): Wait until all executors are
+                inactive or the number of seconds runs out. If None the
+                function returns immediately in any case. Defaults to None.
+        """
         for executor in self.get_all_executors():
             executor.release()
         if timeout is None:
@@ -223,22 +349,78 @@ class ExecutorManager(Module):
                 time.sleep(sleep_time)
 
     def any_active(self) -> bool:
+        """
+        Whether there are any registered active executors.
+
+        Returns:
+            bool: True if there is at least one active executor.
+        """
         for executor in self.get_all_executors():
             if executor.is_active():
                 return True
         return False
 
     def get_all_executors(self) -> list[Executor]:
+        """
+        Retrieve all registered executors.
+
+        Returns:
+            list[Executor]: The executors.
+        """
         raise NotImplementedError()
 
     def is_active(self, executor_id: ExecutorId) -> bool:
+        """
+        Whether an executor is active.
+
+        Args:
+            executor_id (ExecutorId): The executor id.
+
+        Returns:
+            bool: True, if the executor is active.
+        """
         raise NotImplementedError()
 
     def release_executor(self, executor_id: ExecutorId) -> None:
+        """
+        Release an executor and let it stop processing tasks. This does not
+        necessarily result in an immediate termination of the associated
+        compute resource.
+
+        Args:
+            executor_id (ExecutorId): The executor id to stop.
+        """
         raise NotImplementedError()
 
     def execute(
             self,
             logger: EventStream,
             work: Callable[['ExecutorManager'], bool]) -> None:
+        """
+        At its core, this function calls `work` repeatedly until `work` returns
+        True. The function might also do bookkeeping and setting the "active"
+        status of the own executor. That said, this function might also just
+        kick off executing the `work` callback. Furthermore, an executor is
+        free to continue working even after `work` return True (ideally, add
+        a small timeout before continuing to not spinwait on tasks). For
+        stopping executors use the `release_executor` function.
+
+        Args:
+            logger (EventStream): The logger.
+            work (Callable[[ExecutorManager], bool]): The work. Call this
+                function until it returns True (i.e., work is done).
+        """
+        raise NotImplementedError()
+
+    @staticmethod
+    def allow_parallel() -> bool:
+        """
+        Whether creating multiple executors to achieve local parallelism is
+        supported. The call to ::py:method:`execute` happens only to one
+        executor in this case so the executor manager needs to ensure that it
+        is properly propagated to the other local executors.
+
+        Returns:
+            bool: True, if local parallelism is supported.
+        """
         raise NotImplementedError()

@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A redis client pool."""
 from collections.abc import Iterable
 from typing import Literal, TypeVar
 
@@ -37,10 +53,11 @@ from scattermind.system.response import (
     TaskStatus,
     to_status,
 )
-from scattermind.system.util import get_time_str
+from scattermind.system.util import get_time_str, seconds_since
 
 
 DT = TypeVar('DT', bound=DataId)
+"""The `DataId` subclass understood by a given `DataStore` implementation."""
 
 
 KeyName = Literal[
@@ -56,9 +73,11 @@ KeyName = Literal[
     "result",  # TVC str
     "error",  # ErrorJSON str
 ]
+"""Base keys for different storage categories."""
 
 
 class RedisClientPool(ClientPool):
+    """A redis based client pool."""
     def __init__(self, cfg: RedisConfig) -> None:
         super().__init__()
         self._redis = Redis("redis", cfg=cfg, redis_module="client")
@@ -70,6 +89,16 @@ class RedisClientPool(ClientPool):
 
     @staticmethod
     def key(name: KeyName, task_id: TaskId) -> str:
+        """
+        Computes the full key.
+
+        Args:
+            name (KeyName): The base key.
+            task_id (TaskId): The task id.
+
+        Returns:
+            str: The full key.
+        """
         return f"{name}:{task_id.to_parseable()}"
 
     def set_value(
@@ -78,6 +107,15 @@ class RedisClientPool(ClientPool):
             name: KeyName,
             task_id: TaskId,
             value: str) -> None:
+        """
+        Sets the value for the given key.
+
+        Args:
+            pipe (PipelineAPI): The redis pipeline.
+            name (KeyName): The base key.
+            task_id (TaskId): The task.
+            value (str): The value to set.
+        """
         pipe.set(self.key(name, task_id), value)
 
     def delete(
@@ -85,12 +123,30 @@ class RedisClientPool(ClientPool):
             pipe: PipelineAPI,
             name: KeyName,
             task_id: TaskId) -> None:
+        """
+        Deletes the value of the given key.
+
+        Args:
+            pipe (PipelineAPI): The redis pipeline.
+            name (KeyName): The base key.
+            task_id (TaskId): The task.
+        """
         pipe.delete(self.key(name, task_id))
 
     def get_value(
             self,
             name: KeyName,
             task_id: TaskId) -> str | None:
+        """
+        Get the value of the given key.
+
+        Args:
+            name (KeyName): The base key.
+            task_id (TaskId): The task.
+
+        Returns:
+            str | None: The value or None if it is not set.
+        """
         return self._redis.get(self.key(name, task_id))
 
     def create_task(
@@ -106,9 +162,7 @@ class RedisClientPool(ClientPool):
             self.set_value(pipe, "start_time", task_id, get_time_str())
             self.set_value(pipe, "weight", task_id, f"{1.0}")
             self.set_value(pipe, "byte_size", task_id, f"{0}")
-            self._stack.init(self.key("stack_data", task_id), pipe=pipe)
             # NOTE: no need to set stack_frame yet
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
         return task_id
 
     def init_data(
@@ -130,7 +184,6 @@ class RedisClientPool(ClientPool):
                 stack_key, field.to_parseable(), data_id.to_parseable())
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "byte_size", task_id, f"{byte_size}")
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def set_bulk_status(
             self,
@@ -141,7 +194,6 @@ class RedisClientPool(ClientPool):
             for task_id in task_ids:
                 self.set_value(pipe, "status", task_id, status)
                 res.append(task_id)
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
             return res
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
@@ -154,7 +206,6 @@ class RedisClientPool(ClientPool):
             self, task_id: TaskId, final_output: TaskValueContainer) -> None:
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "result", task_id, tvc_to_redis(final_output))
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def get_final_output(
             self,
@@ -176,7 +227,6 @@ class RedisClientPool(ClientPool):
                 "error",
                 task_id,
                 robj_to_redis(to_error_json(error_info)))
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def get_error(self, task_id: TaskId) -> ErrorInfo | None:
         res = self.get_value("error", task_id)
@@ -202,12 +252,11 @@ class RedisClientPool(ClientPool):
     def set_duration_value(self, task_id: TaskId, seconds: float) -> None:
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "duration", task_id, f"{seconds}")
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def get_duration(self, task_id: TaskId) -> float:
         res = self.get_value("duration", task_id)
         if res is None:
-            raise ValueError(f"duration for {task_id} not set")
+            return seconds_since(self.get_task_start(task_id))
         return float(res)
 
     def commit_task(
@@ -236,7 +285,6 @@ class RedisClientPool(ClientPool):
                     stack_data_key,
                     field.to_parseable(),
                     data_id.to_parseable())
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def pop_frame(
             self,
@@ -295,12 +343,8 @@ class RedisClientPool(ClientPool):
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "weight", task_id, "1.0")
             self.set_value(pipe, "byte_size", task_id, "0")
-            # FIXME might be buggy
             self.delete(pipe, "stack_data", task_id)
-            pipe.execute()  # FIXME remove after bug is fixed
-            self._stack.init(self.key("stack_data", task_id), pipe=pipe)
             self.delete(pipe, "stack_frame", task_id)
-            pipe.execute()  # FIXME remove once on redipy 0.4.0
 
     def clear_task(self, task_id: TaskId) -> None:
         with self._redis.pipeline() as pipe:
@@ -315,4 +359,3 @@ class RedisClientPool(ClientPool):
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
             self.delete(pipe, "error", task_id)
-            pipe.execute()  # FIXME remove once on redipy 0.4.0

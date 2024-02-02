@@ -1,5 +1,21 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Event types for the logging system."""
 import datetime
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from scattermind.system.base import TaskId
 from scattermind.system.logger.context import ContextInfo
@@ -12,6 +28,7 @@ ErrorEvent = TypedDict('ErrorEvent', {
     "traceback": list[str],
     "code": ErrorCode,
 })
+"""An event to report errors."""
 
 
 RetryEvent = TypedDict('RetryEvent', {
@@ -21,24 +38,29 @@ RetryEvent = TypedDict('RetryEvent', {
     "code": ErrorCode,
     "retries": int,
 })
+"""Event to report that a task had to retry processing. This event can contain
+an error that triggered the retry."""
 
 
 WarningEvent = TypedDict('WarningEvent', {
     "name": Literal["warning"],
     "message": str,
 })
+"""A event to report warnings."""
 
 
 TaskEvent = TypedDict('TaskEvent', {
     "name": Literal["tasks"],
     "tasks": list[TaskId],
 })
+"""An event affecting a collection of tasks."""
 
 
 NodeEvent = TypedDict('NodeEvent', {
     "name": Literal["node"],
-    "action": Literal["load", "unload"],
+    "action": Literal["load", "load_done", "unload"],
 })
+"""Event to indicate that a node has been loaded or unloaded."""
 
 
 OutputEvent = TypedDict('OutputEvent', {
@@ -47,21 +69,27 @@ OutputEvent = TypedDict('OutputEvent', {
     "stdout": str,
     "stderr": str,
 })
+"""Event collecting writes to stdout or stderr."""
 
 
 QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
     "name": Literal["queue_input"],
-    "length": int,
-    "pressure": float,
-    "expected_pressure": float,
-    "score": float,
+    "length": NotRequired[int],
+    "pressure": NotRequired[float],
+    "expected_pressure": NotRequired[float],
+    "cost": NotRequired[float],
+    "claimants": NotRequired[int],
+    "score": NotRequired[float],
 })
+"""Event to report the status of a queue."""
 
 
 ExecutorEvent = TypedDict('ExecutorEvent', {
     "name": Literal["executor"],
     "action": Literal["start", "stop"],
 })
+"""Event to indicate that an executor has been started or stopped. A stop event
+might not always be fired."""
 
 
 AnyEvent = (
@@ -74,6 +102,7 @@ AnyEvent = (
     | QueueMeasureEvent
     | ExecutorEvent
 )
+"""An event that can be logged to the event stream."""
 
 
 EventInfo = TypedDict('EventInfo', {
@@ -82,3 +111,5 @@ EventInfo = TypedDict('EventInfo', {
     "ctx": ContextInfo,
     "event": AnyEvent,
 })
+"""Full information and context for events that can be logged to the event
+stream."""

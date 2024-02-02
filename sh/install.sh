@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
-
+#
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
 set -ex
 
 cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}" )/../" &> /dev/null
@@ -36,7 +52,7 @@ if ${PYTHON} -c 'import torch;assert torch.__version__.startswith("2.")' &>/dev/
     PYTORCH=$(${PYTHON} -c 'import torch;print(torch.__version__)')
 else
     if [ ! $CI = "true" ] && command -v conda &>/dev/null 2>&1; then
-        conda install -y pytorch torchvision torchaudio -c pytorch-nightly
+        conda install -y pytorch torchvision torchaudio -c pytorch
     else
         ${PYTHON} -m pip install --progress-bar off --pre torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cpu
     fi

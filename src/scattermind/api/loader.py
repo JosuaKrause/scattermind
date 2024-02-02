@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Scattermind distributes computation of machine learning models.
 # Copyright (C) 2024 Josua Krause
 #
@@ -15,12 +13,19 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
-set -ex
+"""Loads the scattermind API."""
+from scattermind.api.api import ScattermindAPI
+from scattermind.system.config.loader import ConfigJSON, load_as_api
 
-cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}" )/../" &> /dev/null
 
-if [ $(git rev-parse --abbrev-ref HEAD) = "main" ]; then
-    echo "not on main"
-    exit 1
-fi
+def load_api(config_obj: ConfigJSON) -> ScattermindAPI:
+    """
+    Load a scattermind API from a JSON.
+
+    Args:
+        config_obj (ConfigJSON): The configuration JSON.
+
+    Returns:
+        Config: The scattermind API.
+    """
+    return load_as_api(config_obj)

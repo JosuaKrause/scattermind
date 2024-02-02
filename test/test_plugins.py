@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Tests loading plugins."""
 import os
 import shutil
 import uuid
@@ -42,6 +58,7 @@ T = TypeVar('T')
 
 
 def test_plugins() -> None:
+    """Test loading plugins."""
     root = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
     plugins_base = os.path.normpath(os.path.join(root, "plugins/test/"))
     test_id = f"test_{uuid.uuid4().hex}"
@@ -139,5 +156,6 @@ def test_plugins() -> None:
 
 
 def test_invalid_plugins() -> None:
+    """Test loading invalid plugins."""
     with pytest.raises(ValueError, match=r"ambiguous or missing plugin"):
         load_plugin(ClientPool, "plugins.test")

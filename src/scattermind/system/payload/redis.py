@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A redis based payload data storage."""
 from redipy import Redis, RedisConfig
 
 from scattermind.system.base import DataId, L_REMOTE, Locality
@@ -12,16 +28,27 @@ from scattermind.system.util import bytes_hash_size, get_bytes_hash
 
 
 class RedisDataId(DataId):
+    """The data id for the redis payload data storage. The id is based on a
+    hash of the data stored."""
     @staticmethod
     def validate_id(raw_id: str) -> bool:
         return len(raw_id) == bytes_hash_size()
 
 
 EXPIRE_DEFAULT = 60 * 60.0  # TODO: make configurable
+"""Default expiration time for the time base cache freeing strategy."""
 
 
 class RedisDataStore(DataStore):
+    """A redis based payload data store."""
     def __init__(self, cfg: RedisConfig, mode: DataMode) -> None:
+        """
+        Creates a redis based payload data storage.
+
+        Args:
+            cfg (RedisConfig): The redis connection settings.
+            mode (DataMode): The strategy used for freeing the cache.
+        """
         super().__init__()
         self._redis = Redis("redis", cfg=cfg, redis_module="data")
         self._mode = mode

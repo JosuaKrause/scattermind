@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""A RAM-only client pool."""
 import threading
 from collections.abc import Iterable
 from typing import TypeVar
@@ -23,14 +39,19 @@ from scattermind.system.response import (
     TASK_STATUS_UNKNOWN,
     TaskStatus,
 )
-from scattermind.system.util import get_time_str
+from scattermind.system.util import get_time_str, seconds_since
 
 
 DT = TypeVar('DT', bound=DataId)
+"""The `DataId` subclass understood by a given `DataStore` implementation."""
 
 
 class LocalClientPool(ClientPool):
+    """A RAM-only client pool."""
     def __init__(self) -> None:
+        """
+        Creates a RAM-only client pool.
+        """
         super().__init__()
         self._values: dict[TaskId, TaskValueContainer] = {}
         self._status: dict[TaskId, TaskStatus] = {}
@@ -131,7 +152,8 @@ class LocalClientPool(ClientPool):
 
     def get_duration(self, task_id: TaskId) -> float:
         res = self._duration.get(task_id)
-        assert res is not None
+        if res is None:
+            return seconds_since(self.get_task_start(task_id))
         return res
 
     def commit_task(

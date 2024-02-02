@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Call a subgraph for execution and present its results as the node's."""
 from scattermind.system.base import QueueId
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.graph.graph import Graph
@@ -10,6 +26,10 @@ from scattermind.system.readonly.access import ReadonlyAccess
 
 
 class Call(Node):
+    """
+    Call a subgraph for execution. The node arguments are the inputs to the
+    subgraph and the output of the node is the output of the subgraph.
+    """
     def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
         return graph.is_pure(queue_pool, graph.get_graph_of(self.get_id()))
 

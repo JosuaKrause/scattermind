@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Call a subgraph repeatedly until a counter reaches 0."""
 import numpy as np
 
 from scattermind.system.base import QueueId
@@ -12,6 +28,7 @@ from scattermind.system.torch_util import create_tensor
 
 
 class ForLoop(Node):
+    """Call a subgraph repeatedly until a counter reaches 0."""
     def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
         return True
 
@@ -61,7 +78,7 @@ class ForLoop(Node):
         for task, value in state.get_values().iter_values():
             val = value["stack"]
             if not val.shape[0]:
-                val = create_tensor(np.array([init_value]), "int")
+                val = create_tensor(np.array([init_value]), dtype="int")
             else:
                 val[-1] -= 1
             out = state.create_single(val)

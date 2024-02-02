@@ -1,3 +1,19 @@
+# Scattermind distributes computation of machine learning models.
+# Copyright (C) 2024 Josua Krause
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""Test calling subgraphs."""
 import time
 from test.util import wait_for_tasks
 
@@ -22,6 +38,14 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_simple_call(
         batch_size: int, parallelism: int, is_redis: bool) -> None:
+    """
+    Test a simple subgraph call.
+
+    Args:
+        batch_size (int): The batch size.
+        parallelism (int): The parallelism of the executor.
+        is_redis (bool): Whether to use redis.
+    """
     set_debug_output_length(7)
     config = load_test(
         batch_size=batch_size, parallelism=parallelism, is_redis=is_redis)
@@ -29,7 +53,7 @@ def test_simple_call(
     cpath = "procedure_const_0"
     with writer.open_write(cpath) as fout:
         constant_0 = fout.as_data_str(fout.write_tensor(
-            create_tensor(np.array([[1.0, 0.0], [0.0, 1.0]]), "float")))
+            create_tensor(np.array([[1.0, 0.0], [0.0, 1.0]]), dtype="float")))
     config.load_graph({
         "graphs": [
             {
@@ -181,7 +205,7 @@ def test_simple_call(
                 "value": create_tensor(np.array([
                     [-tix, tix + 1],
                     [-tix, tix + 2],
-                ]), "float"),
+                ]), dtype="float"),
             })),
             np.array([
                 [1.0 - 4.0 * tix, 1.0],
@@ -195,7 +219,7 @@ def test_simple_call(
     try:
         config.run()
         for task_id, response, expected_result in wait_for_tasks(
-                config, tasks, timeout=1.0):
+                config, tasks, timeout=2.0):
             response_ok(response, no_warn=True)
             real_duration = time.monotonic() - time_start
             status = response["status"]

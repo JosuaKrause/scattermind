@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Scattermind distributes computation of machine learning models.
 # Copyright (C) 2024 Josua Krause
 #
@@ -15,12 +13,5 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#
-set -ex
-
-cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}" )/../" &> /dev/null
-
-if [ $(git rev-parse --abbrev-ref HEAD) = "main" ]; then
-    echo "not on main"
-    exit 1
-fi
+"""Provides functionality to communicate with running scattermind apps.
+Creating tasks for a given execution graph and retrieving their results."""

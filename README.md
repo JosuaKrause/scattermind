@@ -18,7 +18,6 @@ A rough outline of planned features:
 - log granular activity
 - split nodes
 - benchmark
-- bert model
 - diffusion model
 - llama2 model
 - push notification on result
