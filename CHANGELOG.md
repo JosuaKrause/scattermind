@@ -8,6 +8,7 @@
 
 ### Added
 
+- Add dedicated node strategy. ([#5])
 - Add API frontend. ([#3])
 - Full documentation. ([#3])
 - Allow plugin executors to be locally parallel. ([#3])
@@ -17,3 +18,4 @@
 - Remove daemon flag from thread executor. ([#3])
 
 [#3]: https://github.com/JosuaKrause/scattermind/pull/3
+[#5]: https://github.com/JosuaKrause/scattermind/pull/5

@@ -29,7 +29,13 @@ SimpleNodeStrategyModule = TypedDict('SimpleNodeStrategyModule', {
 """Configuration for a simple node strategy."""
 
 
-NodeStrategyModule = SimpleNodeStrategyModule
+DedicatedNodeStrategyModule = TypedDict('DedicatedNodeStrategyModule', {
+    "name": Literal["dedicated"],
+})
+"""Configuration for a dedicated node strategy."""
+
+
+NodeStrategyModule = SimpleNodeStrategyModule | DedicatedNodeStrategyModule
 """Configuration for node strategies."""
 
 
@@ -57,6 +63,11 @@ def load_node_strategy(module: NodeStrategyModule) -> NodeStrategy:
             SimpleNodeStrategy,
         )
         return SimpleNodeStrategy()
+    if module["name"] == "dedicated":
+        from scattermind.system.queue.strategy.node.dedicated import (
+            DedicatedNodeStrategy,
+        )
+        return DedicatedNodeStrategy()
     raise ValueError(f"unknown node strategy: {module['name']}")
 
 
