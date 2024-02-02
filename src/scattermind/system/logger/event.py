@@ -58,7 +58,7 @@ TaskEvent = TypedDict('TaskEvent', {
 
 NodeEvent = TypedDict('NodeEvent', {
     "name": Literal["node"],
-    "action": Literal["load", "unload"],
+    "action": Literal["load", "load_done", "unload"],
 })
 """Event to indicate that a node has been loaded or unloaded."""
 

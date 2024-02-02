@@ -144,6 +144,8 @@ class ExecutorManager(Module):
                 "tally.node.load", {"name": "node", "action": "load"})
             new_node.load(own_id, roa)
             self._node = new_node
+            logger.log_event(
+                "tally.node.load", {"name": "node", "action": "load_done"})
         assert self._node is not None
         return self._node
 

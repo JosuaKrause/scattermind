@@ -23,7 +23,6 @@ import torch
 
 from scattermind.system.base import TaskId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
-from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     ResponseObject,
@@ -167,7 +166,6 @@ class ScattermindAPI:
         while cur_ids:
             task_id = cur_ids.pop(0)
             status = self.get_status(task_id)
-            print(f"{ctx_fmt()} wait for {task_id} {status}")
             if status in (
                     TASK_STATUS_READY,
                     TASK_STATUS_DONE,
