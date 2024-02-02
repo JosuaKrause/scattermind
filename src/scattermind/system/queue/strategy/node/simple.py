@@ -30,7 +30,7 @@ class SimpleNodeStrategy(NodeStrategy):
             claimants: int) -> float:
         add: float = queue_length
         if claimants <= 1:
-            add += 10000 * (pressure + 1) / (queue_length + 1)
+            add += 20000 * (pressure + 1) / (queue_length + 1)
         return (add + expected_pressure + pressure) / cost_to_load
 
     def other_score(
