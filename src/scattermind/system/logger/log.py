@@ -17,7 +17,8 @@
 as well as, statistics about the runtime. Different backends can be used to
 compile statistics and provide monitoring capabilities."""
 import contextlib
-import io
+
+# import io
 import sys
 import traceback
 from collections.abc import Callable, Iterator
@@ -146,23 +147,25 @@ class EventStream:
                 `.`. Names for this function should start with `output.`.
             entry (str): Message to provide further context.
         """
-        stdout = io.StringIO()
-        stderr = io.StringIO()
-        try:
-            with (
-                    contextlib.redirect_stdout(stdout),
-                    contextlib.redirect_stderr(stderr)):
-                yield
-        finally:
-            if stdout.tell() > 0 or stderr.tell() > 0:
-                self.log_event(
-                    name,
-                    {
-                        "name": "output",
-                        "entry": entry,
-                        "stdout": stdout.getvalue(),
-                        "stderr": stderr.getvalue(),
-                    })
+        # pylint: disable=unused-argument
+        # stdout = io.StringIO()
+        # stderr = io.StringIO()
+        # try:
+        #     with (
+        #             contextlib.redirect_stdout(stdout),
+        #             contextlib.redirect_stderr(stderr)):
+        #         yield
+        # finally:
+        #     if stdout.tell() > 0 or stderr.tell() > 0:
+        #         self.log_event(
+        #             name,
+        #             {
+        #                 "name": "output",
+        #                 "entry": entry,
+        #                 "stdout": stdout.getvalue(),
+        #                 "stderr": stderr.getvalue(),
+        #             })
+        yield  # FIXME: make it work with multiple threads
 
     def log_event(
             self,
