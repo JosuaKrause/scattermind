@@ -23,6 +23,7 @@ import torch
 
 from scattermind.system.base import TaskId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
+from scattermind.system.names import GNamespace
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     ResponseObject,
@@ -45,7 +46,7 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def enqueue(self, value: TaskValueContainer) -> TaskId:
+    def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
         """
         Enqueues a task. ::py::method:`enqueue_task` provides a more
         user-friendly way of creating a task.
@@ -56,6 +57,9 @@ class ScattermindAPI:
         Returns:
             TaskId: The task id.
         """
+        raise NotImplementedError()
+
+    def get_namespace(self, task_id: TaskId) -> GNamespace:
         raise NotImplementedError()
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
@@ -191,7 +195,11 @@ class ScattermindAPI:
         for task_id in cur_ids:  # FIXME write timeout test?
             yield (task_id, self.get_response(task_id))
 
-    def entry_graph_name(self) -> str:
+    def namespaces(self) -> set[GNamespace]:
+        raise NotImplementedError()
+
+    def entry_graph_name(self, ns: GNamespace) -> str:
+        # FIXME
         """
         Retrieves the name of the entry graph.
 
@@ -200,7 +208,8 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def main_inputs(self) -> set[str]:
+    def main_inputs(self, ns: GNamespace) -> set[str]:
+        # FIXME
         """
         Retrieves the inputs of the main graph.
 
@@ -209,7 +218,8 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def main_outputs(self) -> set[str]:
+    def main_outputs(self, ns: GNamespace) -> set[str]:
+        # FIXME
         """
         Retrieves the outputs of the main graph.
 

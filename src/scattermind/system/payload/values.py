@@ -25,9 +25,9 @@ from scattermind.system.helper import DictHelper
 from scattermind.system.info import DataFormat, DataInfo
 from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.names import (
-    GName,
     NName,
     QName,
+    QualifiedGraphName,
     QualifiedName,
     ValueMap,
 )
@@ -662,12 +662,12 @@ class ComputeState:
             return self.create_uniform(values.get_uniform())
         return self.create_masked(*values.get_masked())
 
-    def get_graph_input_queue(self, gname: GName) -> QueueId:
+    def get_graph_input_queue(self, gname: QualifiedGraphName) -> QueueId:
         """
         Retrieve the input queue of the graph.
 
         Args:
-            gname (GName): The name of the graph.
+            gname (QualifiedGraphName): The qualified name of the graph.
 
         Returns:
             QueueId: The queue id.
@@ -682,7 +682,7 @@ class ComputeState:
             qname: str,
             tasks: list[ComputeTask],
             args: dict[str, 'LazyValues'],
-            gname: GName) -> None:
+            gname: QualifiedGraphName) -> None:
         """
         Push a call to a subgraph.
 
@@ -692,7 +692,7 @@ class ComputeState:
             tasks (list[ComputeTask]): The tasks to push.
             args (dict[str, LazyValues]): The input for the entry node of the
                 subgraph.
-            gname (GName): The subgraph to call.
+            gname (QualifiedGraphName): The subgraph to call.
         """
         qname_obj = QName(qname)
         queue_pool = self._queue_pool

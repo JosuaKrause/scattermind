@@ -30,7 +30,12 @@ from scattermind.system.logger.context import ctx_fmt, get_ctx
 from scattermind.system.logger.error import ErrorInfo, to_retry_event
 from scattermind.system.logger.event import QueueMeasureEvent
 from scattermind.system.logger.log import EventStream
-from scattermind.system.names import GName, QualifiedName, ValueMap
+from scattermind.system.names import (
+    GNamespace,
+    QualifiedGraphName,
+    QualifiedName,
+    ValueMap,
+)
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.queue.strategy.strategy import (
@@ -237,9 +242,10 @@ class QueuePool(Module):
         """Create an empty queue pool."""
         super().__init__()
         self._client_pool: ClientPool | None = None
-        self._entry_graph: GraphId | None = None
-        self._graph_ids: dict[GName, GraphId] = {}
-        self._graph_names: dict[GraphId, GName] = {}
+        self._last_entry_graph: GraphId | None = None
+        self._entry_graphs: dict[GNamespace, GraphId] = {}
+        self._graph_ids: dict[QualifiedGraphName, GraphId] = {}
+        self._graph_names: dict[GraphId, QualifiedGraphName] = {}
         self._graph_descs: dict[GraphId, str] = {}
         self._input_nodes: dict[GraphId, 'Node'] = {}
         self._input_formats: dict[GraphId, DataFormat] = {}
@@ -278,44 +284,66 @@ class QueuePool(Module):
             raise ValueError("client pool not initialized")
         return self._client_pool
 
-    def set_entry_graph(self, graph_id: GraphId) -> None:
+    def set_entry_graph(self, ns: GNamespace, graph_id: GraphId) -> None:
         """
         Sets the entry graph.
 
         Args:
+            ns (GNamespace): The namespace.
             graph_id (GraphId): The graph that gets the overall input of the
                 execution graph.
 
         Raises:
             ValueError: If the entry graph has already been initialized.
         """
-        if self._entry_graph is not None:
-            raise ValueError("entry graph already initialized")
-        self._entry_graph = graph_id
+        if self._entry_graphs.get(ns) is not None:
+            raise ValueError(f"entry graph already initialized for {ns}")
+        self._entry_graphs[ns] = graph_id
+        self._last_entry_graph = graph_id
 
-    def get_entry_graph(self) -> GraphId:
+    def get_entry_graph(self, ns: GNamespace) -> GraphId:
         """
-        Retrieves the entry graph.
+        Retrieves the entry graph for the given namespace.
+
+        Args:
+            ns (GNamespace): The namespace.
 
         Raises:
-            ValueError: If the entry graph hasn't been set.
+            ValueError: If the entry graph hasn't been set for the namespace.
 
         Returns:
             GraphId: The graph that gets the overall input of the
-                execution graph.
+                execution graph in the namespace.
         """
-        if self._entry_graph is None:
-            raise ValueError("entry graph not initialized")
-        return self._entry_graph
+        res = self._entry_graphs.get(ns)
+        if res is None:
+            raise ValueError(f"entry graph not initialized for {ns}")
+        return res
 
-    def add_graph(self, graph_id: GraphId, gname: GName, desc: str) -> None:
+    def last_entry_graph(self) -> GraphId:
+        """
+        Retrieves the last added entry graph.
+
+        Returns:
+            GraphId: The graph.
+        """
+        res = self._last_entry_graph
+        if res is None:
+            raise ValueError("no entry graph set")
+        return res
+
+    def add_graph(
+            self,
+            graph_id: GraphId,
+            gname: QualifiedGraphName,
+            desc: str) -> None:
         """
         Initialize a new (sub-)graph. Graphs need to be uniquely identifyable
         via graph id and name.
 
         Args:
             graph_id (GraphId): The graph id.
-            gname (GName): The graph name.
+            gname (QualifiedGraphName): The qualified graph name.
             desc (str): The description of the graph.
 
         Raises:
@@ -324,32 +352,32 @@ class QueuePool(Module):
         if graph_id in self._graph_names:
             raise ValueError(f"duplicate graph {graph_id}")
         if gname in self._graph_ids:
-            raise ValueError(f"duplicate graph name: {gname.get()}")
+            raise ValueError(f"duplicate graph name: {gname.to_parseable()}")
         self._graph_ids[gname] = graph_id
         self._graph_names[graph_id] = gname
         self._graph_descs[graph_id] = desc
 
-    def get_graph_id(self, gname: GName) -> GraphId:
+    def get_graph_id(self, gname: QualifiedGraphName) -> GraphId:
         """
         Get the graph id for the given name.
 
         Args:
-            gname (GName): The name of the graph.
+            gname (QualifiedGraphName): The qualified name of the graph.
 
         Returns:
             GraphId: The associated graph id.
         """
         return self._graph_ids[gname]
 
-    def get_graph_name(self, graph_id: GraphId) -> GName:
+    def get_graph_name(self, graph_id: GraphId) -> QualifiedGraphName:
         """
-        Get the graph name for the given id.
+        Get the qualified graph name for the given id.
 
         Args:
             graph_id (GraphId): The id of the graph.
 
         Returns:
-            GName: The associated graph name.
+            QualifiedGraphName: The associated qualified graph name.
         """
         return self._graph_names[graph_id]
 
@@ -635,8 +663,8 @@ class QueuePool(Module):
                 the new node needs to be loaded.
         """
         strategy = self.get_node_strategy()
-        entry_graph_id = self.get_entry_graph()
-        candidate_node = self.get_input_node(entry_graph_id)
+        last_entry_graph_id = self.last_entry_graph()
+        candidate_node = self.get_input_node(last_entry_graph_id)
         candidate_score = 0.0
 
         def process_node(node: 'Node') -> float:
@@ -750,6 +778,7 @@ class QueuePool(Module):
 
     def enqueue_task(
             self,
+            ns: GNamespace,
             store: DataStore,
             original_input: TaskValueContainer) -> TaskId:
         """
@@ -763,7 +792,7 @@ class QueuePool(Module):
             TaskId: The new task id.
         """
         cpool = self.get_client_pool()
-        task_id = cpool.create_task(original_input)
+        task_id = cpool.create_task(ns, original_input)
         self._enqueue_task_id(cpool, store, task_id)
         return task_id
 
@@ -820,7 +849,7 @@ class QueuePool(Module):
         cpool = self.get_client_pool()
         data_id_type = store.data_id_type()
         task_id = task.get_task_id()
-        cpool.commit_task(
+        ns = cpool.commit_task(
             task_id,
             task.get_data_out(),
             weight=task.get_weight_out(),
@@ -832,7 +861,7 @@ class QueuePool(Module):
             next_frame, frame_data = cpool.pop_frame(task_id, data_id_type)
             if next_frame is None:
                 m_nname = None
-                graph_id = self.get_entry_graph()
+                graph_id = self.get_entry_graph(ns)
                 is_final = True
             else:
                 m_nname, graph_id, qid = next_frame
@@ -900,7 +929,8 @@ class QueuePool(Module):
             store (DataStore): The data store for storing the payload data.
             task_id (TaskId): The task id.
         """
-        entry_graph_id = self.get_entry_graph()
+        ns = cpool.get_namespace(task_id)
+        entry_graph_id = self.get_entry_graph(ns)
         input_format = self.get_input_format(entry_graph_id)
         cpool.init_data(store, task_id, input_format)
         node = self.get_input_node(entry_graph_id)

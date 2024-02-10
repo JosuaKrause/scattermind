@@ -17,6 +17,7 @@
 from typing import cast, get_args, Literal, TYPE_CHECKING, TypedDict
 
 from scattermind.system.logger.error import ErrorInfo, raise_error, warn_error
+from scattermind.system.names import GNamespace
 
 
 if TYPE_CHECKING:
@@ -70,6 +71,7 @@ def to_status(text: str) -> TaskStatus:
 
 
 ResponseObject = TypedDict('ResponseObject', {
+    "ns": GNamespace,
     "status": TaskStatus,
     "result": 'TaskValueContainer | None',
     "duration": float,

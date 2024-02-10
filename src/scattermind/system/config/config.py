@@ -23,6 +23,7 @@ from scattermind.system.executor.executor import ExecutorManager
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.graphdef import FullGraphDefJSON, json_to_graph
 from scattermind.system.logger.log import EventStream
+from scattermind.system.names import GNamespace
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.queue.queue import (
@@ -323,10 +324,10 @@ class Config(ScattermindAPI):
         graph = json_to_graph(self.get_queue_pool(), graph_def)
         self.set_graph(graph)
 
-    def enqueue(self, value: TaskValueContainer) -> TaskId:
+    def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
         store = self.get_data_store()
         queue_pool = self.get_queue_pool()
-        return queue_pool.enqueue_task(store, value)
+        return queue_pool.enqueue_task(ns, store, value)
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         cpool = self.get_client_pool()
@@ -334,15 +335,17 @@ class Config(ScattermindAPI):
 
     def get_result(self, task_id: TaskId) -> TaskValueContainer | None:
         cpool = self.get_client_pool()
+        ns = cpool.get_namespace(task_id)
         queue_pool = self.get_queue_pool()
-        graph_id = queue_pool.get_entry_graph()
+        graph_id = queue_pool.get_entry_graph(ns)
         output_format = queue_pool.get_output_format(graph_id)
         return cpool.get_final_output(task_id, output_format)
 
     def get_response(self, task_id: TaskId) -> ResponseObject:
         cpool = self.get_client_pool()
+        ns = cpool.get_namespace(task_id)
         queue_pool = self.get_queue_pool()
-        graph_id = queue_pool.get_entry_graph()
+        graph_id = queue_pool.get_entry_graph(ns)
         output_format = queue_pool.get_output_format(graph_id)
         return cpool.get_response(task_id, output_format)
 
@@ -365,16 +368,17 @@ class Config(ScattermindAPI):
 
         executor_manager.execute(logger, work)
 
-    def entry_graph_name(self) -> str:
+    def entry_graph_name(self, ns: GNamespace) -> str:
         queue_pool = self.get_queue_pool()
-        return queue_pool.get_graph_name(queue_pool.get_entry_graph()).get()
+        return queue_pool.get_graph_name(
+            queue_pool.get_entry_graph(ns)).to_parseable()
 
-    def main_inputs(self) -> set[str]:
+    def main_inputs(self, ns: GNamespace) -> set[str]:
         queue_pool = self.get_queue_pool()
-        inputs = queue_pool.get_input_format(queue_pool.get_entry_graph())
+        inputs = queue_pool.get_input_format(queue_pool.get_entry_graph(ns))
         return set(inputs.keys())
 
-    def main_outputs(self) -> set[str]:
+    def main_outputs(self, ns: GNamespace) -> set[str]:
         queue_pool = self.get_queue_pool()
-        output = queue_pool.get_output_format(queue_pool.get_entry_graph())
+        output = queue_pool.get_output_format(queue_pool.get_entry_graph(ns))
         return set(output.keys())

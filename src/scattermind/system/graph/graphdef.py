@@ -22,7 +22,14 @@ from scattermind.system.base import GraphId, NodeId, QueueId
 from scattermind.system.graph.args import NodeArg, NodeArguments
 from scattermind.system.graph.graph import Graph
 from scattermind.system.info import DataFormat, DataFormatJSON
-from scattermind.system.names import GName, NName, QName, QualifiedName
+from scattermind.system.names import (
+    GName,
+    GNamespace,
+    NName,
+    QName,
+    QualifiedGraphName,
+    QualifiedName,
+)
 from scattermind.system.queue.queue import QueuePool
 
 
@@ -93,6 +100,7 @@ computation. If a graph is a block, only the input queue of the graph is used.
 FullGraphDefJSON = TypedDict('FullGraphDefJSON', {
     "graphs": list[GraphDefJSON],
     "entry": str,
+    "ns": NotRequired[str],
 })
 
 
@@ -107,6 +115,7 @@ def graph_to_json(graph: Graph, queue_pool: QueuePool) -> FullGraphDefJSON:
     Returns:
         FullGraphDefJSON: The JSON serializable object.
     """
+    ns = graph.get_namespace()
     graphs = []
     for graph_id in queue_pool.get_graphs():
         nodes: list[NodeDefJSON] = [
@@ -134,7 +143,7 @@ def graph_to_json(graph: Graph, queue_pool: QueuePool) -> FullGraphDefJSON:
         vmap = queue_pool.get_output_value_map(graph_id)
         gdef: GraphDefJSON = {
             "graph_id": graph_id.to_parseable(),
-            "name": queue_pool.get_graph_name(graph_id).get(),
+            "name": queue_pool.get_graph_name(graph_id).get_name().get(),
             "description": queue_pool.get_graph_description(graph_id),
             "input": input_node.get_name().get(),
             "input_format":
@@ -150,7 +159,9 @@ def graph_to_json(graph: Graph, queue_pool: QueuePool) -> FullGraphDefJSON:
         graphs.append(gdef)
     return {
         "graphs": graphs,
-        "entry": queue_pool.get_graph_name(queue_pool.get_entry_graph()).get(),
+        "entry": queue_pool.get_graph_name(
+            queue_pool.get_entry_graph(ns)).get_name().get(),
+        "ns": ns.get(),
     }
 
 
@@ -168,9 +179,14 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
     Returns:
         Graph: The graph object.
     """
-    graph = Graph()
+    ns_val = def_obj.get("ns")
+    if ns_val is None:
+        ns = GNamespace(def_obj["entry"])
+    else:
+        ns = GNamespace(ns_val)
+    graph = Graph(ns)
     for gobj in def_obj["graphs"]:
-        gname = GName(gobj["name"])
+        gname = QualifiedGraphName(ns, GName(gobj["name"]))
         graph_id_str = gobj.get("graph_id")
         if graph_id_str is not None:
             graph_id = GraphId.parse(graph_id_str)
@@ -240,6 +256,7 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
     try:
         entry_id = GraphId.parse(def_obj["entry"])
     except ValueError:
-        entry_id = queue_pool.get_graph_id(GName(def_obj["entry"]))
-    queue_pool.set_entry_graph(entry_id)
+        entry_id = queue_pool.get_graph_id(
+            QualifiedGraphName(ns, GName(def_obj["entry"])))
+    queue_pool.set_entry_graph(ns, entry_id)
     return graph

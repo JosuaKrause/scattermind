@@ -21,7 +21,7 @@ from scattermind.system.base import DataId, GraphId, Module, QueueId, TaskId
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.error import ErrorInfo
-from scattermind.system.names import NName, ValueMap
+from scattermind.system.names import GNamespace, NName, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.response import ResponseObject, TaskStatus
 from scattermind.system.util import seconds_since
@@ -73,6 +73,7 @@ class ClientPool(Module):
             ResponseObject: The task summary.
         """
         return {
+            "ns": self.get_namespace(task_id),
             "status": self.get_status(task_id),
             "duration": self.get_duration(task_id),
             "retries": self.get_retries(task_id),
@@ -80,7 +81,11 @@ class ClientPool(Module):
             "error": self.get_error(task_id),
         }
 
-    def create_task(self, original_input: 'TaskValueContainer') -> TaskId:
+    def create_task(
+            self,
+            ns: GNamespace,
+            original_input: 'TaskValueContainer') -> TaskId:
+        # FIXME
         """
         Create a new task from a given input.
 
@@ -125,12 +130,24 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
+    def get_namespace(self, task_id: TaskId) -> GNamespace:
+        """
+        Retrieves the namespace of the given task.
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            GNamespace: The namespace.
+        """
+        raise NotImplementedError()
+
     def get_status(self, task_id: TaskId) -> TaskStatus:
         """
         Retrieves the status of the given task.
 
         Args:
-            task_id (TaskId): The task id
+            task_id (TaskId): The task id.
 
         Returns:
             TaskStatus: The status.
@@ -269,7 +286,7 @@ class ClientPool(Module):
             *,
             weight: float,
             byte_size: int,
-            push_frame: tuple[NName, GraphId, QueueId] | None) -> None:
+            push_frame: tuple[NName, GraphId, QueueId] | None) -> GNamespace:
         """
         Commit the current state of the task. This updates the state of the
         task and makes the new state visible to other executors.

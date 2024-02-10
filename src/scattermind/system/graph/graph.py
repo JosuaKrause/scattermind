@@ -18,7 +18,7 @@ from scattermind.system.base import GraphId, NodeId, QueueId
 from scattermind.system.graph.args import NodeArg, NodeArgs, NodeArguments
 from scattermind.system.graph.loader import load_node
 from scattermind.system.graph.node import Node
-from scattermind.system.names import NName, QName, ValueMap
+from scattermind.system.names import GNamespace, NName, QName, ValueMap
 from scattermind.system.queue.queue import QueuePool
 
 
@@ -30,7 +30,8 @@ class Graph:
     graph is loaded at all times. Nodes, on the other hand, are loaded and
     unloaded on demand.
     """
-    def __init__(self) -> None:
+    def __init__(self, ns: GNamespace) -> None:
+        self._ns = ns
         self._nodes: dict[NodeId, Node] = {}
         self._names: dict[NodeId, NName] = {}
         self._args: dict[NodeId, NodeArgs] = {}
@@ -39,6 +40,9 @@ class Graph:
         self._input_ids: dict[NodeId, QueueId] = {}
         self._output_ids: dict[NodeId, dict[QName, QueueId]] = {}
         self._vmaps: dict[NodeId, ValueMap] = {}
+
+    def get_namespace(self) -> GNamespace:
+        return self._ns
 
     def get_node_name(self, node_id: NodeId) -> NName:
         """
@@ -100,6 +104,9 @@ class Graph:
             ValueError: If there is a problem adding the node.
         """
         gname = queue_pool.get_graph_name(graph_id)
+        ns = gname.get_namespace()
+        if ns != self._ns:
+            raise ValueError(f"mismatching namespaces: {ns} != {self._ns}")
         if node_id is None:
             node_id = NodeId.create(gname, name)
         if node_id in self._names:
@@ -115,7 +122,7 @@ class Graph:
         node = load_node(self, kind, node_id)
         self._nodes[node_id] = node
         self._names[node_id] = name
-        self._args[node_id] = NodeArg.from_node_arguments(args)
+        self._args[node_id] = NodeArg.from_node_arguments(ns, args)
         self._vmaps[node_id] = vmap
         self._node_ids[node_key] = node_id
         if fixed_input_queue_id is None:
