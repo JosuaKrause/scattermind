@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """Provides the queue and queue pool."""
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
 
 from scattermind.system.base import (
@@ -1208,6 +1208,18 @@ class QueuePool(Module):
         """
         raise NotImplementedError()
 
+    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> None:
+        """
+        Removes all listeners that are not active. If listener values are not
+        parseable as executor (just a precaution) the value gets removed as
+        well.
+
+        Args:
+            is_active (Callable[[ExecutorId], bool]): Returns True if the given
+                executor is active and known.
+        """
+        raise NotImplementedError()
+
     def get_node_listeners(self, node: 'Node') -> int:
         """
         Countes how many listeners (executors) have loaded the given node.
@@ -1269,14 +1281,13 @@ class QueuePool(Module):
         raise NotImplementedError()
 
     def remove_queue_listener(
-            self, *, qid: QueueId | None, executor_id: ExecutorId) -> None:
+            self, qid: QueueId, executor_id: ExecutorId) -> None:
         """
         Removes a listener (executor) that has loaded the node associated with
         this queue.
 
         Args:
-            qid (QueueId | None): The queue id. If None the executor will be
-                removed from all queues (this is an expensive operation).
+            qid (QueueId): The queue id.
             executor_id (ExecutorId): The executor.
         """
         raise NotImplementedError()

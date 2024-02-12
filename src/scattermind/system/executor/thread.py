@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """A thread based executor that keeps running even if no tasks are available.
 """
+import random
 import threading
 import time
 from collections.abc import Callable
@@ -105,6 +106,8 @@ class ThreadExecutorManager(ExecutorManager):
                         if work is None:
                             raise ValueError("uninitialized executor")
                         sleep_on_idle = self._sleep_on_idle
+                        sleep_on_idle += random.uniform(
+                            0.0, max(sleep_on_idle, 0.0))
                         if not work(self) and sleep_on_idle > 0.0:
                             time.sleep(sleep_on_idle)
                     running = False
@@ -145,7 +148,7 @@ class ThreadExecutorManager(ExecutorManager):
 
     def is_active(self, executor_id: ExecutorId) -> bool:
         with LOCK:
-            return ACTIVE[executor_id]
+            return ACTIVE.get(executor_id, False)
 
     def release_executor(self, executor_id: ExecutorId) -> None:
         with LOCK:

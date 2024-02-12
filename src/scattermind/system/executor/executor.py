@@ -144,8 +144,8 @@ class ExecutorManager(Module):
                         "action": "unload",
                         "target": node.get_name(),
                     })
-                node.unload(own_id)
                 queue_pool.remove_node_listener(node, own_id)
+                node.unload(own_id)
             logger.log_event(
                 "tally.node.load",
                 {
@@ -153,8 +153,8 @@ class ExecutorManager(Module):
                     "action": "load",
                     "target": new_node.get_name(),
                 })
-            new_node.load(own_id, roa)
             queue_pool.add_node_listener(new_node, own_id)
+            new_node.load(own_id, roa)
             self._node = new_node
             logger.log_event(
                 "tally.node.load",
@@ -309,6 +309,11 @@ class ExecutorManager(Module):
                 continue
             self.handle_inactive_executor(logger, queue_pool, store, executor)
 
+        def is_active(executor_id: ExecutorId) -> bool:
+            return self.is_active(executor_id)
+
+        queue_pool.clean_listeners(is_active)
+
     def handle_inactive_executor(
             self,
             logger: EventStream,
@@ -328,9 +333,8 @@ class ExecutorManager(Module):
         executor_id = executor.get_id()
         with add_context({"executor": executor_id}):
             for qid in queue_pool.get_all_queues():
+                # NOTE: node listeners are cleaned up separately
                 queue_pool.clear_expected_task_weight(qid, executor_id)
-                queue_pool.remove_queue_listener(
-                    qid=None, executor_id=executor_id)
                 queue = queue_pool.get_queue(qid)
                 for reclaim_id in queue.unclaim_tasks(executor_id):
                     with add_context({"task": reclaim_id}):

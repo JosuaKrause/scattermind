@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """A RAM-only implementation of a queue pool."""
 import threading
+from collections.abc import Callable
 
 from scattermind.system.base import (
     ExecutorId,
@@ -123,6 +124,20 @@ class LocalQueuePool(QueuePool):
         with self._lock:
             return len(self._loads.get(qid, set()))
 
+    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> None:
+        with self._lock:
+            loads = list(self._loads.values())
+        for load_val in loads:
+            to_remove: list[ExecutorId] = []
+            with self._lock:
+                for executor_id in load_val:
+                    if is_active(executor_id):
+                        continue
+                    to_remove.append(executor_id)
+            with self._lock:
+                for executor_id in to_remove:
+                    load_val.discard(executor_id)
+
     def add_queue_listener(
             self, qid: QueueId, executor_id: ExecutorId) -> None:
         with self._lock:
@@ -133,15 +148,11 @@ class LocalQueuePool(QueuePool):
             loads.add(executor_id)
 
     def remove_queue_listener(
-            self, *, qid: QueueId | None, executor_id: ExecutorId) -> None:
+            self, qid: QueueId, executor_id: ExecutorId) -> None:
         with self._lock:
-            if qid is None:
-                for cur_loads in self._loads.values():
-                    cur_loads.discard(executor_id)
-            else:
-                loads = self._loads.get(qid)
-                if loads is not None:
-                    loads.discard(executor_id)
+            loads = self._loads.get(qid)
+            if loads is not None:
+                loads.discard(executor_id)
 
     def expect_task_weight(
             self,
