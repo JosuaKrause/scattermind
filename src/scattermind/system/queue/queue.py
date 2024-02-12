@@ -35,6 +35,8 @@ from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.queue.strategy.strategy import (
     NodeStrategy,
+    PICK_LEFT,
+    PICK_RIGHT,
     QueueStrategy,
 )
 from scattermind.system.response import (
@@ -90,6 +92,16 @@ class Queue:
             int: The number of executors having claims on the queue.
         """
         return self._queue_pool.claimant_count(self._qid)
+
+    def get_listener_count(self) -> int:
+        """
+        Counts the number of listeners (executors) that have loaded the
+        associated node of this queue.
+
+        Returns:
+            int: The number of listeners (executors).
+        """
+        return self._queue_pool.get_queue_listeners(self._qid)
 
     def get_unclaimed_tasks(self) -> list[ComputeTask]:
         """
@@ -637,67 +649,124 @@ class QueuePool(Module):
         strategy = self.get_node_strategy()
         entry_graph_id = self.get_entry_graph()
         candidate_node = self.get_input_node(entry_graph_id)
-        candidate_score = 0.0
 
-        def process_node(node: 'Node') -> float:
-            cur_graph_id = node.get_graph()
-            cur_graph_name = self.get_graph_name(cur_graph_id)
-            qid = node.get_input_queue()
-            queue = self.get_queue(qid)
-            qme: QueueMeasureEvent = {
+        def process_node(left_node: 'Node', right_node: 'Node') -> 'Node':
+            left_graph_id = left_node.get_graph()
+            left_graph_name = self.get_graph_name(left_graph_id)
+            left_qid = node.get_input_queue()
+            left_queue = self.get_queue(left_qid)
+            right_graph_id = right_node.get_graph()
+            right_graph_name = self.get_graph_name(right_graph_id)
+            right_qid = node.get_input_queue()
+            right_queue = self.get_queue(right_qid)
+            left_qme: QueueMeasureEvent = {
+                "name": "queue_input",
+            }
+            right_qme: QueueMeasureEvent = {
                 "name": "queue_input",
             }
 
-            def queue_length() -> int:
-                queue_length = queue.get_queue_length()
-                qme["length"] = queue_length
+            def left_queue_length() -> int:
+                queue_length = left_queue.get_queue_length()
+                left_qme["length"] = queue_length
                 return queue_length
 
-            def pressure() -> float:
-                pressure = queue.total_backpressure()
-                qme["pressure"] = pressure
+            def left_pressure() -> float:
+                pressure = left_queue.total_backpressure()
+                left_qme["pressure"] = pressure
                 return pressure
 
-            def expected_pressure() -> float:
-                expected_pressure = queue.total_expected_pressure()
-                qme["expected_pressure"] = expected_pressure
+            def left_expected_pressure() -> float:
+                expected_pressure = left_queue.total_expected_pressure()
+                left_qme["expected_pressure"] = expected_pressure
                 return expected_pressure
 
-            def cost_to_load() -> float:
-                cost_to_load = node.get_load_cost()
-                qme["cost"] = cost_to_load
+            def left_cost_to_load() -> float:
+                cost_to_load = left_node.get_load_cost()
+                left_qme["cost"] = cost_to_load
                 return cost_to_load
 
-            def claimants() -> int:
-                claimants = queue.claimant_count()
-                qme["claimants"] = claimants
+            def left_claimants() -> int:
+                claimants = left_queue.claimant_count()
+                left_qme["claimants"] = claimants
                 return claimants
 
-            score = strategy.other_score(
-                queue_length=queue_length,
-                pressure=pressure,
-                expected_pressure=expected_pressure,
-                cost_to_load=cost_to_load,
-                claimants=claimants)
-            qme["score"] = score
+            def left_loaded() -> int:
+                loaded = left_queue.get_listener_count()
+                left_qme["loaded"] = loaded
+                return loaded
+
+            def right_queue_length() -> int:
+                queue_length = right_queue.get_queue_length()
+                right_qme["length"] = queue_length
+                return queue_length
+
+            def right_pressure() -> float:
+                pressure = right_queue.total_backpressure()
+                right_qme["pressure"] = pressure
+                return pressure
+
+            def right_expected_pressure() -> float:
+                expected_pressure = right_queue.total_expected_pressure()
+                right_qme["expected_pressure"] = expected_pressure
+                return expected_pressure
+
+            def right_cost_to_load() -> float:
+                cost_to_load = right_node.get_load_cost()
+                right_qme["cost"] = cost_to_load
+                return cost_to_load
+
+            def right_claimants() -> int:
+                claimants = right_queue.claimant_count()
+                right_qme["claimants"] = claimants
+                return claimants
+
+            def right_loaded() -> int:
+                loaded = right_queue.get_listener_count()
+                right_qme["loaded"] = loaded
+                return loaded
+
+            pick_node = strategy.pick_node(
+                left_queue_length=left_queue_length,
+                left_pressure=left_pressure,
+                left_expected_pressure=left_expected_pressure,
+                left_cost_to_load=left_cost_to_load,
+                left_claimants=left_claimants,
+                left_loaded=left_loaded,
+                right_queue_length=right_queue_length,
+                right_pressure=right_pressure,
+                right_expected_pressure=right_expected_pressure,
+                right_cost_to_load=right_cost_to_load,
+                right_claimants=right_claimants,
+                right_loaded=right_loaded)
+            left_qme["picked"] = pick_node == PICK_LEFT
+            right_qme["picked"] = pick_node == PICK_RIGHT
             logger.log_event(
                 "measure.queue.input",
-                qme,
+                left_qme,
                 adjust_ctx={
                     "executor": None,
                     "task": None,
-                    "graph": cur_graph_id,
-                    "graph_name": cur_graph_name,
-                    "node": node.get_id(),
-                    "node_name": node.get_name(),
+                    "graph": left_graph_id,
+                    "graph_name": left_graph_name,
+                    "node": left_node.get_id(),
+                    "node_name": left_node.get_name(),
                 })
-            return score
+            logger.log_event(
+                "measure.queue.input",
+                right_qme,
+                adjust_ctx={
+                    "executor": None,
+                    "task": None,
+                    "graph": right_graph_id,
+                    "graph_name": right_graph_name,
+                    "node": right_node.get_id(),
+                    "node_name": right_node.get_name(),
+                })
+            return left_node if pick_node == PICK_LEFT else right_node
 
         for node in self.get_all_nodes():
-            score = process_node(node)
-            if score > candidate_score:
-                candidate_score = score
-                candidate_node = node
+            candidate_node = process_node(candidate_node, node)
         if current_node is None:
             return (candidate_node, True)
         own_queue = self.get_queue(current_node.get_input_queue())
@@ -717,6 +786,9 @@ class QueuePool(Module):
         def own_claimants() -> int:
             return own_queue.claimant_count()
 
+        def own_loaded() -> int:
+            return own_queue.get_listener_count()
+
         other_queue = self.get_queue(candidate_node.get_input_queue())
 
         def other_queue_length() -> int:
@@ -734,17 +806,22 @@ class QueuePool(Module):
         def other_claimants() -> int:
             return other_queue.claimant_count()
 
+        def other_loaded() -> int:
+            return other_queue.get_listener_count()
+
         if strategy.want_to_switch(
                 own_queue_length=own_queue_length,
                 own_pressure=own_pressure,
                 own_expected_pressure=own_expected_pressure,
                 own_cost_to_load=own_cost_to_load,
                 own_claimants=own_claimants,
+                own_loaded=own_loaded,
                 other_queue_length=other_queue_length,
                 other_pressure=other_pressure,
                 other_expected_pressure=other_expected_pressure,
                 other_cost_to_load=other_cost_to_load,
-                other_claimants=other_claimants):
+                other_claimants=other_claimants,
+                other_loaded=other_loaded):
             return (candidate_node, candidate_node != current_node)
         return (current_node, False)
 
@@ -1126,6 +1203,79 @@ class QueuePool(Module):
 
         Returns:
             int: The current payload size of the queue.
+        """
+        raise NotImplementedError()
+
+    def get_node_listeners(self, node: 'Node') -> int:
+        """
+        Countes how many listeners (executors) have loaded the given node.
+
+        Args:
+            node (Node): The node.
+
+        Returns:
+            int: The number of executors.
+        """
+        return self.get_queue_listeners(node.get_input_queue())
+
+    def add_node_listener(self, node: 'Node', executor_id: ExecutorId) -> None:
+        """
+        Indicates the the executor has loaded the given node.
+
+        Args:
+            node (Node): The node.
+            executor_id (ExecutorId): The executor.
+        """
+        self.add_queue_listener(node.get_input_queue(), executor_id)
+
+    def remove_node_listener(
+            self, node: 'Node', executor_id: ExecutorId) -> None:
+        """
+        Indicates the the executor has unloaded the given node.
+
+        Args:
+            node (Node): The node.
+            executor_id (ExecutorId): The executor.
+        """
+        self.remove_queue_listener(
+            qid=node.get_input_queue(), executor_id=executor_id)
+
+    def get_queue_listeners(self, qid: QueueId) -> int:
+        """
+        Counts how many executors have loaded the node associated with this
+        queue.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            int: The number of executors that have loaded the node associated
+                with this queue.
+        """
+        raise NotImplementedError()
+
+    def add_queue_listener(
+            self, qid: QueueId, executor_id: ExecutorId) -> None:
+        """
+        Adds a listener (executor) that has loaded the node associated with
+        this queue.
+
+        Args:
+            qid (QueueId): The queue id.
+            executor_id (ExecutorId): The executor.
+        """
+        raise NotImplementedError()
+
+    def remove_queue_listener(
+            self, *, qid: QueueId | None, executor_id: ExecutorId) -> None:
+        """
+        Removes a listener (executor) that has loaded the node associated with
+        this queue.
+
+        Args:
+            qid (QueueId | None): The queue id. If None the executor will be
+                removed from all queues (this is an expensive operation).
+            executor_id (ExecutorId): The executor.
         """
         raise NotImplementedError()
 

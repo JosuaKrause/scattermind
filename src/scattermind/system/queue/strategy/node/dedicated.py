@@ -17,22 +17,43 @@
 This way executors can be sticky and don't have to change nodes very often."""
 from collections.abc import Callable
 
-from scattermind.system.queue.strategy.strategy import NodeStrategy
+from scattermind.system.queue.strategy.strategy import (
+    NodeStrategy,
+    PICK_LEFT,
+    PICK_RIGHT,
+    PickNode,
+)
 
 
 class DedicatedNodeStrategy(NodeStrategy):
     """This strategy assumes that there is one executor available for every
     node. This way executors can be sticky and don't have to change nodes very
     often."""
-    def other_score(
+    def pick_node(
             self,
             *,
-            queue_length: Callable[[], int],
-            pressure: Callable[[], float],
-            expected_pressure: Callable[[], float],
-            cost_to_load: Callable[[], float],
-            claimants: Callable[[], int]) -> float:
-        return queue_length() / (claimants() + 1)
+            left_queue_length: Callable[[], int],
+            left_pressure: Callable[[], float],
+            left_expected_pressure: Callable[[], float],
+            left_cost_to_load: Callable[[], float],
+            left_claimants: Callable[[], int],
+            left_loaded: Callable[[], int],
+            right_queue_length: Callable[[], int],
+            right_pressure: Callable[[], float],
+            right_expected_pressure: Callable[[], float],
+            right_cost_to_load: Callable[[], float],
+            right_claimants: Callable[[], int],
+            right_loaded: Callable[[], int]) -> PickNode:
+        l_loaded = left_loaded()
+        r_loaded = right_loaded()
+        if l_loaded + 1 < r_loaded:
+            return PICK_LEFT
+        if r_loaded + 1 < l_loaded:
+            return PICK_RIGHT
+        return (
+            PICK_LEFT
+            if left_queue_length() > right_queue_length()
+            else PICK_RIGHT)
 
     def want_to_switch(
             self,
@@ -41,12 +62,14 @@ class DedicatedNodeStrategy(NodeStrategy):
             own_expected_pressure: Callable[[], float],
             own_cost_to_load: Callable[[], float],
             own_claimants: Callable[[], int],
+            own_loaded: Callable[[], int],
             other_queue_length: Callable[[], int],
             other_pressure: Callable[[], float],
             other_expected_pressure: Callable[[], float],
             other_cost_to_load: Callable[[], float],
-            other_claimants: Callable[[], int]) -> bool:
-        if own_claimants() >= other_claimants() + 2:
+            other_claimants: Callable[[], int],
+            other_loaded: Callable[[], int]) -> bool:
+        if own_loaded() >= other_loaded() + 2:
             return (
                 other_queue_length() > 0
                 or other_pressure() > 0

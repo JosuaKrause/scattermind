@@ -79,9 +79,10 @@ QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
     "expected_pressure": NotRequired[float],
     "cost": NotRequired[float],
     "claimants": NotRequired[int],
-    "score": NotRequired[float],
+    "loaded": NotRequired[int],
+    "picked": NotRequired[bool],
 })
-"""Event to report the status of a queue."""
+"""Event to report comparing two queues."""
 
 
 ExecutorEvent = TypedDict('ExecutorEvent', {

@@ -140,9 +140,11 @@ class ExecutorManager(Module):
                 logger.log_event(
                     "tally.node.unload", {"name": "node", "action": "unload"})
                 node.unload(own_id)
+                queue_pool.remove_node_listener(node, own_id)
             logger.log_event(
                 "tally.node.load", {"name": "node", "action": "load"})
             new_node.load(own_id, roa)
+            queue_pool.add_node_listener(new_node, own_id)
             self._node = new_node
             logger.log_event(
                 "tally.node.load", {"name": "node", "action": "load_done"})
@@ -312,6 +314,8 @@ class ExecutorManager(Module):
         with add_context({"executor": executor_id}):
             for qid in queue_pool.get_all_queues():
                 queue_pool.clear_expected_task_weight(qid, executor_id)
+                queue_pool.remove_queue_listener(
+                    qid=None, executor_id=executor_id)
                 queue = queue_pool.get_queue(qid)
                 for reclaim_id in queue.unclaim_tasks(executor_id):
                     with add_context({"task": reclaim_id}):
