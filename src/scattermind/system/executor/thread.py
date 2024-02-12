@@ -42,7 +42,8 @@ class ThreadExecutorManager(ExecutorManager):
             own_id: ExecutorId,
             *,
             batch_size: int,
-            sleep_on_idle: float) -> None:
+            sleep_on_idle: float,
+            reclaim_sleep: float) -> None:
         """
         Creates an executor manager for the given executor id.
 
@@ -52,10 +53,14 @@ class ThreadExecutorManager(ExecutorManager):
                 given executor.
             sleep_on_idle (float): The time to sleep in seconds if no task
                 is currently available for processing.
+            reclaim_sleep (float): The time to sleep in seconds between
+                two reclaim calls.
         """
         super().__init__(own_id, batch_size)
         self._sleep_on_idle = sleep_on_idle
+        self._reclaim_sleep = reclaim_sleep
         self._thread: threading.Thread | None = None
+        self._reclaim: threading.Thread | None = None
         self._work: Callable[[ExecutorManager], bool] | None = None
         self._logger: EventStream | None = None
         self._done = False
@@ -166,6 +171,41 @@ class ThreadExecutorManager(ExecutorManager):
             EventStream | None: The logger or None if no logger has been set.
         """
         return self._logger
+
+    def start_reclaimer(
+            self,
+            logger: EventStream,
+            reclaim_all_once: Callable[[], None]) -> None:
+
+        def run() -> None:
+            try:
+                while True:
+                    logger.log_event(
+                        "tally.executor.reclaim",
+                        {
+                            "name": "executor",
+                            "action": "reclaim",
+                        })
+                    reclaim_all_once()
+                    reclaim_sleep = self._reclaim_sleep
+                    if reclaim_sleep > 0.0:
+                        time.sleep(reclaim_sleep)
+            finally:
+                with LOCK:
+                    self._reclaim = None
+                    logger.log_error(
+                        "error.executor", "uncaught_executor")
+
+        if self._reclaim is not None:
+            return
+        with LOCK:
+            if self._reclaim is not None:
+                return
+            thread = threading.Thread(
+                target=run,
+                daemon=True)
+            self._reclaim = thread
+            thread.start()
 
     def execute(
             self,

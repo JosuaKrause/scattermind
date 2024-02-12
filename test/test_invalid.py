@@ -106,6 +106,7 @@ def test_queue_pool() -> None:
                 "batch_size": 10,
                 "parallelism": 1,
                 "sleep_on_idle": 0.1,
+                "reclaim_sleep": 60.0,
             }))
 
     with pytest.raises(ValueError, match=r"store not initialized"):

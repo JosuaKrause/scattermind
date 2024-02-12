@@ -20,6 +20,7 @@ from typing import Literal, NotRequired, TypedDict
 from scattermind.system.base import TaskId
 from scattermind.system.logger.context import ContextInfo
 from scattermind.system.logger.error import ErrorCode
+from scattermind.system.names import NName
 
 
 ErrorEvent = TypedDict('ErrorEvent', {
@@ -59,6 +60,7 @@ TaskEvent = TypedDict('TaskEvent', {
 NodeEvent = TypedDict('NodeEvent', {
     "name": Literal["node"],
     "action": Literal["load", "load_done", "unload"],
+    "target": NName,
 })
 """Event to indicate that a node has been loaded or unloaded."""
 
@@ -87,7 +89,7 @@ QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
 
 ExecutorEvent = TypedDict('ExecutorEvent', {
     "name": Literal["executor"],
-    "action": Literal["start", "stop"],
+    "action": Literal["start", "stop", "reclaim"],
 })
 """Event to indicate that an executor has been started or stopped. A stop event
 might not always be fired."""

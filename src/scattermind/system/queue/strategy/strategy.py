@@ -23,12 +23,8 @@ from scattermind.system.client.client import ClientPool
 
 PickNode = Literal["left", "right"]
 """Which node to pick."""
-
-
 PICK_LEFT: PickNode = "left"
 """Picked the left node."""
-
-
 PICK_RIGHT: PickNode = "right"
 """Picked the right node."""
 

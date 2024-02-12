@@ -766,6 +766,8 @@ class QueuePool(Module):
             return left_node if pick_node == PICK_LEFT else right_node
 
         for node in self.get_all_nodes():
+            if node == current_node:
+                continue
             candidate_node = process_node(candidate_node, node)
         if current_node is None:
             return (candidate_node, True)

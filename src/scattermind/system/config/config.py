@@ -360,6 +360,11 @@ class Config(ScattermindAPI):
         roa = self.get_readonly_access()
         logger = self.get_logger()
 
+        def reclaim_all_once() -> None:
+            executor_manager.reclaim_inactive_tasks(logger, queue_pool, store)
+
+        executor_manager.start_reclaimer(logger, reclaim_all_once)
+
         def work(emng: ExecutorManager) -> bool:
             return emng.execute_batch(logger, queue_pool, store, roa)
 

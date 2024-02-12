@@ -138,16 +138,31 @@ class ExecutorManager(Module):
         if switch:
             if node is not None:
                 logger.log_event(
-                    "tally.node.unload", {"name": "node", "action": "unload"})
+                    "tally.node.unload",
+                    {
+                        "name": "node",
+                        "action": "unload",
+                        "target": node.get_name(),
+                    })
                 node.unload(own_id)
                 queue_pool.remove_node_listener(node, own_id)
             logger.log_event(
-                "tally.node.load", {"name": "node", "action": "load"})
+                "tally.node.load",
+                {
+                    "name": "node",
+                    "action": "load",
+                    "target": new_node.get_name(),
+                })
             new_node.load(own_id, roa)
             queue_pool.add_node_listener(new_node, own_id)
             self._node = new_node
             logger.log_event(
-                "tally.node.load", {"name": "node", "action": "load_done"})
+                "tally.node.load",
+                {
+                    "name": "node",
+                    "action": "load_done",
+                    "target": new_node.get_name(),
+                })
         assert self._node is not None
         return self._node
 
@@ -393,6 +408,25 @@ class ExecutorManager(Module):
 
         Args:
             executor_id (ExecutorId): The executor id to stop.
+        """
+        raise NotImplementedError()
+
+    def start_reclaimer(
+            self,
+            logger: EventStream,
+            reclaim_all_once: Callable[[], None]) -> None:
+        """
+        Starts the reclaim loop in the background. At least one reclaim loop
+        should be active at any time for non-local workers. The implementation
+        must loop indefinitely but can have a long period (i.e., wait time
+        between runs).
+
+        Args:
+            logger (EventStream): The logger.
+            reclaim_all_once (Callable[[], None]): Reclaims inactive executors.
+                This callback cleans up and reclaims all currently inactive
+                executors. The callback returns once it is done. It does not
+                loop.
         """
         raise NotImplementedError()
 

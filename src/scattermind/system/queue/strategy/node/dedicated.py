@@ -46,10 +46,12 @@ class DedicatedNodeStrategy(NodeStrategy):
             right_loaded: Callable[[], int]) -> PickNode:
         l_loaded = left_loaded()
         r_loaded = right_loaded()
+        print("node loaded", l_loaded, r_loaded)
         if l_loaded + 1 < r_loaded:
             return PICK_LEFT
         if r_loaded + 1 < l_loaded:
             return PICK_RIGHT
+        print("node queue", left_queue_length(), right_queue_length())
         return (
             PICK_LEFT
             if left_queue_length() > right_queue_length()
@@ -69,9 +71,5 @@ class DedicatedNodeStrategy(NodeStrategy):
             other_cost_to_load: Callable[[], float],
             other_claimants: Callable[[], int],
             other_loaded: Callable[[], int]) -> bool:
-        if own_loaded() >= other_loaded() + 2:
-            return (
-                other_queue_length() > 0
-                or other_pressure() > 0
-                or other_expected_pressure() > 0)
-        return False
+        print("node check loaded", own_loaded(), other_loaded())
+        return own_loaded() > other_loaded() + 1

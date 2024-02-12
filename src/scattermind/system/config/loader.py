@@ -164,6 +164,7 @@ def load_test(
             "batch_size": batch_size,
             "parallelism": parallelism,
             "sleep_on_idle": 0.1,
+            "reclaim_sleep": 60.0,
         }
     else:
         executor_manager = {
