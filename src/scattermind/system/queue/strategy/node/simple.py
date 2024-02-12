@@ -42,16 +42,8 @@ class SimpleNodeStrategy(NodeStrategy):
             right_cost_to_load: Callable[[], float],
             right_claimants: Callable[[], int],
             right_loaded: Callable[[], int]) -> PickNode:
-        left_numerator = (
-            left_queue_length()
-            + left_expected_pressure()
-            + left_pressure())
-        left_score = left_numerator / left_cost_to_load()
-        right_numerator = (
-            right_queue_length()
-            + right_expected_pressure()
-            + right_pressure())
-        right_score = right_numerator / right_cost_to_load()
+        left_score = left_queue_length() / left_cost_to_load()
+        right_score = right_queue_length() / right_cost_to_load()
         return PICK_LEFT if left_score > right_score else PICK_RIGHT
 
     def want_to_switch(
@@ -68,11 +60,6 @@ class SimpleNodeStrategy(NodeStrategy):
             other_cost_to_load: Callable[[], float],
             other_claimants: Callable[[], int],
             other_loaded: Callable[[], int]) -> bool:
-        own_num = own_queue_length() + own_expected_pressure() + own_pressure()
-        own_score = own_num / own_cost_to_load()
-        other_num = (
-            other_queue_length()
-            + other_expected_pressure()
-            + other_pressure())
-        other_score = other_num / other_cost_to_load()
+        own_score = own_queue_length() / own_cost_to_load()
+        other_score = other_queue_length() / other_cost_to_load()
         return other_score > own_score
