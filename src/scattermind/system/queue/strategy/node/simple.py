@@ -25,8 +25,7 @@ from scattermind.system.queue.strategy.strategy import (
 
 
 class SimpleNodeStrategy(NodeStrategy):
-    """The simple node strategy tallies up the queue length and pressure and
-    scales it down by cost to load."""
+    """The simple node strategy tallies up the queue lengths."""
     def pick_node(
             self,
             *,
@@ -42,9 +41,9 @@ class SimpleNodeStrategy(NodeStrategy):
             right_cost_to_load: Callable[[], float],
             right_claimants: Callable[[], int],
             right_loaded: Callable[[], int]) -> PickNode:
-        left_score = left_queue_length() / left_cost_to_load()
-        right_score = right_queue_length() / right_cost_to_load()
-        return PICK_LEFT if left_score >= right_score else PICK_RIGHT
+        if left_queue_length() > right_queue_length():
+            return PICK_LEFT
+        return PICK_RIGHT
 
     def want_to_switch(
             self,
@@ -60,6 +59,6 @@ class SimpleNodeStrategy(NodeStrategy):
             other_cost_to_load: Callable[[], float],
             other_claimants: Callable[[], int],
             other_loaded: Callable[[], int]) -> bool:
-        own_score = own_queue_length() / own_cost_to_load()
-        other_score = other_queue_length() / other_cost_to_load()
-        return other_score > own_score
+        if own_queue_length() > 0:
+            return False
+        return other_queue_length() > 0
