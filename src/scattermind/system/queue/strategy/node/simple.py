@@ -44,7 +44,7 @@ class SimpleNodeStrategy(NodeStrategy):
             right_loaded: Callable[[], int]) -> PickNode:
         left_score = left_queue_length() / left_cost_to_load()
         right_score = right_queue_length() / right_cost_to_load()
-        return PICK_LEFT if left_score > right_score else PICK_RIGHT
+        return PICK_LEFT if left_score >= right_score else PICK_RIGHT
 
     def want_to_switch(
             self,
