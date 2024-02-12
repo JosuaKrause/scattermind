@@ -105,7 +105,7 @@ class ThreadExecutorManager(ExecutorManager):
                         work = self._work
                         if work is None:
                             raise ValueError("uninitialized executor")
-                        sleep_on_idle = self._sleep_on_idle
+                        sleep_on_idle = self._sleep_on_idle * 0.5
                         sleep_on_idle += random.uniform(
                             0.0, max(sleep_on_idle, 0.0))
                         if not work(self) and sleep_on_idle > 0.0:
