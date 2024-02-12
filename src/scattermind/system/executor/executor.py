@@ -293,7 +293,7 @@ class ExecutorManager(Module):
             self,
             logger: EventStream,
             queue_pool: QueuePool,
-            store: DataStore) -> None:
+            store: DataStore) -> tuple[int, int]:
         """
         Reclaim tasks from inactive executors. Tasks whose execution was not
         complete for their current node (results were not committed) are made
@@ -303,16 +303,24 @@ class ExecutorManager(Module):
             logger (EventStream): The logger.
             queue_pool (QueuePool): The queue pool.
             store (DataStore): The payload data store.
+
+        Returns:
+            tuple[int, int]: The number of reclaimed executors. The first
+                number is the number of detected inactive executors. The second
+                number is the number of unknown / inactive listeners.
         """
+        executor_count = 0
         for executor in self.get_all_executors():
             if executor.is_active():
                 continue
             self.handle_inactive_executor(logger, queue_pool, store, executor)
+            executor_count += 1
 
         def is_active(executor_id: ExecutorId) -> bool:
             return self.is_active(executor_id)
 
-        queue_pool.clean_listeners(is_active)
+        listener_count = queue_pool.clean_listeners(is_active)
+        return executor_count, listener_count
 
     def handle_inactive_executor(
             self,
@@ -418,7 +426,7 @@ class ExecutorManager(Module):
     def start_reclaimer(
             self,
             logger: EventStream,
-            reclaim_all_once: Callable[[], None]) -> None:
+            reclaim_all_once: Callable[[], tuple[int, int]]) -> None:
         """
         Starts the reclaim loop in the background. At least one reclaim loop
         should be active at any time for non-local workers. The implementation
@@ -427,10 +435,11 @@ class ExecutorManager(Module):
 
         Args:
             logger (EventStream): The logger.
-            reclaim_all_once (Callable[[], None]): Reclaims inactive executors.
-                This callback cleans up and reclaims all currently inactive
-                executors. The callback returns once it is done. It does not
-                loop.
+            reclaim_all_once (Callable[[], tuple[int, int]]): Reclaims inactive
+                executors. This callback cleans up and reclaims all currently
+                inactive executors. The callback returns once it is done. It
+                does not loop. The numbers returned are the inactive executors
+                and the inactive listeners respectively.
         """
         raise NotImplementedError()
 

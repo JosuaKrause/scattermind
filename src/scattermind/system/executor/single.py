@@ -45,7 +45,7 @@ class SingleExecutorManager(ExecutorManager):
     def start_reclaimer(
             self,
             logger: EventStream,
-            reclaim_all_once: Callable[[], None]) -> None:
+            reclaim_all_once: Callable[[], tuple[int, int]]) -> None:
         pass  # NOTE: we do not reclaim executors
 
     def execute(

@@ -1208,7 +1208,7 @@ class QueuePool(Module):
         """
         raise NotImplementedError()
 
-    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> None:
+    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> int:
         """
         Removes all listeners that are not active. If listener values are not
         parseable as executor (just a precaution) the value gets removed as
@@ -1217,6 +1217,9 @@ class QueuePool(Module):
         Args:
             is_active (Callable[[ExecutorId], bool]): Returns True if the given
                 executor is active and known.
+
+        Returns:
+            int: The number of cleaned up listeners.
         """
         raise NotImplementedError()
 

@@ -178,18 +178,20 @@ class ThreadExecutorManager(ExecutorManager):
     def start_reclaimer(
             self,
             logger: EventStream,
-            reclaim_all_once: Callable[[], None]) -> None:
+            reclaim_all_once: Callable[[], tuple[int, int]]) -> None:
 
         def run() -> None:
             try:
                 while True:
+                    executor_count, listener_count = reclaim_all_once()
                     logger.log_event(
                         "tally.executor.reclaim",
                         {
                             "name": "executor",
                             "action": "reclaim",
+                            "executors": executor_count,
+                            "listeners": listener_count,
                         })
-                    reclaim_all_once()
                     reclaim_sleep = self._reclaim_sleep
                     if reclaim_sleep > 0.0:
                         time.sleep(reclaim_sleep)

@@ -90,6 +90,8 @@ QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
 ExecutorEvent = TypedDict('ExecutorEvent', {
     "name": Literal["executor"],
     "action": Literal["start", "stop", "reclaim"],
+    "executors": NotRequired[int],
+    "listeners": NotRequired[int],
 })
 """Event to indicate that an executor has been started or stopped. A stop event
 might not always be fired."""

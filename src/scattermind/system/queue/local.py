@@ -124,9 +124,10 @@ class LocalQueuePool(QueuePool):
         with self._lock:
             return len(self._loads.get(qid, set()))
 
-    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> None:
+    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> int:
         with self._lock:
             loads = list(self._loads.values())
+        total = 0
         for load_val in loads:
             to_remove: list[ExecutorId] = []
             with self._lock:
@@ -137,6 +138,8 @@ class LocalQueuePool(QueuePool):
             with self._lock:
                 for executor_id in to_remove:
                     load_val.discard(executor_id)
+            total += len(to_remove)
+        return total
 
     def add_queue_listener(
             self, qid: QueueId, executor_id: ExecutorId) -> None:

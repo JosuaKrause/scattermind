@@ -259,9 +259,10 @@ class RedisQueuePool(QueuePool):
         with redis.get_connection() as conn:
             return conn.scard(self.key_loads(qid))
 
-    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> None:
+    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> int:
         redis = self._redis.maybe_get_redis_runtime()
         assert redis is not None
+        total = 0
         # NOTE: we do not want pipelining/scripting here
         with redis.get_connection() as conn:
             for cur_loads in redis.keys_str(self.key_loads(None)):
@@ -278,6 +279,8 @@ class RedisQueuePool(QueuePool):
                         to_remove.add(executor_id_bytes)
                 if to_remove:
                     conn.srem(cur_loads, *to_remove)
+                    total += len(to_remove)
+        return total
 
     def add_queue_listener(
             self, qid: QueueId, executor_id: ExecutorId) -> None:
