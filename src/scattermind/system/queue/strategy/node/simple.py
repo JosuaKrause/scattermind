@@ -25,7 +25,7 @@ from scattermind.system.queue.strategy.strategy import (
 
 
 class SimpleNodeStrategy(NodeStrategy):
-    """The simple node strategy tallies up the queue lengths."""
+    """The simple node strategy."""
     def pick_node(
             self,
             *,
@@ -41,7 +41,7 @@ class SimpleNodeStrategy(NodeStrategy):
             right_cost_to_load: Callable[[], float],
             right_claimants: Callable[[], int],
             right_loaded: Callable[[], int]) -> PickNode:
-        if left_queue_length() > right_queue_length():
+        if left_pressure() > right_pressure():
             return PICK_LEFT
         return PICK_RIGHT
 
@@ -59,6 +59,4 @@ class SimpleNodeStrategy(NodeStrategy):
             other_cost_to_load: Callable[[], float],
             other_claimants: Callable[[], int],
             other_loaded: Callable[[], int]) -> bool:
-        if own_queue_length() > 0:
-            return False
-        return other_queue_length() > 0
+        return other_pressure() > own_pressure()
