@@ -653,11 +653,11 @@ class QueuePool(Module):
         def process_node(left_node: 'Node', right_node: 'Node') -> 'Node':
             left_graph_id = left_node.get_graph()
             left_graph_name = self.get_graph_name(left_graph_id)
-            left_qid = node.get_input_queue()
+            left_qid = left_node.get_input_queue()
             left_queue = self.get_queue(left_qid)
             right_graph_id = right_node.get_graph()
             right_graph_name = self.get_graph_name(right_graph_id)
-            right_qid = node.get_input_queue()
+            right_qid = right_node.get_input_queue()
             right_queue = self.get_queue(right_qid)
             left_qme: QueueMeasureEvent = {
                 "name": "queue_input",
