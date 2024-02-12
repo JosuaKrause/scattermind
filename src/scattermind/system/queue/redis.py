@@ -276,7 +276,8 @@ class RedisQueuePool(QueuePool):
                         remove = True
                     if remove:
                         to_remove.add(executor_id_bytes)
-                conn.srem(cur_loads, *to_remove)
+                if to_remove:
+                    conn.srem(cur_loads, *to_remove)
 
     def add_queue_listener(
             self, qid: QueueId, executor_id: ExecutorId) -> None:
