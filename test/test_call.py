@@ -22,7 +22,6 @@ import pytest
 
 from scattermind.system.base import set_debug_output_length, TaskId
 from scattermind.system.config.loader import load_test
-from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     response_ok,
     TASK_STATUS_DONE,
@@ -201,12 +200,14 @@ def test_simple_call(
     time_start = time.monotonic()
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
-            config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array([
-                    [-tix, tix + 1],
-                    [-tix, tix + 2],
-                ]), dtype="float"),
-            })),
+            config.enqueue_task(
+                "main",
+                {
+                    "value": np.array([
+                        [-tix, tix + 1],
+                        [-tix, tix + 2],
+                    ], dtype=np.float32),
+                }),
             np.array([
                 [1.0 - 4.0 * tix, 1.0],
                 [1.0, 12.0 * tix + 17.0],

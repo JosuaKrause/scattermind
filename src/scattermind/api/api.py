@@ -52,6 +52,7 @@ class ScattermindAPI:
         user-friendly way of creating a task.
 
         Args:
+            ns (GNamespace): The namespace.
             value (TaskValueContainer): The task's input values.
 
         Returns:
@@ -60,6 +61,15 @@ class ScattermindAPI:
         raise NotImplementedError()
 
     def get_namespace(self, task_id: TaskId) -> GNamespace:
+        """
+        Retrieves the namespace of the given task.
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            GNamespace: The namespace.
+        """
         raise NotImplementedError()
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
@@ -111,12 +121,14 @@ class ScattermindAPI:
 
     def enqueue_task(
             self,
+            ns: GNamespace | str,
             obj: dict[str, str | list[Any] | np.ndarray | torch.Tensor],
             ) -> TaskId:
         """
         Enqueues a task.
 
         Args:
+            ns (GNamespace | str): The namespace or a namespace string.
             obj (dict[str, str | list[Any] | np.ndarray | torch.Tensor]):
                 The task's input values. Values can be strings or various forms
                 of tensor data (nested float lists, numpy arrays, etc.).
@@ -124,6 +136,8 @@ class ScattermindAPI:
         Returns:
             TaskId: The task id.
         """
+        if not isinstance(ns, GNamespace):
+            ns = GNamespace(ns)
 
         def convert(
                 val: str | list[Any] | np.ndarray | torch.Tensor,
@@ -134,10 +148,12 @@ class ScattermindAPI:
                 return val.clone().detach()
             return create_tensor(val, dtype=None).clone().detach()
 
-        return self.enqueue(TaskValueContainer({
-            key: convert(value)
-            for key, value in obj.items()
-        }))
+        return self.enqueue(
+            ns,
+            TaskValueContainer({
+                key: convert(value)
+                for key, value in obj.items()
+            }))
 
     def wait_for(
             self,
@@ -196,6 +212,12 @@ class ScattermindAPI:
             yield (task_id, self.get_response(task_id))
 
     def namespaces(self) -> set[GNamespace]:
+        """
+        Retrieve all registered namespaces.
+
+        Returns:
+            set[GNamespace]: All namespaces.
+        """
         raise NotImplementedError()
 
     def entry_graph_name(self, ns: GNamespace) -> str:

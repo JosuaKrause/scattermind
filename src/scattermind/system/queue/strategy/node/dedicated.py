@@ -44,16 +44,19 @@ class DedicatedNodeStrategy(NodeStrategy):
             right_cost_to_load: Callable[[], float],
             right_claimants: Callable[[], int],
             right_loaded: Callable[[], int]) -> PickNode:
+        l_queue = left_queue_length()
+        r_queue = right_queue_length()
         l_loaded = left_loaded()
         r_loaded = right_loaded()
+        if l_loaded == 0 and l_queue > 0 and r_queue == 0:
+            return PICK_LEFT
+        if r_loaded == 0 and r_queue > 0 and l_queue == 0:
+            return PICK_RIGHT
         if l_loaded + 1 < r_loaded:
             return PICK_LEFT
         if r_loaded + 1 < l_loaded:
             return PICK_RIGHT
-        return (
-            PICK_LEFT
-            if left_queue_length() > right_queue_length()
-            else PICK_RIGHT)
+        return PICK_LEFT if l_queue > r_queue else PICK_RIGHT
 
     def want_to_switch(
             self,
@@ -69,4 +72,10 @@ class DedicatedNodeStrategy(NodeStrategy):
             other_cost_to_load: Callable[[], float],
             other_claimants: Callable[[], int],
             other_loaded: Callable[[], int]) -> bool:
-        return own_loaded() > other_loaded() + 1
+        own_loads = own_loaded()
+        other_loads = other_loaded()
+        own_len = own_queue_length()
+        other_len = other_queue_length()
+        if other_loads == 0 and other_len > 0 and own_len == 0:
+            return True
+        return own_loads > other_loads + 1

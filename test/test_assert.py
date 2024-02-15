@@ -23,6 +23,7 @@ import pytest
 from scattermind.system.base import set_debug_output_length, TaskId
 from scattermind.system.client.client import TASK_MAX_RETRIES
 from scattermind.system.config.loader import load_test
+from scattermind.system.names import GNamespace
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     response_ok,
@@ -91,12 +92,16 @@ def test_assertion_error(
         ],
         "entry": "main",
     })
+    ns = GNamespace("main")
     time_start = time.monotonic()
     tasks: list[tuple[TaskId, bool]] = [
         (
-            config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array([tix % 3 > 0]), dtype="bool"),
-            })),
+            config.enqueue(
+                ns,
+                TaskValueContainer({
+                    "value": create_tensor(
+                        np.array([tix % 3 > 0]), dtype="bool"),
+                })),
             tix % 3 > 0,
         )
         for tix in range(20)
@@ -133,7 +138,8 @@ def test_assertion_error(
                 assert ectx["node_name"] is not None
                 assert ectx["node_name"].get() == "node_1"
                 assert ectx["graph_name"] is not None
-                assert ectx["graph_name"].get() == "main"
+                assert ectx["graph_name"].get_namespace().get() == "main"
+                assert ectx["graph_name"].get_name().get() == "main"
                 assert error["message"].find("value was not true") >= 0
                 tback = error["traceback"]
                 assert "Traceback" in tback[0]

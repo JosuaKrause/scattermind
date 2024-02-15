@@ -36,7 +36,7 @@ from scattermind.system.logger.error import (
     from_error_json,
     to_error_json,
 )
-from scattermind.system.names import NName, QualifiedName, ValueMap
+from scattermind.system.names import GNamespace, NName, QualifiedName, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import DataContainer, TaskValueContainer
 from scattermind.system.redis_util import (
@@ -61,6 +61,7 @@ DT = TypeVar('DT', bound=DataId)
 
 
 KeyName = Literal[
+    "ns",  # str
     "values",  # TVC str
     "status",  # str
     "retries",  # int
@@ -151,9 +152,11 @@ class RedisClientPool(ClientPool):
 
     def create_task(
             self,
+            ns: GNamespace,
             original_input: TaskValueContainer) -> TaskId:
         task_id = TaskId.create()
         with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "ns", task_id, ns.get())
             self.set_value(
                 pipe, "values", task_id, tvc_to_redis(original_input))
             self.set_value(pipe, "status", task_id, TASK_STATUS_INIT)
@@ -195,6 +198,11 @@ class RedisClientPool(ClientPool):
                 self.set_value(pipe, "status", task_id, status)
                 res.append(task_id)
             return res
+
+    def get_namespace(self, task_id: TaskId) -> GNamespace:
+        res = self.get_value("ns", task_id)
+        assert res is not None
+        return GNamespace(res)
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         res = self.get_value("status", task_id)
@@ -266,7 +274,7 @@ class RedisClientPool(ClientPool):
             *,
             weight: float,
             byte_size: int,
-            push_frame: tuple[NName, GraphId, QueueId] | None) -> None:
+            push_frame: tuple[NName, GraphId, QueueId] | None) -> GNamespace:
         # FIXME proper operation grouping
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "weight", task_id, f"{weight}")
@@ -285,6 +293,7 @@ class RedisClientPool(ClientPool):
                     stack_data_key,
                     field.to_parseable(),
                     data_id.to_parseable())
+            return self.get_namespace(task_id)
 
     def pop_frame(
             self,
@@ -348,6 +357,7 @@ class RedisClientPool(ClientPool):
 
     def clear_task(self, task_id: TaskId) -> None:
         with self._redis.pipeline() as pipe:
+            self.delete(pipe, "ns", task_id)
             self.delete(pipe, "values", task_id)
             self.delete(pipe, "status", task_id)
             self.delete(pipe, "retries", task_id)

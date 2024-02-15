@@ -90,6 +90,7 @@ class ClientPool(Module):
         Create a new task from a given input.
 
         Args:
+            ns (GNamespace): The namespace.
             original_input (TaskValueContainer): The input data for the task.
 
         Returns:

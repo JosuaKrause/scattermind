@@ -19,7 +19,6 @@ import pytest
 
 from scattermind.system.base import TaskId
 from scattermind.system.config.loader import load_test
-from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     response_ok,
     TASK_STATUS_DONE,
@@ -27,7 +26,7 @@ from scattermind.system.response import (
     TASK_STATUS_UNKNOWN,
     TASK_STATUS_WAIT,
 )
-from scattermind.system.torch_util import as_numpy, create_tensor
+from scattermind.system.torch_util import as_numpy
 
 
 @pytest.mark.parametrize("base", [[[1.0]], [[1.0, 2.0], [3.0, 4.0]]])
@@ -82,9 +81,11 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
     })
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
-            config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array(base) * tix, dtype="float"),
-            })),
+            config.enqueue_task(
+                "cop",
+                {
+                    "value": (np.array(base) * tix).astype(np.float32),
+                }),
             np.array(base) * tix * 2.0,
         )
         for tix in range(20)
@@ -174,9 +175,11 @@ def test_cop_chain(
     })
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
-            config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array(base) * tix, dtype="float"),
-            })),
+            config.enqueue_task(
+                "copchain",
+                {
+                    "value": (np.array(base) * tix).astype(np.float32),
+                }),
             np.array(base) * tix * 2.0 + 1.0,
         )
         for tix in range(20)
