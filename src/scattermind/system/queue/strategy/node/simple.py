@@ -16,22 +16,42 @@
 """A simple node strategy."""
 from collections.abc import Callable
 
-from scattermind.system.queue.strategy.strategy import NodeStrategy
+from scattermind.system.queue.strategy.strategy import (
+    NodeStrategy,
+    PICK_LEFT,
+    PICK_RIGHT,
+    PickNode,
+)
 
 
 class SimpleNodeStrategy(NodeStrategy):
-    """The simple node strategy tallies up the queue length and pressure and
-    scales it down by cost to load."""
-    def other_score(
+    """The simple node strategy."""
+    def pick_node(
             self,
             *,
-            queue_length: Callable[[], int],
-            pressure: Callable[[], float],
-            expected_pressure: Callable[[], float],
-            cost_to_load: Callable[[], float],
-            claimants: Callable[[], int]) -> float:
-        numerator = queue_length() + expected_pressure() + pressure()
-        return numerator / cost_to_load()
+            left_queue_length: Callable[[], int],
+            left_pressure: Callable[[], float],
+            left_expected_pressure: Callable[[], float],
+            left_cost_to_load: Callable[[], float],
+            left_claimants: Callable[[], int],
+            left_loaded: Callable[[], int],
+            right_queue_length: Callable[[], int],
+            right_pressure: Callable[[], float],
+            right_expected_pressure: Callable[[], float],
+            right_cost_to_load: Callable[[], float],
+            right_claimants: Callable[[], int],
+            right_loaded: Callable[[], int]) -> PickNode:
+        left_numerator = (
+            left_queue_length()
+            + left_expected_pressure()
+            + left_pressure())
+        left_score = left_numerator / left_cost_to_load()
+        right_numerator = (
+            right_queue_length()
+            + right_expected_pressure()
+            + right_pressure())
+        right_score = right_numerator / right_cost_to_load()
+        return PICK_LEFT if left_score > right_score else PICK_RIGHT
 
     def want_to_switch(
             self,
@@ -40,11 +60,13 @@ class SimpleNodeStrategy(NodeStrategy):
             own_expected_pressure: Callable[[], float],
             own_cost_to_load: Callable[[], float],
             own_claimants: Callable[[], int],
+            own_loaded: Callable[[], int],
             other_queue_length: Callable[[], int],
             other_pressure: Callable[[], float],
             other_expected_pressure: Callable[[], float],
             other_cost_to_load: Callable[[], float],
-            other_claimants: Callable[[], int]) -> bool:
+            other_claimants: Callable[[], int],
+            other_loaded: Callable[[], int]) -> bool:
         own_num = own_queue_length() + own_expected_pressure() + own_pressure()
         own_score = own_num / own_cost_to_load()
         other_num = (

@@ -42,6 +42,12 @@ class SingleExecutorManager(ExecutorManager):
     def release_executor(self, executor_id: ExecutorId) -> None:
         pass
 
+    def start_reclaimer(
+            self,
+            logger: EventStream,
+            reclaim_all_once: Callable[[], tuple[int, int]]) -> None:
+        pass  # NOTE: we do not reclaim executors
+
     def execute(
             self,
             logger: EventStream,

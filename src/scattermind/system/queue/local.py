@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """A RAM-only implementation of a queue pool."""
 import threading
+from collections.abc import Callable
 
 from scattermind.system.base import (
     ExecutorId,
@@ -42,6 +43,7 @@ class LocalQueuePool(QueuePool):
         self._assert_tasks: dict[TaskId, QueueId] = {}
         self._task_ids: dict[QueueId, list[tuple[float, TaskId]]] = {}
         self._claims: dict[QueueId, dict[ExecutorId, list[TaskId]]] = {}
+        self._loads: dict[QueueId, set[ExecutorId]] = {}
         self._expect: dict[QueueId, dict[ExecutorId, tuple[float, int]]] = {}
         self._lock = threading.RLock()
 
@@ -117,6 +119,43 @@ class LocalQueuePool(QueuePool):
         with self._lock:
             qclaims = self._claims.get(qid, {})
             return qclaims.pop(executor_id, [])
+
+    def get_queue_listeners(self, qid: QueueId) -> int:
+        with self._lock:
+            return len(self._loads.get(qid, set()))
+
+    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> int:
+        with self._lock:
+            loads = list(self._loads.values())
+        total = 0
+        for load_val in loads:
+            to_remove: list[ExecutorId] = []
+            with self._lock:
+                for executor_id in load_val:
+                    if is_active(executor_id):
+                        continue
+                    to_remove.append(executor_id)
+            with self._lock:
+                for executor_id in to_remove:
+                    load_val.discard(executor_id)
+            total += len(to_remove)
+        return total
+
+    def add_queue_listener(
+            self, qid: QueueId, executor_id: ExecutorId) -> None:
+        with self._lock:
+            loads = self._loads.get(qid)
+            if loads is None:
+                loads = set()
+                self._loads[qid] = loads
+            loads.add(executor_id)
+
+    def remove_queue_listener(
+            self, qid: QueueId, executor_id: ExecutorId) -> None:
+        with self._lock:
+            loads = self._loads.get(qid)
+            if loads is not None:
+                loads.discard(executor_id)
 
     def expect_task_weight(
             self,

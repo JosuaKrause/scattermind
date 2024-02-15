@@ -219,7 +219,7 @@ def test_simple_call(
     try:
         config.run()
         for task_id, response, expected_result in wait_for_tasks(
-                config, tasks, timeout=2.0):
+                config, tasks):
             response_ok(response, no_warn=True)
             real_duration = time.monotonic() - time_start
             status = response["status"]

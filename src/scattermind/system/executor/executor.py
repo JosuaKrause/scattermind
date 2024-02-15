@@ -138,14 +138,31 @@ class ExecutorManager(Module):
         if switch:
             if node is not None:
                 logger.log_event(
-                    "tally.node.unload", {"name": "node", "action": "unload"})
+                    "tally.node.unload",
+                    {
+                        "name": "node",
+                        "action": "unload",
+                        "target": node.get_name(),
+                    })
+                queue_pool.remove_node_listener(node, own_id)
                 node.unload(own_id)
             logger.log_event(
-                "tally.node.load", {"name": "node", "action": "load"})
+                "tally.node.load",
+                {
+                    "name": "node",
+                    "action": "load",
+                    "target": new_node.get_name(),
+                })
+            queue_pool.add_node_listener(new_node, own_id)
             new_node.load(own_id, roa)
             self._node = new_node
             logger.log_event(
-                "tally.node.load", {"name": "node", "action": "load_done"})
+                "tally.node.load",
+                {
+                    "name": "node",
+                    "action": "load_done",
+                    "target": new_node.get_name(),
+                })
         assert self._node is not None
         return self._node
 
@@ -276,7 +293,7 @@ class ExecutorManager(Module):
             self,
             logger: EventStream,
             queue_pool: QueuePool,
-            store: DataStore) -> None:
+            store: DataStore) -> tuple[int, int]:
         """
         Reclaim tasks from inactive executors. Tasks whose execution was not
         complete for their current node (results were not committed) are made
@@ -286,11 +303,24 @@ class ExecutorManager(Module):
             logger (EventStream): The logger.
             queue_pool (QueuePool): The queue pool.
             store (DataStore): The payload data store.
+
+        Returns:
+            tuple[int, int]: The number of reclaimed executors. The first
+                number is the number of detected inactive executors. The second
+                number is the number of unknown / inactive listeners.
         """
+        executor_count = 0
         for executor in self.get_all_executors():
             if executor.is_active():
                 continue
             self.handle_inactive_executor(logger, queue_pool, store, executor)
+            executor_count += 1
+
+        def is_active(executor_id: ExecutorId) -> bool:
+            return self.is_active(executor_id)
+
+        listener_count = queue_pool.clean_listeners(is_active)
+        return executor_count, listener_count
 
     def handle_inactive_executor(
             self,
@@ -311,6 +341,7 @@ class ExecutorManager(Module):
         executor_id = executor.get_id()
         with add_context({"executor": executor_id}):
             for qid in queue_pool.get_all_queues():
+                # NOTE: node listeners are cleaned up separately
                 queue_pool.clear_expected_task_weight(qid, executor_id)
                 queue = queue_pool.get_queue(qid)
                 for reclaim_id in queue.unclaim_tasks(executor_id):
@@ -389,6 +420,26 @@ class ExecutorManager(Module):
 
         Args:
             executor_id (ExecutorId): The executor id to stop.
+        """
+        raise NotImplementedError()
+
+    def start_reclaimer(
+            self,
+            logger: EventStream,
+            reclaim_all_once: Callable[[], tuple[int, int]]) -> None:
+        """
+        Starts the reclaim loop in the background. At least one reclaim loop
+        should be active at any time for non-local workers. The implementation
+        must loop indefinitely but can have a long period (i.e., wait time
+        between runs).
+
+        Args:
+            logger (EventStream): The logger.
+            reclaim_all_once (Callable[[], tuple[int, int]]): Reclaims inactive
+                executors. This callback cleans up and reclaims all currently
+                inactive executors. The callback returns once it is done. It
+                does not loop. The numbers returned are the inactive executors
+                and the inactive listeners respectively.
         """
         raise NotImplementedError()
 
