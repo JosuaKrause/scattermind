@@ -49,7 +49,7 @@ class Config(ScattermindAPI):
         """
         self._locality: Locality = L_EITHER
         self._logger: EventStream | None = None
-        self._graph: Graph | None = None
+        self._graphs: dict[GNamespace, Graph] = {}
         self._emng: ExecutorManager | None = None
         self._store: DataStore | None = None
         self._queue_pool: QueuePool | None = None
@@ -83,23 +83,27 @@ class Config(ScattermindAPI):
             raise ValueError("logger not initialized")
         return self._logger
 
-    def set_graph(self, graph: Graph) -> None:
+    def add_graph(self, graph: Graph) -> None:
         """
-        Set the graph.
+        Add a graph.
 
         Args:
             graph (Graph): The graph.
 
         Raises:
-            ValueError: If the graph is already set.
+            ValueError: If the graph is already added.
         """
-        if self._graph is not None:
-            raise ValueError("graph already initialized")
-        self._graph = graph
+        ns = graph.get_namespace()
+        if self._graphs.get(ns) is not None:
+            raise ValueError(f"graph {ns} already added")
+        self._graphs[ns] = graph
 
-    def get_graph(self) -> Graph:
+    def get_graph(self, ns: GNamespace) -> Graph:
         """
-        Get the graph.
+        Get the graph of the namespace.
+
+        Args:
+            ns (GNamespace): The namespace.
 
         Raises:
             ValueError: If no graph is set.
@@ -107,9 +111,10 @@ class Config(ScattermindAPI):
         Returns:
             Graph: The graph.
         """
-        if self._graph is None:
-            raise ValueError("graph not initialized")
-        return self._graph
+        graph = self._graphs.get(ns)
+        if graph is None:
+            raise ValueError(f"graph {ns} not initialized")
+        return graph
 
     def _update_locality(self, module: ModuleT) -> ModuleT:
         locality = module.locality()
@@ -322,12 +327,16 @@ class Config(ScattermindAPI):
 
     def load_graph(self, graph_def: FullGraphDefJSON) -> None:
         graph = json_to_graph(self.get_queue_pool(), graph_def)
-        self.set_graph(graph)
+        self.add_graph(graph)
 
     def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
         store = self.get_data_store()
         queue_pool = self.get_queue_pool()
         return queue_pool.enqueue_task(ns, store, value)
+
+    def get_namespace(self, task_id: TaskId) -> GNamespace:
+        cpool = self.get_client_pool()
+        return cpool.get_namespace(task_id)
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         cpool = self.get_client_pool()
@@ -373,6 +382,9 @@ class Config(ScattermindAPI):
             return emng.execute_batch(logger, queue_pool, store, roa)
 
         executor_manager.execute(logger, work)
+
+    def namespaces(self) -> set[GNamespace]:
+        return set(self._graphs.keys())
 
     def entry_graph_name(self, ns: GNamespace) -> str:
         queue_pool = self.get_queue_pool()

@@ -42,6 +42,12 @@ class Graph:
         self._vmaps: dict[NodeId, ValueMap] = {}
 
     def get_namespace(self) -> GNamespace:
+        """
+        Get the namespace of the graph.
+
+        Returns:
+            GNamespace: The namespace.
+        """
         return self._ns
 
     def get_node_name(self, node_id: NodeId) -> NName:

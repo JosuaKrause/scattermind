@@ -83,17 +83,17 @@ def test_loaders() -> None:
 def test_queue_pool() -> None:
     """Test invalid configurations and graphs."""
     config = Config()
+    ns = GNamespace("test")
 
     with pytest.raises(ValueError, match=r"graph not initialized"):
-        config.get_graph()
-    ns = GNamespace("test")
+        config.get_graph(ns)
     graph = Graph(ns)
     gname = QualifiedGraphName(ns, GName("test"))
     graph_id = GraphId.create(gname)
-    config.set_graph(graph)
+    config.add_graph(graph)
     with pytest.raises(ValueError, match=r"graph already initialized"):
-        config.set_graph(Graph(ns))
-    assert graph is config.get_graph()
+        config.add_graph(Graph(ns))
+    assert graph is config.get_graph(ns)
 
     with pytest.raises(ValueError, match=r"executor manager not initialized"):
         config.get_executor_manager()
