@@ -4,6 +4,7 @@
 
 ### Added
 
+- Add dedicated node strategy. ([#5])
 - Graph namespaces. ([#6])
 
 ## [0.2.0] - 2024-02-02
@@ -14,7 +15,6 @@
 
 ### Added
 
-- Add dedicated node strategy. ([#5])
 - Add API frontend. ([#3])
 - Full documentation. ([#3])
 - Allow plugin executors to be locally parallel. ([#3])
