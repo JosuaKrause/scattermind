@@ -54,7 +54,7 @@ def test_simple_call(
     with writer.open_write(cpath) as fout:
         constant_0 = fout.as_data_str(fout.write_tensor(
             create_tensor(np.array([[1.0, 0.0], [0.0, 1.0]]), dtype="float")))
-    config.load_graph({
+    ns = config.load_graph({
         "graphs": [
             {
                 "name": "main",
@@ -198,6 +198,7 @@ def test_simple_call(
     # - main:node_2
     # -4x+1 1
     # 1     12x+17
+    assert ns == GNamespace("main")
     time_start = time.monotonic()
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
@@ -231,7 +232,7 @@ def test_simple_call(
             retries = response["retries"]
             error = response["error"]
             assert status == TASK_STATUS_READY
-            assert task_ns == GNamespace("main")
+            assert task_ns == ns
             assert result is not None
             assert task_duration <= real_duration
             assert list(result["value"].shape) == [2, 2]

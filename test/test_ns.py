@@ -26,7 +26,7 @@ def test_ns(batch_size: int, is_redis: bool) -> None:
         is_redis (bool): Whether to use redis.
     """
     config = load_test(batch_size=batch_size, is_redis=is_redis)
-    config.load_graph({
+    ns_1 = config.load_graph({
         "graphs": [
             {
                 "name": "main",
@@ -63,7 +63,7 @@ def test_ns(batch_size: int, is_redis: bool) -> None:
         "entry": "main",
         "ns": "graph_1",
     })
-    config.load_graph({
+    ns_2 = config.load_graph({
         "graphs": [
             {
                 "name": "main",
@@ -100,6 +100,8 @@ def test_ns(batch_size: int, is_redis: bool) -> None:
         "entry": "main",
         "ns": "graph_2",
     })
+    assert ns_1 == GNamespace("graph_1")
+    assert ns_2 == GNamespace("graph_2")
     tasks: list[tuple[TaskId, np.ndarray, GNamespace]] = [
         (
             config.enqueue_task(

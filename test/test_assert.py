@@ -52,7 +52,7 @@ def test_assertion_error(
     set_debug_output_length(7)
     config = load_test(
         batch_size=batch_size, parallelism=parallelism, is_redis=is_redis)
-    config.load_graph({
+    ns = config.load_graph({
         "graphs": [
             {
                 "name": "main",
@@ -92,7 +92,7 @@ def test_assertion_error(
         ],
         "entry": "main",
     })
-    ns = GNamespace("main")
+    assert ns == GNamespace("main")
     time_start = time.monotonic()
     tasks: list[tuple[TaskId, bool]] = [
         (

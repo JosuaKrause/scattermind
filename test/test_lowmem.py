@@ -48,7 +48,7 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
     shape = [len(base), len(base[0])]
     config = load_test(
         batch_size=batch_size, max_store_size=200, is_redis=False)
-    config.load_graph({
+    ns = config.load_graph({
         "graphs": [
             {
                 "name": "lowmem",
@@ -99,7 +99,7 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
         ],
         "entry": "lowmem",
     })
-    ns = GNamespace("lowmem")
+    assert ns == GNamespace("lowmem")
     time_start = time.monotonic()
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (

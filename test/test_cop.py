@@ -44,7 +44,7 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
     """
     shape = [len(base), len(base[0])]
     config = load_test(batch_size=batch_size, is_redis=is_redis)
-    config.load_graph({
+    ns = config.load_graph({
         "graphs": [
             {
                 "name": "cop",
@@ -80,6 +80,7 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
         ],
         "entry": "cop",
     })
+    assert ns == GNamespace("cop")
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
             config.enqueue_task(
@@ -98,7 +99,7 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
         response = config.get_response(task_id)
         response_ok(response, no_warn=True)
         assert response["status"] == TASK_STATUS_READY
-        assert response["ns"] == GNamespace("cop")
+        assert response["ns"] == ns
         result = response["result"]
         assert result is not None
         assert list(result["value"].shape) == shape
@@ -125,7 +126,7 @@ def test_cop_chain(
     """
     shape = [len(base), len(base[0])]
     config = load_test(batch_size=batch_size, is_redis=is_redis)
-    config.load_graph({
+    ns = config.load_graph({
         "graphs": [
             {
                 "name": "copchain",
@@ -176,6 +177,7 @@ def test_cop_chain(
         ],
         "entry": "copchain",
     })
+    assert ns == GNamespace("copchain")
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
             config.enqueue_task(
@@ -194,7 +196,7 @@ def test_cop_chain(
         response = config.get_response(task_id)
         response_ok(response, no_warn=True)
         assert response["status"] == TASK_STATUS_READY
-        assert response["ns"] == GNamespace("copchain")
+        assert response["ns"] == ns
         result = response["result"]
         assert result is not None
         assert list(result["value"].shape) == shape
