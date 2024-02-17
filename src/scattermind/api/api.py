@@ -37,12 +37,15 @@ from scattermind.system.torch_util import create_tensor, str_to_tensor
 
 class ScattermindAPI:
     """An interface to start tasks and retrieve results."""
-    def load_graph(self, graph_def: FullGraphDefJSON) -> None:
+    def load_graph(self, graph_def: FullGraphDefJSON) -> GNamespace:
         """
         Load the full graph from a JSON definition.
 
         Args:
             graph_def (FullGraphDefJSON): The JSON definition of the graph.
+
+        Returns:
+            GNamespace: The namespace of the new graph.
         """
         raise NotImplementedError()
 

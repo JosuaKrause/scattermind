@@ -83,7 +83,7 @@ class Config(ScattermindAPI):
             raise ValueError("logger not initialized")
         return self._logger
 
-    def add_graph(self, graph: Graph) -> None:
+    def add_graph(self, graph: Graph) -> GNamespace:
         """
         Add a graph.
 
@@ -92,11 +92,15 @@ class Config(ScattermindAPI):
 
         Raises:
             ValueError: If the graph is already added.
+
+        Returns:
+            GNamespace: The namespace of the graph.
         """
         ns = graph.get_namespace()
         if self._graphs.get(ns) is not None:
             raise ValueError(f"graph {ns} already added")
         self._graphs[ns] = graph
+        return ns
 
     def get_graph(self, ns: GNamespace) -> Graph:
         """
@@ -325,9 +329,9 @@ class Config(ScattermindAPI):
         """
         return self.get_queue_pool().get_queue_strategy()
 
-    def load_graph(self, graph_def: FullGraphDefJSON) -> None:
+    def load_graph(self, graph_def: FullGraphDefJSON) -> GNamespace:
         graph = json_to_graph(self.get_queue_pool(), graph_def)
-        self.add_graph(graph)
+        return self.add_graph(graph)
 
     def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
         store = self.get_data_store()
