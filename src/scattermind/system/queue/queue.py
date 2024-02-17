@@ -1010,6 +1010,7 @@ class QueuePool(Module):
             task_id (TaskId): The task id.
         """
         ns = cpool.get_namespace(task_id)
+        assert ns is not None
         entry_graph_id = self.get_entry_graph(ns)
         input_format = self.get_input_format(entry_graph_id)
         cpool.init_data(store, task_id, input_format)

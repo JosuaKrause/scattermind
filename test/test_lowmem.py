@@ -131,9 +131,11 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
         real_duration = time.monotonic() - time_start
         print(response)
         status = response["status"]
+        task_ns = response["ns"]
         result = response["result"]
         task_duration = response["duration"]
         assert task_duration <= real_duration
+        assert task_ns == ns
         if (status == "error" if is_variable else has_error):
             retries = response["retries"]
             error = response["error"]
@@ -143,6 +145,7 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
             assert retries == TASK_MAX_RETRIES
             assert error["code"] in ("out_of_memory", "memory_purge")
             config.clear_task(task_id)
+            assert config.get_namespace(task_id) is None
             assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
             assert config.get_result(task_id) is None
             seen_error = True
@@ -154,6 +157,7 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
                 as_numpy(result["value"]), expected_result)
             assert config.get_status(task_id) == TASK_STATUS_DONE
             config.clear_task(task_id)
+            assert config.get_namespace(task_id) is None
             assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
             assert config.get_result(task_id) is None
             seen_result = True

@@ -71,7 +71,7 @@ def to_status(text: str) -> TaskStatus:
 
 
 ResponseObject = TypedDict('ResponseObject', {
-    "ns": GNamespace,
+    "ns": GNamespace | None,
     "status": TaskStatus,
     "result": 'TaskValueContainer | None',
     "duration": float,

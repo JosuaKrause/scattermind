@@ -114,8 +114,8 @@ class LocalClientPool(ClientPool):
                 res.append(task_id)
             return res
 
-    def get_namespace(self, task_id: TaskId) -> GNamespace:
-        return self._namespaces[task_id]
+    def get_namespace(self, task_id: TaskId) -> GNamespace | None:
+        return self._namespaces.get(task_id)
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         return self._status.get(task_id, TASK_STATUS_UNKNOWN)

@@ -199,9 +199,10 @@ class RedisClientPool(ClientPool):
                 res.append(task_id)
             return res
 
-    def get_namespace(self, task_id: TaskId) -> GNamespace:
+    def get_namespace(self, task_id: TaskId) -> GNamespace | None:
         res = self.get_value("ns", task_id)
-        assert res is not None
+        if res is None:
+            return None
         return GNamespace(res)
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
@@ -293,7 +294,9 @@ class RedisClientPool(ClientPool):
                     stack_data_key,
                     field.to_parseable(),
                     data_id.to_parseable())
-            return self.get_namespace(task_id)
+            res = self.get_namespace(task_id)
+            assert res is not None
+            return res
 
     def pop_frame(
             self,

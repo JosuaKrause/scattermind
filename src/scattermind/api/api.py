@@ -60,7 +60,7 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def get_namespace(self, task_id: TaskId) -> GNamespace:
+    def get_namespace(self, task_id: TaskId) -> GNamespace | None:
         """
         Retrieves the namespace of the given task.
 
@@ -68,7 +68,8 @@ class ScattermindAPI:
             task_id (TaskId): The task id.
 
         Returns:
-            GNamespace: The namespace.
+            GNamespace | None: The namespace or None if the task does not
+                exist.
         """
         raise NotImplementedError()
 

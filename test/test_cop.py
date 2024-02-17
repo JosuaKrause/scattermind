@@ -19,6 +19,7 @@ import pytest
 
 from scattermind.system.base import TaskId
 from scattermind.system.config.loader import load_test
+from scattermind.system.names import GNamespace
 from scattermind.system.response import (
     response_ok,
     TASK_STATUS_DONE,
@@ -97,12 +98,14 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
         response = config.get_response(task_id)
         response_ok(response, no_warn=True)
         assert response["status"] == TASK_STATUS_READY
+        assert response["ns"] == GNamespace("cop")
         result = response["result"]
         assert result is not None
         assert list(result["value"].shape) == shape
         np.testing.assert_allclose(as_numpy(result["value"]), expected_result)
         assert config.get_status(task_id) == TASK_STATUS_DONE
         config.clear_task(task_id)
+        assert config.get_namespace(task_id) is None
         assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
         assert config.get_result(task_id) is None
 
@@ -191,11 +194,13 @@ def test_cop_chain(
         response = config.get_response(task_id)
         response_ok(response, no_warn=True)
         assert response["status"] == TASK_STATUS_READY
+        assert response["ns"] == GNamespace("copchain")
         result = response["result"]
         assert result is not None
         assert list(result["value"].shape) == shape
         np.testing.assert_allclose(as_numpy(result["value"]), expected_result)
         assert config.get_status(task_id) == TASK_STATUS_DONE
         config.clear_task(task_id)
+        assert config.get_namespace(task_id) is None
         assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
         assert config.get_result(task_id) is None

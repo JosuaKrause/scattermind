@@ -4,6 +4,7 @@ import pytest
 
 from scattermind.system.base import TaskId
 from scattermind.system.config.loader import load_test
+from scattermind.system.names import GNamespace
 from scattermind.system.response import (
     response_ok,
     TASK_STATUS_DONE,
@@ -99,7 +100,7 @@ def test_ns(batch_size: int, is_redis: bool) -> None:
         "entry": "main",
         "ns": "graph_2",
     })
-    tasks: list[tuple[TaskId, np.ndarray, str]] = [
+    tasks: list[tuple[TaskId, np.ndarray, GNamespace]] = [
         (
             config.enqueue_task(
                 f"graph_{gix}",
@@ -107,7 +108,7 @@ def test_ns(batch_size: int, is_redis: bool) -> None:
                     "value": np.array([tix], dtype=np.float32),
                 }),
             np.array([tix * 2.0 if gix == 1 else tix * 3.0]),
-            f"graph_{gix}",
+            GNamespace(f"graph_{gix}"),
         )
         for gix in [1, 2]
         for tix in range(20)
@@ -119,12 +120,14 @@ def test_ns(batch_size: int, is_redis: bool) -> None:
         response = config.get_response(task_id)
         response_ok(response, no_warn=True)
         assert response["status"] == TASK_STATUS_READY
+        assert response["ns"] == ns
         result = response["result"]
         assert result is not None
         assert list(result["value"].shape) == [1]
         np.testing.assert_allclose(as_numpy(result["value"]), expected_result)
         assert config.get_status(task_id) == TASK_STATUS_DONE
-        assert config.get_namespace(task_id).get() == ns
+        assert config.get_namespace(task_id) == ns
         config.clear_task(task_id)
+        assert config.get_namespace(task_id) is None
         assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
         assert config.get_result(task_id) is None

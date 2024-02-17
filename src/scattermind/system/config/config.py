@@ -334,7 +334,7 @@ class Config(ScattermindAPI):
         queue_pool = self.get_queue_pool()
         return queue_pool.enqueue_task(ns, store, value)
 
-    def get_namespace(self, task_id: TaskId) -> GNamespace:
+    def get_namespace(self, task_id: TaskId) -> GNamespace | None:
         cpool = self.get_client_pool()
         return cpool.get_namespace(task_id)
 
@@ -345,6 +345,8 @@ class Config(ScattermindAPI):
     def get_result(self, task_id: TaskId) -> TaskValueContainer | None:
         cpool = self.get_client_pool()
         ns = cpool.get_namespace(task_id)
+        if ns is None:
+            return None
         queue_pool = self.get_queue_pool()
         graph_id = queue_pool.get_entry_graph(ns)
         output_format = queue_pool.get_output_format(graph_id)
@@ -353,6 +355,8 @@ class Config(ScattermindAPI):
     def get_response(self, task_id: TaskId) -> ResponseObject:
         cpool = self.get_client_pool()
         ns = cpool.get_namespace(task_id)
+        if ns is None:
+            return cpool.get_response(task_id, None)
         queue_pool = self.get_queue_pool()
         graph_id = queue_pool.get_entry_graph(ns)
         output_format = queue_pool.get_output_format(graph_id)

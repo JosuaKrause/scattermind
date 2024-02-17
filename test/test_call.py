@@ -22,6 +22,7 @@ import pytest
 
 from scattermind.system.base import set_debug_output_length, TaskId
 from scattermind.system.config.loader import load_test
+from scattermind.system.names import GNamespace
 from scattermind.system.response import (
     response_ok,
     TASK_STATUS_DONE,
@@ -224,11 +225,13 @@ def test_simple_call(
             response_ok(response, no_warn=True)
             real_duration = time.monotonic() - time_start
             status = response["status"]
+            task_ns = response["ns"]
             result = response["result"]
             task_duration = response["duration"]
             retries = response["retries"]
             error = response["error"]
             assert status == TASK_STATUS_READY
+            assert task_ns == GNamespace("main")
             assert result is not None
             assert task_duration <= real_duration
             assert list(result["value"].shape) == [2, 2]
@@ -238,6 +241,7 @@ def test_simple_call(
                 as_numpy(result["value"]), expected_result)
             assert config.get_status(task_id) == TASK_STATUS_DONE
             config.clear_task(task_id)
+            assert config.get_namespace(task_id) is None
             assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
             assert config.get_result(task_id) is None
     finally:

@@ -114,11 +114,13 @@ def test_assertion_error(
                 config, tasks):
             real_duration = time.monotonic() - time_start
             status = response["status"]
+            task_ns = response["ns"]
             task_duration = response["duration"]
             result = response["result"]
             retries = response["retries"]
             error = response["error"]
             assert task_duration <= real_duration
+            assert task_ns == ns
             if expected_result:
                 response_ok(response, no_warn=True)
                 assert status == TASK_STATUS_READY
@@ -149,6 +151,7 @@ def test_assertion_error(
                     response_ok(response, no_warn=True)
                 assert retries == TASK_MAX_RETRIES
             config.clear_task(task_id)
+            assert config.get_namespace(task_id) is None
             assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
             assert config.get_result(task_id) is None
     finally:
