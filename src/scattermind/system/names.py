@@ -112,6 +112,93 @@ class GName(NameStr):
     ids internally."""
 
 
+class GNamespace(NameStr):
+    """Namespace of a set of graphs."""
+
+
+class QualifiedGraphName:
+    """A fully specified graph name. It consists of a namespace and graph name.
+    """
+    def __init__(self, namespace: GNamespace, name: GName) -> None:
+        """
+        Creates a qualified graph name.
+
+        Args:
+            namespace (GNamespace): The namespace.
+            name (GName): The graph name.
+        """
+        self._namespace = namespace
+        self._name = name
+
+    def get_namespace(self) -> GNamespace:
+        """
+        Gets the namespace.
+
+        Returns:
+            GNamespace: The namespace.
+        """
+        return self._namespace
+
+    def get_name(self) -> GName:
+        """
+        Gets the graph name.
+
+        Returns:
+            GName: The graph name.
+        """
+        return self._name
+
+    def to_parseable(self) -> str:
+        """
+        Retrieves an unambiguous string representation.
+
+        Returns:
+            str: The qualified graph name as string.
+        """
+        return f"{self._namespace.get()}{NAME_SEP}{self._name.get()}"
+
+    @staticmethod
+    def parse(text: str) -> 'QualifiedGraphName':
+        """
+        Parses a string into a qualified graph name. The format is expected to
+        be '{namespace}:{graph name}'.
+
+        Args:
+            text (str): The string to parse.
+
+        Raises:
+            ValueError: If the input is invalid.
+
+        Returns:
+            QualifiedGraphName: The qualified graph name.
+        """
+        if NAME_SEP not in text:
+            raise ValueError(
+                f"{text} is not a qualified graph name: 'ns:graph'")
+        ns, gname = text.split(NAME_SEP, 1)
+        return QualifiedGraphName(GNamespace(ns), GName(gname))
+
+    def __eq__(self, other: object) -> bool:
+        if other is self:
+            return True
+        if not isinstance(other, self.__class__):
+            return False
+        return (
+            self._namespace == other._namespace and self._name == other._name)
+
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash((self._namespace, self._namespace))
+
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}[{self.to_parseable()}]"
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
 class QualifiedName:
     """A qualified name describes a value field and how to access it. It
     combines a node name and a value field name. The node name can be None

@@ -21,7 +21,7 @@ from scattermind.system.base import DataId, GraphId, Module, QueueId, TaskId
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.error import ErrorInfo
-from scattermind.system.names import NName, ValueMap
+from scattermind.system.names import GNamespace, NName, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.response import ResponseObject, TaskStatus
 from scattermind.system.util import seconds_since
@@ -59,32 +59,43 @@ class ClientPool(Module):
     def get_response(
             self,
             task_id: TaskId,
-            output_format: DataFormat) -> ResponseObject:
+            output_format: DataFormat | None) -> ResponseObject:
         """
         Retrieves the summary of the task. If the final output are available or
         the task caused an error, the respective fields are set.
 
         Args:
             task_id (TaskId): The task id.
-            output_format (DataFormat): The expected data format of the final
-                output.
+            output_format (DataFormat | None): The expected data format of the
+                final output. If the final output format is not known (e.g.,
+                if the namespace is not available) and the value is None the
+                result field will automatically be None as well.
 
         Returns:
             ResponseObject: The task summary.
         """
         return {
+            "ns": self.get_namespace(task_id),
             "status": self.get_status(task_id),
             "duration": self.get_duration(task_id),
             "retries": self.get_retries(task_id),
-            "result": self.get_final_output(task_id, output_format),
+            "result":
+                None
+                if output_format is None
+                else self.get_final_output(task_id, output_format),
             "error": self.get_error(task_id),
         }
 
-    def create_task(self, original_input: 'TaskValueContainer') -> TaskId:
+    def create_task(
+            self,
+            ns: GNamespace,
+            original_input: 'TaskValueContainer') -> TaskId:
+        # FIXME
         """
         Create a new task from a given input.
 
         Args:
+            ns (GNamespace): The namespace.
             original_input (TaskValueContainer): The input data for the task.
 
         Returns:
@@ -125,12 +136,25 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
+    def get_namespace(self, task_id: TaskId) -> GNamespace | None:
+        """
+        Retrieves the namespace of the given task.
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            GNamespace | None: The namespace or None if the task does not
+                exist.
+        """
+        raise NotImplementedError()
+
     def get_status(self, task_id: TaskId) -> TaskStatus:
         """
         Retrieves the status of the given task.
 
         Args:
-            task_id (TaskId): The task id
+            task_id (TaskId): The task id.
 
         Returns:
             TaskStatus: The status.
@@ -269,7 +293,7 @@ class ClientPool(Module):
             *,
             weight: float,
             byte_size: int,
-            push_frame: tuple[NName, GraphId, QueueId] | None) -> None:
+            push_frame: tuple[NName, GraphId, QueueId] | None) -> GNamespace:
         """
         Commit the current state of the task. This updates the state of the
         task and makes the new state visible to other executors.

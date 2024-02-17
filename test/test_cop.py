@@ -19,7 +19,7 @@ import pytest
 
 from scattermind.system.base import TaskId
 from scattermind.system.config.loader import load_test
-from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.names import GNamespace
 from scattermind.system.response import (
     response_ok,
     TASK_STATUS_DONE,
@@ -27,7 +27,7 @@ from scattermind.system.response import (
     TASK_STATUS_UNKNOWN,
     TASK_STATUS_WAIT,
 )
-from scattermind.system.torch_util import as_numpy, create_tensor
+from scattermind.system.torch_util import as_numpy
 
 
 @pytest.mark.parametrize("base", [[[1.0]], [[1.0, 2.0], [3.0, 4.0]]])
@@ -82,9 +82,11 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
     })
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
-            config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array(base) * tix, dtype="float"),
-            })),
+            config.enqueue_task(
+                "cop",
+                {
+                    "value": (np.array(base) * tix).astype(np.float32),
+                }),
             np.array(base) * tix * 2.0,
         )
         for tix in range(20)
@@ -96,12 +98,14 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
         response = config.get_response(task_id)
         response_ok(response, no_warn=True)
         assert response["status"] == TASK_STATUS_READY
+        assert response["ns"] == GNamespace("cop")
         result = response["result"]
         assert result is not None
         assert list(result["value"].shape) == shape
         np.testing.assert_allclose(as_numpy(result["value"]), expected_result)
         assert config.get_status(task_id) == TASK_STATUS_DONE
         config.clear_task(task_id)
+        assert config.get_namespace(task_id) is None
         assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
         assert config.get_result(task_id) is None
 
@@ -174,9 +178,11 @@ def test_cop_chain(
     })
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
-            config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array(base) * tix, dtype="float"),
-            })),
+            config.enqueue_task(
+                "copchain",
+                {
+                    "value": (np.array(base) * tix).astype(np.float32),
+                }),
             np.array(base) * tix * 2.0 + 1.0,
         )
         for tix in range(20)
@@ -188,11 +194,13 @@ def test_cop_chain(
         response = config.get_response(task_id)
         response_ok(response, no_warn=True)
         assert response["status"] == TASK_STATUS_READY
+        assert response["ns"] == GNamespace("copchain")
         result = response["result"]
         assert result is not None
         assert list(result["value"].shape) == shape
         np.testing.assert_allclose(as_numpy(result["value"]), expected_result)
         assert config.get_status(task_id) == TASK_STATUS_DONE
         config.clear_task(task_id)
+        assert config.get_namespace(task_id) is None
         assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
         assert config.get_result(task_id) is None

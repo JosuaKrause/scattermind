@@ -22,7 +22,7 @@ from typing import TypedDict, TypeVar
 from typing_extensions import NotRequired
 
 from scattermind.system.base import ExecutorId, GraphId, NodeId, TaskId
-from scattermind.system.names import GName, NName
+from scattermind.system.names import NName, QualifiedGraphName
 
 
 T = TypeVar('T')
@@ -36,7 +36,7 @@ ContextInfo = TypedDict('ContextInfo', {
     "executor": NotRequired[ExecutorId | None],
     "task": NotRequired[TaskId | None],
     "graph": NotRequired[GraphId | None],
-    "graph_name": NotRequired[GName | None],
+    "graph_name": NotRequired[QualifiedGraphName | None],
     "node": NotRequired[NodeId | None],
     "node_name": NotRequired[NName | None],
 })
@@ -74,7 +74,8 @@ def to_ctx_json(info: ContextInfo) -> ContextJSON:
         "executor": mapval(info.get("executor"), lambda e: e.to_parseable()),
         "task": mapval(info.get("task"), lambda t: t.to_parseable()),
         "graph": mapval(info.get("graph"), lambda g: g.to_parseable()),
-        "graph_name": mapval(info.get("graph_name"), lambda n: n.get()),
+        "graph_name": mapval(
+            info.get("graph_name"), lambda n: n.to_parseable()),
         "node": mapval(info.get("node"), lambda n: n.to_parseable()),
         "node_name": mapval(info.get("node_name"), lambda n: n.get()),
     }
@@ -100,7 +101,7 @@ def from_ctx_json(ctx: Mapping) -> ContextInfo:
         "executor": mapval(ctx.get("executor"), ExecutorId.parse),
         "task": mapval(ctx.get("task"), TaskId.parse),
         "graph": mapval(ctx.get("graph"), GraphId.parse),
-        "graph_name": mapval(ctx.get("graph_name"), GName),
+        "graph_name": mapval(ctx.get("graph_name"), QualifiedGraphName.parse),
         "node": mapval(ctx.get("node"), NodeId.parse),
         "node_name": mapval(ctx.get("node_name"), NName),
     }
@@ -220,7 +221,8 @@ def ctx_format(ctx: ContextInfo) -> str:
         node_id_str = "" if node_id is None else f"({node_id})"
         gid_str = "" if graph_id is None else f"({graph_id})"
         node_name_str = "" if node_name is None else f"{node_name.get()}"
-        gname_str = "" if graph_name is None else f"{graph_name.get()}"
+        gname_str = \
+            "" if graph_name is None else f"{graph_name.to_parseable()}"
         graph_str = f" {gname_str}{gid_str}" if gname_str or gid_str else ""
         location = f" in {node_name_str}{node_id_str}{graph_str}"
     else:

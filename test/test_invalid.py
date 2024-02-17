@@ -33,7 +33,13 @@ from scattermind.system.executor.loader import load_executor_manager
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.loader import load_node
 from scattermind.system.info import DataFormat, DataInfo
-from scattermind.system.names import GName, NName, QualifiedName
+from scattermind.system.names import (
+    GName,
+    GNamespace,
+    NName,
+    QualifiedGraphName,
+    QualifiedName,
+)
 from scattermind.system.payload.loader import load_store
 from scattermind.system.payload.local import LocalDataId
 from scattermind.system.payload.values import DataContainer, TaskValueContainer
@@ -77,16 +83,17 @@ def test_loaders() -> None:
 def test_queue_pool() -> None:
     """Test invalid configurations and graphs."""
     config = Config()
+    ns = GNamespace("test")
 
-    with pytest.raises(ValueError, match=r"graph not initialized"):
-        config.get_graph()
-    graph = Graph()
-    gname = GName("test")
+    with pytest.raises(ValueError, match=r"graph .* not initialized"):
+        config.get_graph(ns)
+    graph = Graph(ns)
+    gname = QualifiedGraphName(ns, GName("test"))
     graph_id = GraphId.create(gname)
-    config.set_graph(graph)
-    with pytest.raises(ValueError, match=r"graph already initialized"):
-        config.set_graph(Graph())
-    assert graph is config.get_graph()
+    config.add_graph(graph)
+    with pytest.raises(ValueError, match=r"graph .* already added"):
+        config.add_graph(Graph(ns))
+    assert graph is config.get_graph(ns)
 
     with pytest.raises(ValueError, match=r"executor manager not initialized"):
         config.get_executor_manager()
@@ -241,7 +248,8 @@ def test_ids() -> None:
     with pytest.raises(ValueError, match=r"invalid ExecutorId"):
         ExecutorId.parse("Eec062b86-3d2c-4b89-a0ef-ff7fefd4")
 
-    gname = GName("test")
+    ns = GNamespace("test")
+    gname = QualifiedGraphName(ns, GName("test"))
     with pytest.raises(ValueError, match=r"name node:foo is not valid"):
         NodeId.create(gname, NName("node:foo"))
     with pytest.raises(ValueError, match=r"name node:foo is not valid"):
@@ -297,7 +305,8 @@ def test_compute_task(is_redis: bool) -> None:
     """
     config = load_test(is_redis=is_redis)
     cpool = config.get_client_pool()
-    task_id = cpool.create_task(TaskValueContainer())
+    ns = GNamespace("test")
+    task_id = cpool.create_task(ns, TaskValueContainer())
     task = ComputeTask(cpool, task_id, {})
     with pytest.raises(ValueError, match="no output data set"):
         task.get_data_out()

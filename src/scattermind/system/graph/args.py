@@ -17,7 +17,12 @@
 from typing import cast, Literal, overload
 
 from scattermind.system.info import DataFormatJSON, DataInfo, DataInfoJSON
-from scattermind.system.names import GName, NAME_SEP
+from scattermind.system.names import (
+    GName,
+    GNamespace,
+    NAME_SEP,
+    QualifiedGraphName,
+)
 from scattermind.system.readonly.access import DataAccess
 from scattermind.system.torch_util import DTypeName, get_dtype_name
 from scattermind.system.util import as_int_list, as_shape
@@ -59,14 +64,14 @@ ArgumentRetType = (
     | list[int | None]
     | DataFormatJSON
     | DataInfo
-    | GName
+    | QualifiedGraphName
     | DTypeName
     | DataAccess
 )
 """Available argument types as python types as returned from the argument
 parser. This differs from the JSON types in that the types are parsed to the
-internal types. Example: A graph name is `str` in the JSON types but `GName`
-returned by the argument parser."""
+internal types. Example: A graph name is `str` in the JSON types but
+`QualifiedGraphName` returned by the argument parser."""
 NodeArguments = dict[str, ArgumentType]
 """A dictionary specifying all JSON node argument values."""
 
@@ -75,14 +80,16 @@ class NodeArg:
     """
     A node arguments parser.
     """
-    def __init__(self, name: str, arg: ArgumentType) -> None:
+    def __init__(self, ns: GNamespace, name: str, arg: ArgumentType) -> None:
         """
         Creates a node argument.
 
         Args:
+            ns (GNamespace): The namespace.
             name (str): The name of the argument.
             arg (ArgumentType): The argument as it appears in the JSON.
         """
+        self._ns = ns
         self._name = name
         self._arg = arg
 
@@ -137,7 +144,7 @@ class NodeArg:
         ...
 
     @overload
-    def get(self, type_name: Literal["graph"]) -> GName:
+    def get(self, type_name: Literal["graph"]) -> QualifiedGraphName:
         ...
 
     @overload
@@ -167,7 +174,7 @@ class NodeArg:
         if type_name == "str":
             return f"{val}"
         if type_name == "graph":
-            return GName(f"{val}")
+            return QualifiedGraphName(self._ns, GName(f"{val}"))
         if type_name == "dtype":
             return get_dtype_name(f"{val}")
         if type_name == "int":
@@ -198,19 +205,20 @@ class NodeArg:
         raise ValueError(f"invalid type name {type_name} for arg {self._name}")
 
     @staticmethod
-    def from_node_arguments(args: NodeArguments) -> 'NodeArgs':
+    def from_node_arguments(ns: GNamespace, args: NodeArguments) -> 'NodeArgs':
         """
         Converts a raw JSON argument dictionary into a dictionary with
         parseable arguments.
 
         Args:
+            ns (GNamespace): The namespace.
             args (NodeArguments): The raw JSON dictionary.
 
         Returns:
             NodeArgs: Dictionary allowing to parse the arguments.
         """
         return {
-            arg_name: NodeArg(arg_name, arg_val)
+            arg_name: NodeArg(ns, arg_name, arg_val)
             for arg_name, arg_val in args.items()
         }
 

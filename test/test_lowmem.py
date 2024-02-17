@@ -23,7 +23,7 @@ import pytest
 from scattermind.system.base import TaskId
 from scattermind.system.client.client import TASK_MAX_RETRIES
 from scattermind.system.config.loader import load_test
-from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.names import GNamespace
 from scattermind.system.response import (
     TASK_STATUS_DONE,
     TASK_STATUS_ERROR,
@@ -31,7 +31,7 @@ from scattermind.system.response import (
     TASK_STATUS_UNKNOWN,
     TASK_STATUS_WAIT,
 )
-from scattermind.system.torch_util import as_numpy, create_tensor
+from scattermind.system.torch_util import as_numpy
 
 
 @pytest.mark.parametrize("base", [[[1.0]], [[1.0, 2.0], [3.0, 4.0]]])
@@ -99,12 +99,15 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
         ],
         "entry": "lowmem",
     })
+    ns = GNamespace("lowmem")
     time_start = time.monotonic()
     tasks: list[tuple[TaskId, np.ndarray]] = [
         (
-            config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array(base) * tix, dtype="float"),
-            })),
+            config.enqueue_task(
+                ns,
+                {
+                    "value": (np.array(base) * tix).astype(np.float32),
+                }),
             np.array(base) * tix * 2.0 + 1.0,
         )
         for tix in range(20)
@@ -128,9 +131,11 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
         real_duration = time.monotonic() - time_start
         print(response)
         status = response["status"]
+        task_ns = response["ns"]
         result = response["result"]
         task_duration = response["duration"]
         assert task_duration <= real_duration
+        assert task_ns == ns
         if (status == "error" if is_variable else has_error):
             retries = response["retries"]
             error = response["error"]
@@ -140,6 +145,7 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
             assert retries == TASK_MAX_RETRIES
             assert error["code"] in ("out_of_memory", "memory_purge")
             config.clear_task(task_id)
+            assert config.get_namespace(task_id) is None
             assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
             assert config.get_result(task_id) is None
             seen_error = True
@@ -151,6 +157,7 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
                 as_numpy(result["value"]), expected_result)
             assert config.get_status(task_id) == TASK_STATUS_DONE
             config.clear_task(task_id)
+            assert config.get_namespace(task_id) is None
             assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
             assert config.get_result(task_id) is None
             seen_result = True

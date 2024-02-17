@@ -23,6 +23,7 @@ import torch
 
 from scattermind.system.base import TaskId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
+from scattermind.system.names import GNamespace
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     ResponseObject,
@@ -45,16 +46,30 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def enqueue(self, value: TaskValueContainer) -> TaskId:
+    def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
         """
         Enqueues a task. ::py::method:`enqueue_task` provides a more
         user-friendly way of creating a task.
 
         Args:
+            ns (GNamespace): The namespace.
             value (TaskValueContainer): The task's input values.
 
         Returns:
             TaskId: The task id.
+        """
+        raise NotImplementedError()
+
+    def get_namespace(self, task_id: TaskId) -> GNamespace | None:
+        """
+        Retrieves the namespace of the given task.
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            GNamespace | None: The namespace or None if the task does not
+                exist.
         """
         raise NotImplementedError()
 
@@ -107,12 +122,14 @@ class ScattermindAPI:
 
     def enqueue_task(
             self,
+            ns: GNamespace | str,
             obj: dict[str, str | list[Any] | np.ndarray | torch.Tensor],
             ) -> TaskId:
         """
         Enqueues a task.
 
         Args:
+            ns (GNamespace | str): The namespace or a namespace string.
             obj (dict[str, str | list[Any] | np.ndarray | torch.Tensor]):
                 The task's input values. Values can be strings or various forms
                 of tensor data (nested float lists, numpy arrays, etc.).
@@ -120,6 +137,8 @@ class ScattermindAPI:
         Returns:
             TaskId: The task id.
         """
+        if not isinstance(ns, GNamespace):
+            ns = GNamespace(ns)
 
         def convert(
                 val: str | list[Any] | np.ndarray | torch.Tensor,
@@ -130,10 +149,12 @@ class ScattermindAPI:
                 return val.clone().detach()
             return create_tensor(val, dtype=None).clone().detach()
 
-        return self.enqueue(TaskValueContainer({
-            key: convert(value)
-            for key, value in obj.items()
-        }))
+        return self.enqueue(
+            ns,
+            TaskValueContainer({
+                key: convert(value)
+                for key, value in obj.items()
+            }))
 
     def wait_for(
             self,
@@ -191,7 +212,17 @@ class ScattermindAPI:
         for task_id in cur_ids:  # FIXME write timeout test?
             yield (task_id, self.get_response(task_id))
 
-    def entry_graph_name(self) -> str:
+    def namespaces(self) -> set[GNamespace]:
+        """
+        Retrieve all registered namespaces.
+
+        Returns:
+            set[GNamespace]: All namespaces.
+        """
+        raise NotImplementedError()
+
+    def entry_graph_name(self, ns: GNamespace) -> str:
+        # FIXME
         """
         Retrieves the name of the entry graph.
 
@@ -200,7 +231,8 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def main_inputs(self) -> set[str]:
+    def main_inputs(self, ns: GNamespace) -> set[str]:
+        # FIXME
         """
         Retrieves the inputs of the main graph.
 
@@ -209,7 +241,8 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def main_outputs(self) -> set[str]:
+    def main_outputs(self, ns: GNamespace) -> set[str]:
+        # FIXME
         """
         Retrieves the outputs of the main graph.
 
