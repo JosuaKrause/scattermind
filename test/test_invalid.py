@@ -85,13 +85,13 @@ def test_queue_pool() -> None:
     config = Config()
     ns = GNamespace("test")
 
-    with pytest.raises(ValueError, match=r"graph not initialized"):
+    with pytest.raises(ValueError, match=r"graph .* not initialized"):
         config.get_graph(ns)
     graph = Graph(ns)
     gname = QualifiedGraphName(ns, GName("test"))
     graph_id = GraphId.create(gname)
     config.add_graph(graph)
-    with pytest.raises(ValueError, match=r"graph already initialized"):
+    with pytest.raises(ValueError, match=r"graph .* already added"):
         config.add_graph(Graph(ns))
     assert graph is config.get_graph(ns)
 

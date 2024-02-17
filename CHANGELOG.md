@@ -1,5 +1,11 @@
 # Changelog
 
+## [release candidate]
+
+### Added
+
+- Graph namespaces. ([#6])
+
 ## [0.2.0] - 2024-02-02
 
 ### Breaking
@@ -19,3 +25,4 @@
 
 [#3]: https://github.com/JosuaKrause/scattermind/pull/3
 [#5]: https://github.com/JosuaKrause/scattermind/pull/5
+[#6]: https://github.com/JosuaKrause/scattermind/pull/6
