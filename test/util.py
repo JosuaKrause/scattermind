@@ -67,7 +67,7 @@ def wait_for_tasks(
         tasks: list[tuple['TaskId', T]],
         *,
         timeinc: float = 0.1,
-        timeout: float = 0.5,
+        timeout: float = 5.0,
         ) -> Iterable[tuple['TaskId', 'ResponseObject', T]]:
     """
     Wait for scattermind tasks to complete. The function does not check by
@@ -80,7 +80,7 @@ def wait_for_tasks(
         timeinc (float, optional): The increment of internal waiting
             between checks. Defaults to 0.1.
         timeout (float, optional): The maximum time to wait for any task
-            to complete. Defaults to 0.5.
+            to complete. Defaults to 5.0.
 
     Yields:
         tuple[TaskId, ResponseObject, T]: The task, its response, and the

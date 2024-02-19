@@ -19,7 +19,7 @@ import uuid
 from collections.abc import Callable
 from typing import Literal, TypeVar
 
-from scattermind.system.names import GName, NAME_SEP, NName
+from scattermind.system.names import NAME_SEP, NName, QualifiedGraphName
 
 
 SelfT = TypeVar('SelfT', bound='BaseId')
@@ -190,17 +190,17 @@ class GraphId(BaseId):
         return "G"
 
     @staticmethod
-    def create(gname: GName) -> 'GraphId':
+    def create(gname: QualifiedGraphName) -> 'GraphId':
         """
         Creates a `GraphId` from a given graph name.
 
         Args:
-            gname (GName): The graph name.
+            gname (QualifiedGraphName): The qualified graph name.
 
         Returns:
             GraphId: The corrseponding graph id.
         """
-        return GraphId(uuid.uuid5(NS_GRAPH, gname.get()))
+        return GraphId(uuid.uuid5(NS_GRAPH, gname.to_parseable()))
 
 
 class NodeId(BaseId):
@@ -212,19 +212,19 @@ class NodeId(BaseId):
         return "N"
 
     @staticmethod
-    def create(gname: GName, name: NName) -> 'NodeId':
+    def create(gname: QualifiedGraphName, name: NName) -> 'NodeId':
         """
         Creates a `NodeId` from a given node name.
 
         Args:
-            gname (GName): The graph name.
+            gname (QualifiedGraphName): The qualified graph name.
             name (NName): The node name.
 
         Returns:
             NodeId: The corrseponding node id.
         """
-        return NodeId(
-            uuid.uuid5(NS_NODE, f"{gname.get()}{NAME_SEP}{name.get()}"))
+        return NodeId(uuid.uuid5(
+            NS_NODE, f"{gname.to_parseable()}{NAME_SEP}{name.get()}"))
 
 
 class QueueId(BaseId):
@@ -236,19 +236,19 @@ class QueueId(BaseId):
         return "Q"
 
     @staticmethod
-    def create(gname: GName, node_name: NName) -> 'QueueId':
+    def create(gname: QualifiedGraphName, node_name: NName) -> 'QueueId':
         """
         Creates a `QueueId` for a given graph name and node name.
 
         Args:
-            gname (GName): The graph name.
+            gname (QualifiedGraphName): The qualified graph name.
             node_name (NName): The node name.
 
         Returns:
             QueueId: The corrseponding queue id.
         """
-        return QueueId(
-            uuid.uuid5(NS_QUEUE, f"{gname.get()}{NAME_SEP}{node_name.get()}"))
+        return QueueId(uuid.uuid5(
+            NS_QUEUE, f"{gname.to_parseable()}{NAME_SEP}{node_name.get()}"))
 
     @staticmethod
     def get_output_queue() -> 'QueueId':

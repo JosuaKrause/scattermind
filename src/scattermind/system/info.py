@@ -155,7 +155,8 @@ class DataInfo:
         if value.dtype != get_dtype(self._dtype):
             raise ValueError(
                 "mismatching dtype. "
-                f"expected: {self._dtype} actual: {value.dtype}")
+                f"expected: {self._dtype} ({get_dtype(self._dtype)}) "
+                f"actual: {value.dtype}")
         if not self.valid_shape(list(value.shape)):
             raise ValueError(
                 "mismatching shape. "

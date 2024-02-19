@@ -13,7 +13,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-"""A simple node strategy."""
+"""This strategy assumes that there is one executor available for every node.
+This way executors can be sticky and don't have to change nodes very often."""
 from collections.abc import Callable
 
 from scattermind.system.queue.strategy.strategy import (
@@ -24,8 +25,10 @@ from scattermind.system.queue.strategy.strategy import (
 )
 
 
-class SimpleNodeStrategy(NodeStrategy):
-    """The simple node strategy."""
+class DedicatedNodeStrategy(NodeStrategy):
+    """This strategy assumes that there is one executor available for every
+    node. This way executors can be sticky and don't have to change nodes very
+    often."""
     def pick_node(
             self,
             *,
@@ -43,17 +46,19 @@ class SimpleNodeStrategy(NodeStrategy):
             right_cost_to_load: Callable[[], float],
             right_claimants: Callable[[], int],
             right_loaded: Callable[[], int]) -> PickNode:
-        left_numerator = (
-            left_queue_length()
-            + left_expected_pressure()
-            + left_pressure())
-        left_score = left_numerator / left_cost_to_load()
-        right_numerator = (
-            right_queue_length()
-            + right_expected_pressure()
-            + right_pressure())
-        right_score = right_numerator / right_cost_to_load()
-        return PICK_LEFT if left_score > right_score else PICK_RIGHT
+        l_queue = left_queue_length()
+        r_queue = right_queue_length()
+        l_loaded = left_loaded()
+        r_loaded = right_loaded()
+        if l_loaded == 0 and l_queue > 0 and r_queue == 0:
+            return PICK_LEFT
+        if r_loaded == 0 and r_queue > 0 and l_queue == 0:
+            return PICK_RIGHT
+        if l_loaded + 1 < r_loaded:
+            return PICK_LEFT
+        if r_loaded + 1 < l_loaded:
+            return PICK_RIGHT
+        return PICK_LEFT if l_queue > r_queue else PICK_RIGHT
 
     def want_to_switch(
             self,
@@ -71,11 +76,10 @@ class SimpleNodeStrategy(NodeStrategy):
             other_cost_to_load: Callable[[], float],
             other_claimants: Callable[[], int],
             other_loaded: Callable[[], int]) -> bool:
-        own_num = own_queue_length() + own_expected_pressure() + own_pressure()
-        own_score = own_num / own_cost_to_load()
-        other_num = (
-            other_queue_length()
-            + other_expected_pressure()
-            + other_pressure())
-        other_score = other_num / other_cost_to_load()
-        return other_score > own_score
+        own_loads = own_loaded()
+        other_loads = other_loaded()
+        own_len = own_queue_length()
+        other_len = other_queue_length()
+        if other_loads == 0 and other_len > 0 and own_len == 0:
+            return True
+        return own_loads > other_loads + 1

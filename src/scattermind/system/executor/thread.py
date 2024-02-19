@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """A thread based executor that keeps running even if no tasks are available.
 """
+import random
 import threading
 import time
 from collections.abc import Callable
@@ -42,7 +43,8 @@ class ThreadExecutorManager(ExecutorManager):
             own_id: ExecutorId,
             *,
             batch_size: int,
-            sleep_on_idle: float) -> None:
+            sleep_on_idle: float,
+            reclaim_sleep: float) -> None:
         """
         Creates an executor manager for the given executor id.
 
@@ -52,10 +54,14 @@ class ThreadExecutorManager(ExecutorManager):
                 given executor.
             sleep_on_idle (float): The time to sleep in seconds if no task
                 is currently available for processing.
+            reclaim_sleep (float): The time to sleep in seconds between
+                two reclaim calls.
         """
         super().__init__(own_id, batch_size)
         self._sleep_on_idle = sleep_on_idle
+        self._reclaim_sleep = reclaim_sleep
         self._thread: threading.Thread | None = None
+        self._reclaim: threading.Thread | None = None
         self._work: Callable[[ExecutorManager], bool] | None = None
         self._logger: EventStream | None = None
         self._done = False
@@ -99,7 +105,9 @@ class ThreadExecutorManager(ExecutorManager):
                         work = self._work
                         if work is None:
                             raise ValueError("uninitialized executor")
-                        sleep_on_idle = self._sleep_on_idle
+                        sleep_on_idle = self._sleep_on_idle * 0.5
+                        sleep_on_idle += random.uniform(
+                            0.0, max(sleep_on_idle, 0.0))
                         if not work(self) and sleep_on_idle > 0.0:
                             time.sleep(sleep_on_idle)
                     running = False
@@ -140,7 +148,7 @@ class ThreadExecutorManager(ExecutorManager):
 
     def is_active(self, executor_id: ExecutorId) -> bool:
         with LOCK:
-            return ACTIVE[executor_id]
+            return ACTIVE.get(executor_id, False)
 
     def release_executor(self, executor_id: ExecutorId) -> None:
         with LOCK:
@@ -166,6 +174,43 @@ class ThreadExecutorManager(ExecutorManager):
             EventStream | None: The logger or None if no logger has been set.
         """
         return self._logger
+
+    def start_reclaimer(
+            self,
+            logger: EventStream,
+            reclaim_all_once: Callable[[], tuple[int, int]]) -> None:
+
+        def run() -> None:
+            try:
+                while True:
+                    executor_count, listener_count = reclaim_all_once()
+                    logger.log_event(
+                        "tally.executor.reclaim",
+                        {
+                            "name": "executor",
+                            "action": "reclaim",
+                            "executors": executor_count,
+                            "listeners": listener_count,
+                        })
+                    reclaim_sleep = self._reclaim_sleep
+                    if reclaim_sleep > 0.0:
+                        time.sleep(reclaim_sleep)
+            finally:
+                with LOCK:
+                    self._reclaim = None
+                    logger.log_error(
+                        "error.executor", "uncaught_executor")
+
+        if self._reclaim is not None:
+            return
+        with LOCK:
+            if self._reclaim is not None:
+                return
+            thread = threading.Thread(
+                target=run,
+                daemon=True)
+            self._reclaim = thread
+            thread.start()
 
     def execute(
             self,

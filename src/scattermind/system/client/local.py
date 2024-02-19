@@ -30,7 +30,7 @@ from scattermind.system.client.client import ClientPool
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.error import ErrorInfo
-from scattermind.system.names import NName, ValueMap
+from scattermind.system.names import GNamespace, NName, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import DataContainer, TaskValueContainer
 from scattermind.system.response import (
@@ -53,6 +53,7 @@ class LocalClientPool(ClientPool):
         Creates a RAM-only client pool.
         """
         super().__init__()
+        self._namespaces: dict[TaskId, GNamespace] = {}
         self._values: dict[TaskId, TaskValueContainer] = {}
         self._status: dict[TaskId, TaskStatus] = {}
         self._retries: dict[TaskId, int] = {}
@@ -73,9 +74,11 @@ class LocalClientPool(ClientPool):
 
     def create_task(
             self,
+            ns: GNamespace,
             original_input: TaskValueContainer) -> TaskId:
         with self._lock:
             task_id = TaskId.create()
+            self._namespaces[task_id] = ns
             self._values[task_id] = original_input
             self._status[task_id] = TASK_STATUS_INIT
             self._retries[task_id] = 0
@@ -110,6 +113,9 @@ class LocalClientPool(ClientPool):
                 self._status[task_id] = status
                 res.append(task_id)
             return res
+
+    def get_namespace(self, task_id: TaskId) -> GNamespace | None:
+        return self._namespaces.get(task_id)
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         return self._status.get(task_id, TASK_STATUS_UNKNOWN)
@@ -163,7 +169,7 @@ class LocalClientPool(ClientPool):
             *,
             weight: float,
             byte_size: int,
-            push_frame: tuple[NName, GraphId, QueueId] | None) -> None:
+            push_frame: tuple[NName, GraphId, QueueId] | None) -> GNamespace:
         with self._lock:
             print(f"{ctx_fmt()} commit {task_id} {self._stack_data[task_id]}")
             self._weight[task_id] = weight
@@ -175,6 +181,7 @@ class LocalClientPool(ClientPool):
             for key, data_id in data.items():
                 frame_data[key] = data_id
             print(f"{ctx_fmt()} frame_data {task_id} {frame_data}")
+            return self._namespaces[task_id]
 
     def pop_frame(
             self,
@@ -226,6 +233,7 @@ class LocalClientPool(ClientPool):
 
     def clear_task(self, task_id: TaskId) -> None:
         with self._lock:
+            self._namespaces.pop(task_id, None)
             self._values.pop(task_id, None)
             self._status.pop(task_id, None)
             self._retries.pop(task_id, None)

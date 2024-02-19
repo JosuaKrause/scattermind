@@ -23,6 +23,7 @@ import pytest
 from scattermind.system.base import set_debug_output_length, TaskId
 from scattermind.system.client.client import TASK_MAX_RETRIES
 from scattermind.system.config.loader import load_test
+from scattermind.system.names import GNamespace
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     response_ok,
@@ -51,7 +52,7 @@ def test_assertion_error(
     set_debug_output_length(7)
     config = load_test(
         batch_size=batch_size, parallelism=parallelism, is_redis=is_redis)
-    config.load_graph({
+    ns = config.load_graph({
         "graphs": [
             {
                 "name": "main",
@@ -91,12 +92,16 @@ def test_assertion_error(
         ],
         "entry": "main",
     })
+    assert ns == GNamespace("main")
     time_start = time.monotonic()
     tasks: list[tuple[TaskId, bool]] = [
         (
-            config.enqueue(TaskValueContainer({
-                "value": create_tensor(np.array([tix % 3 > 0]), dtype="bool"),
-            })),
+            config.enqueue(
+                ns,
+                TaskValueContainer({
+                    "value": create_tensor(
+                        np.array([tix % 3 > 0]), dtype="bool"),
+                })),
             tix % 3 > 0,
         )
         for tix in range(20)
@@ -109,11 +114,13 @@ def test_assertion_error(
                 config, tasks):
             real_duration = time.monotonic() - time_start
             status = response["status"]
+            task_ns = response["ns"]
             task_duration = response["duration"]
             result = response["result"]
             retries = response["retries"]
             error = response["error"]
             assert task_duration <= real_duration
+            assert task_ns == ns
             if expected_result:
                 response_ok(response, no_warn=True)
                 assert status == TASK_STATUS_READY
@@ -133,7 +140,8 @@ def test_assertion_error(
                 assert ectx["node_name"] is not None
                 assert ectx["node_name"].get() == "node_1"
                 assert ectx["graph_name"] is not None
-                assert ectx["graph_name"].get() == "main"
+                assert ectx["graph_name"].get_namespace().get() == "main"
+                assert ectx["graph_name"].get_name().get() == "main"
                 assert error["message"].find("value was not true") >= 0
                 tback = error["traceback"]
                 assert "Traceback" in tback[0]
@@ -143,6 +151,7 @@ def test_assertion_error(
                     response_ok(response, no_warn=True)
                 assert retries == TASK_MAX_RETRIES
             config.clear_task(task_id)
+            assert config.get_namespace(task_id) is None
             assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
             assert config.get_result(task_id) is None
     finally:

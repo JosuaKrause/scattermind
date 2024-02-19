@@ -1,5 +1,12 @@
 # Changelog
 
+## [release candidate]
+
+### Added
+
+- Add dedicated node strategy. ([#5])
+- Graph namespaces. ([#6])
+
 ## [0.2.0] - 2024-02-02
 
 ### Breaking
@@ -17,3 +24,5 @@
 - Remove daemon flag from thread executor. ([#3])
 
 [#3]: https://github.com/JosuaKrause/scattermind/pull/3
+[#5]: https://github.com/JosuaKrause/scattermind/pull/5
+[#6]: https://github.com/JosuaKrause/scattermind/pull/6

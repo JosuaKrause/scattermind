@@ -32,6 +32,7 @@ ThreadExecutorManagerModule = TypedDict('ThreadExecutorManagerModule', {
     "batch_size": int,
     "parallelism": int,
     "sleep_on_idle": float,
+    "reclaim_sleep": float,
 })
 """A thread executor that continues executing until the process is terminated
 or all executors are released. `parallelism` defines the number of worker
@@ -71,7 +72,8 @@ def _load_executor_manager(
             lambda: ThreadExecutorManager(
                 exec_gen(),
                 batch_size=module["batch_size"],
-                sleep_on_idle=module["sleep_on_idle"]),
+                sleep_on_idle=module["sleep_on_idle"],
+                reclaim_sleep=module["reclaim_sleep"]),
             ThreadExecutorManager.allow_parallel(),
         )
     raise ValueError(f"unknown executor manager: {module['name']}")

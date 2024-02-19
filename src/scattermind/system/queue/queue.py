@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """Provides the queue and queue pool."""
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
 
 from scattermind.system.base import (
@@ -30,11 +30,18 @@ from scattermind.system.logger.context import ctx_fmt, get_ctx
 from scattermind.system.logger.error import ErrorInfo, to_retry_event
 from scattermind.system.logger.event import QueueMeasureEvent
 from scattermind.system.logger.log import EventStream
-from scattermind.system.names import GName, QualifiedName, ValueMap
+from scattermind.system.names import (
+    GNamespace,
+    QualifiedGraphName,
+    QualifiedName,
+    ValueMap,
+)
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.queue.strategy.strategy import (
     NodeStrategy,
+    PICK_LEFT,
+    PICK_RIGHT,
     QueueStrategy,
 )
 from scattermind.system.response import (
@@ -91,6 +98,16 @@ class Queue:
         """
         return self._queue_pool.claimant_count(self._qid)
 
+    def get_listener_count(self) -> int:
+        """
+        Counts the number of listeners (executors) that have loaded the
+        associated node of this queue.
+
+        Returns:
+            int: The number of listeners (executors).
+        """
+        return self._queue_pool.get_queue_listeners(self._qid)
+
     def get_unclaimed_tasks(self) -> list[ComputeTask]:
         """
         Retrieves all unclaimed tasks in this queue.
@@ -139,12 +156,25 @@ class Queue:
         """
         return self._queue_pool.get_incoming_byte_size(self._qid)
 
+    def total_weight(self) -> float:
+        """
+        Retrieves the actual current weight of the queue without taking the
+        byte size into account.
+
+        Returns:
+            float: The total task weight currently in the queue.
+        """
+        res = 0.0
+        for task in self.get_unclaimed_tasks():
+            res += task.get_simple_weight_in()
+        return res
+
     def total_backpressure(self) -> float:
         """
         Retrieves the actual current backpressure / weight of the queue.
 
         Returns:
-            float: The total weight currently in the queue.
+            float: The total weight (pressure) currently in the queue.
         """
         res = 0.0
         for task in self.get_unclaimed_tasks():
@@ -237,9 +267,10 @@ class QueuePool(Module):
         """Create an empty queue pool."""
         super().__init__()
         self._client_pool: ClientPool | None = None
-        self._entry_graph: GraphId | None = None
-        self._graph_ids: dict[GName, GraphId] = {}
-        self._graph_names: dict[GraphId, GName] = {}
+        self._last_entry_graph: GraphId | None = None
+        self._entry_graphs: dict[GNamespace, GraphId] = {}
+        self._graph_ids: dict[QualifiedGraphName, GraphId] = {}
+        self._graph_names: dict[GraphId, QualifiedGraphName] = {}
         self._graph_descs: dict[GraphId, str] = {}
         self._input_nodes: dict[GraphId, 'Node'] = {}
         self._input_formats: dict[GraphId, DataFormat] = {}
@@ -278,44 +309,66 @@ class QueuePool(Module):
             raise ValueError("client pool not initialized")
         return self._client_pool
 
-    def set_entry_graph(self, graph_id: GraphId) -> None:
+    def set_entry_graph(self, ns: GNamespace, graph_id: GraphId) -> None:
         """
         Sets the entry graph.
 
         Args:
+            ns (GNamespace): The namespace.
             graph_id (GraphId): The graph that gets the overall input of the
                 execution graph.
 
         Raises:
             ValueError: If the entry graph has already been initialized.
         """
-        if self._entry_graph is not None:
-            raise ValueError("entry graph already initialized")
-        self._entry_graph = graph_id
+        if self._entry_graphs.get(ns) is not None:
+            raise ValueError(f"entry graph already initialized for {ns}")
+        self._entry_graphs[ns] = graph_id
+        self._last_entry_graph = graph_id
 
-    def get_entry_graph(self) -> GraphId:
+    def get_entry_graph(self, ns: GNamespace) -> GraphId:
         """
-        Retrieves the entry graph.
+        Retrieves the entry graph for the given namespace.
+
+        Args:
+            ns (GNamespace): The namespace.
 
         Raises:
-            ValueError: If the entry graph hasn't been set.
+            ValueError: If the entry graph hasn't been set for the namespace.
 
         Returns:
             GraphId: The graph that gets the overall input of the
-                execution graph.
+                execution graph in the namespace.
         """
-        if self._entry_graph is None:
-            raise ValueError("entry graph not initialized")
-        return self._entry_graph
+        res = self._entry_graphs.get(ns)
+        if res is None:
+            raise ValueError(f"entry graph not initialized for {ns}")
+        return res
 
-    def add_graph(self, graph_id: GraphId, gname: GName, desc: str) -> None:
+    def last_entry_graph(self) -> GraphId:
+        """
+        Retrieves the last added entry graph.
+
+        Returns:
+            GraphId: The graph.
+        """
+        res = self._last_entry_graph
+        if res is None:
+            raise ValueError("no entry graph set")
+        return res
+
+    def add_graph(
+            self,
+            graph_id: GraphId,
+            gname: QualifiedGraphName,
+            desc: str) -> None:
         """
         Initialize a new (sub-)graph. Graphs need to be uniquely identifyable
         via graph id and name.
 
         Args:
             graph_id (GraphId): The graph id.
-            gname (GName): The graph name.
+            gname (QualifiedGraphName): The qualified graph name.
             desc (str): The description of the graph.
 
         Raises:
@@ -324,32 +377,32 @@ class QueuePool(Module):
         if graph_id in self._graph_names:
             raise ValueError(f"duplicate graph {graph_id}")
         if gname in self._graph_ids:
-            raise ValueError(f"duplicate graph name: {gname.get()}")
+            raise ValueError(f"duplicate graph name: {gname.to_parseable()}")
         self._graph_ids[gname] = graph_id
         self._graph_names[graph_id] = gname
         self._graph_descs[graph_id] = desc
 
-    def get_graph_id(self, gname: GName) -> GraphId:
+    def get_graph_id(self, gname: QualifiedGraphName) -> GraphId:
         """
         Get the graph id for the given name.
 
         Args:
-            gname (GName): The name of the graph.
+            gname (QualifiedGraphName): The qualified name of the graph.
 
         Returns:
             GraphId: The associated graph id.
         """
         return self._graph_ids[gname]
 
-    def get_graph_name(self, graph_id: GraphId) -> GName:
+    def get_graph_name(self, graph_id: GraphId) -> QualifiedGraphName:
         """
-        Get the graph name for the given id.
+        Get the qualified graph name for the given id.
 
         Args:
             graph_id (GraphId): The id of the graph.
 
         Returns:
-            GName: The associated graph name.
+            QualifiedGraphName: The associated qualified graph name.
         """
         return self._graph_names[graph_id]
 
@@ -635,75 +688,149 @@ class QueuePool(Module):
                 the new node needs to be loaded.
         """
         strategy = self.get_node_strategy()
-        entry_graph_id = self.get_entry_graph()
-        candidate_node = self.get_input_node(entry_graph_id)
-        candidate_score = 0.0
+        last_entry_graph_id = self.last_entry_graph()
+        candidate_node = self.get_input_node(last_entry_graph_id)
 
-        def process_node(node: 'Node') -> float:
-            cur_graph_id = node.get_graph()
-            cur_graph_name = self.get_graph_name(cur_graph_id)
-            qid = node.get_input_queue()
-            queue = self.get_queue(qid)
-            qme: QueueMeasureEvent = {
+        def process_node(left_node: 'Node', right_node: 'Node') -> 'Node':
+            left_graph_id = left_node.get_graph()
+            left_graph_name = self.get_graph_name(left_graph_id)
+            left_qid = left_node.get_input_queue()
+            left_queue = self.get_queue(left_qid)
+            right_graph_id = right_node.get_graph()
+            right_graph_name = self.get_graph_name(right_graph_id)
+            right_qid = right_node.get_input_queue()
+            right_queue = self.get_queue(right_qid)
+            left_qme: QueueMeasureEvent = {
+                "name": "queue_input",
+            }
+            right_qme: QueueMeasureEvent = {
                 "name": "queue_input",
             }
 
-            def queue_length() -> int:
-                queue_length = queue.get_queue_length()
-                qme["length"] = queue_length
+            def left_queue_length() -> int:
+                queue_length = left_queue.get_queue_length()
+                left_qme["length"] = queue_length
                 return queue_length
 
-            def pressure() -> float:
-                pressure = queue.total_backpressure()
-                qme["pressure"] = pressure
+            def left_weight() -> float:
+                weight = left_queue.total_weight()
+                left_qme["weight"] = weight
+                return weight
+
+            def left_pressure() -> float:
+                pressure = left_queue.total_backpressure()
+                left_qme["pressure"] = pressure
                 return pressure
 
-            def expected_pressure() -> float:
-                expected_pressure = queue.total_expected_pressure()
-                qme["expected_pressure"] = expected_pressure
+            def left_expected_pressure() -> float:
+                expected_pressure = left_queue.total_expected_pressure()
+                left_qme["expected_pressure"] = expected_pressure
                 return expected_pressure
 
-            def cost_to_load() -> float:
-                cost_to_load = node.get_load_cost()
-                qme["cost"] = cost_to_load
+            def left_cost_to_load() -> float:
+                cost_to_load = left_node.get_load_cost()
+                left_qme["cost"] = cost_to_load
                 return cost_to_load
 
-            def claimants() -> int:
-                claimants = queue.claimant_count()
-                qme["claimants"] = claimants
+            def left_claimants() -> int:
+                claimants = left_queue.claimant_count()
+                left_qme["claimants"] = claimants
                 return claimants
 
-            score = strategy.other_score(
-                queue_length=queue_length,
-                pressure=pressure,
-                expected_pressure=expected_pressure,
-                cost_to_load=cost_to_load,
-                claimants=claimants)
-            qme["score"] = score
+            def left_loaded() -> int:
+                loaded = left_queue.get_listener_count()
+                left_qme["loaded"] = loaded
+                return loaded
+
+            def right_queue_length() -> int:
+                queue_length = right_queue.get_queue_length()
+                right_qme["length"] = queue_length
+                return queue_length
+
+            def right_weight() -> float:
+                weight = right_queue.total_weight()
+                right_qme["weight"] = weight
+                return weight
+
+            def right_pressure() -> float:
+                pressure = right_queue.total_backpressure()
+                right_qme["pressure"] = pressure
+                return pressure
+
+            def right_expected_pressure() -> float:
+                expected_pressure = right_queue.total_expected_pressure()
+                right_qme["expected_pressure"] = expected_pressure
+                return expected_pressure
+
+            def right_cost_to_load() -> float:
+                cost_to_load = right_node.get_load_cost()
+                right_qme["cost"] = cost_to_load
+                return cost_to_load
+
+            def right_claimants() -> int:
+                claimants = right_queue.claimant_count()
+                right_qme["claimants"] = claimants
+                return claimants
+
+            def right_loaded() -> int:
+                loaded = right_queue.get_listener_count()
+                right_qme["loaded"] = loaded
+                return loaded
+
+            pick_node = strategy.pick_node(
+                left_queue_length=left_queue_length,
+                left_weight=left_weight,
+                left_pressure=left_pressure,
+                left_expected_pressure=left_expected_pressure,
+                left_cost_to_load=left_cost_to_load,
+                left_claimants=left_claimants,
+                left_loaded=left_loaded,
+                right_queue_length=right_queue_length,
+                right_weight=right_weight,
+                right_pressure=right_pressure,
+                right_expected_pressure=right_expected_pressure,
+                right_cost_to_load=right_cost_to_load,
+                right_claimants=right_claimants,
+                right_loaded=right_loaded)
+            left_qme["picked"] = pick_node == PICK_LEFT
+            right_qme["picked"] = pick_node == PICK_RIGHT
             logger.log_event(
                 "measure.queue.input",
-                qme,
+                left_qme,
                 adjust_ctx={
                     "executor": None,
                     "task": None,
-                    "graph": cur_graph_id,
-                    "graph_name": cur_graph_name,
-                    "node": node.get_id(),
-                    "node_name": node.get_name(),
+                    "graph": left_graph_id,
+                    "graph_name": left_graph_name,
+                    "node": left_node.get_id(),
+                    "node_name": left_node.get_name(),
                 })
-            return score
+            logger.log_event(
+                "measure.queue.input",
+                right_qme,
+                adjust_ctx={
+                    "executor": None,
+                    "task": None,
+                    "graph": right_graph_id,
+                    "graph_name": right_graph_name,
+                    "node": right_node.get_id(),
+                    "node_name": right_node.get_name(),
+                })
+            return left_node if pick_node == PICK_LEFT else right_node
 
         for node in self.get_all_nodes():
-            score = process_node(node)
-            if score > candidate_score:
-                candidate_score = score
-                candidate_node = node
+            if node == current_node:
+                continue
+            candidate_node = process_node(candidate_node, node)
         if current_node is None:
             return (candidate_node, True)
         own_queue = self.get_queue(current_node.get_input_queue())
 
         def own_queue_length() -> int:
             return own_queue.get_queue_length()
+
+        def own_weight() -> float:
+            return own_queue.total_weight()
 
         def own_pressure() -> float:
             return own_queue.total_backpressure()
@@ -717,10 +844,16 @@ class QueuePool(Module):
         def own_claimants() -> int:
             return own_queue.claimant_count()
 
+        def own_loaded() -> int:
+            return own_queue.get_listener_count()
+
         other_queue = self.get_queue(candidate_node.get_input_queue())
 
         def other_queue_length() -> int:
             return other_queue.get_queue_length()
+
+        def other_weight() -> float:
+            return other_queue.total_weight()
 
         def other_pressure() -> float:
             return other_queue.total_backpressure()
@@ -734,28 +867,37 @@ class QueuePool(Module):
         def other_claimants() -> int:
             return other_queue.claimant_count()
 
+        def other_loaded() -> int:
+            return other_queue.get_listener_count()
+
         if strategy.want_to_switch(
                 own_queue_length=own_queue_length,
+                own_weight=own_weight,
                 own_pressure=own_pressure,
                 own_expected_pressure=own_expected_pressure,
                 own_cost_to_load=own_cost_to_load,
                 own_claimants=own_claimants,
+                own_loaded=own_loaded,
                 other_queue_length=other_queue_length,
+                other_weight=other_weight,
                 other_pressure=other_pressure,
                 other_expected_pressure=other_expected_pressure,
                 other_cost_to_load=other_cost_to_load,
-                other_claimants=other_claimants):
+                other_claimants=other_claimants,
+                other_loaded=other_loaded):
             return (candidate_node, candidate_node != current_node)
         return (current_node, False)
 
     def enqueue_task(
             self,
+            ns: GNamespace,
             store: DataStore,
             original_input: TaskValueContainer) -> TaskId:
         """
         Enqueues a task to the overall input queue.
 
         Args:
+            ns (GNamespace): The namespace.
             store (DataStore): The data store for storing the payload data.
             original_input (TaskValueContainer): The input data.
 
@@ -763,7 +905,7 @@ class QueuePool(Module):
             TaskId: The new task id.
         """
         cpool = self.get_client_pool()
-        task_id = cpool.create_task(original_input)
+        task_id = cpool.create_task(ns, original_input)
         self._enqueue_task_id(cpool, store, task_id)
         return task_id
 
@@ -820,7 +962,7 @@ class QueuePool(Module):
         cpool = self.get_client_pool()
         data_id_type = store.data_id_type()
         task_id = task.get_task_id()
-        cpool.commit_task(
+        ns = cpool.commit_task(
             task_id,
             task.get_data_out(),
             weight=task.get_weight_out(),
@@ -832,7 +974,7 @@ class QueuePool(Module):
             next_frame, frame_data = cpool.pop_frame(task_id, data_id_type)
             if next_frame is None:
                 m_nname = None
-                graph_id = self.get_entry_graph()
+                graph_id = self.get_entry_graph(ns)
                 is_final = True
             else:
                 m_nname, graph_id, qid = next_frame
@@ -900,7 +1042,9 @@ class QueuePool(Module):
             store (DataStore): The data store for storing the payload data.
             task_id (TaskId): The task id.
         """
-        entry_graph_id = self.get_entry_graph()
+        ns = cpool.get_namespace(task_id)
+        assert ns is not None
+        entry_graph_id = self.get_entry_graph(ns)
         input_format = self.get_input_format(entry_graph_id)
         cpool.init_data(store, task_id, input_format)
         node = self.get_input_node(entry_graph_id)
@@ -1126,6 +1270,93 @@ class QueuePool(Module):
 
         Returns:
             int: The current payload size of the queue.
+        """
+        raise NotImplementedError()
+
+    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> int:
+        """
+        Removes all listeners that are not active. If listener values are not
+        parseable as executor (just a precaution) the value gets removed as
+        well.
+
+        Args:
+            is_active (Callable[[ExecutorId], bool]): Returns True if the given
+                executor is active and known.
+
+        Returns:
+            int: The number of cleaned up listeners.
+        """
+        raise NotImplementedError()
+
+    def get_node_listeners(self, node: 'Node') -> int:
+        """
+        Countes how many listeners (executors) have loaded the given node.
+
+        Args:
+            node (Node): The node.
+
+        Returns:
+            int: The number of executors.
+        """
+        return self.get_queue_listeners(node.get_input_queue())
+
+    def add_node_listener(self, node: 'Node', executor_id: ExecutorId) -> None:
+        """
+        Indicates the the executor has loaded the given node.
+
+        Args:
+            node (Node): The node.
+            executor_id (ExecutorId): The executor.
+        """
+        self.add_queue_listener(node.get_input_queue(), executor_id)
+
+    def remove_node_listener(
+            self, node: 'Node', executor_id: ExecutorId) -> None:
+        """
+        Indicates the the executor has unloaded the given node.
+
+        Args:
+            node (Node): The node.
+            executor_id (ExecutorId): The executor.
+        """
+        self.remove_queue_listener(
+            qid=node.get_input_queue(), executor_id=executor_id)
+
+    def get_queue_listeners(self, qid: QueueId) -> int:
+        """
+        Counts how many executors have loaded the node associated with this
+        queue.
+
+        Args:
+            qid (QueueId): The queue id.
+
+        Returns:
+            int: The number of executors that have loaded the node associated
+                with this queue.
+        """
+        raise NotImplementedError()
+
+    def add_queue_listener(
+            self, qid: QueueId, executor_id: ExecutorId) -> None:
+        """
+        Adds a listener (executor) that has loaded the node associated with
+        this queue.
+
+        Args:
+            qid (QueueId): The queue id.
+            executor_id (ExecutorId): The executor.
+        """
+        raise NotImplementedError()
+
+    def remove_queue_listener(
+            self, qid: QueueId, executor_id: ExecutorId) -> None:
+        """
+        Removes a listener (executor) that has loaded the node associated with
+        this queue.
+
+        Args:
+            qid (QueueId): The queue id.
+            executor_id (ExecutorId): The executor.
         """
         raise NotImplementedError()
 

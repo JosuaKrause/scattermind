@@ -23,6 +23,7 @@ import torch
 
 from scattermind.system.base import TaskId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
+from scattermind.system.names import GNamespace
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     ResponseObject,
@@ -36,25 +37,42 @@ from scattermind.system.torch_util import create_tensor, str_to_tensor
 
 class ScattermindAPI:
     """An interface to start tasks and retrieve results."""
-    def load_graph(self, graph_def: FullGraphDefJSON) -> None:
+    def load_graph(self, graph_def: FullGraphDefJSON) -> GNamespace:
         """
         Load the full graph from a JSON definition.
 
         Args:
             graph_def (FullGraphDefJSON): The JSON definition of the graph.
+
+        Returns:
+            GNamespace: The namespace of the new graph.
         """
         raise NotImplementedError()
 
-    def enqueue(self, value: TaskValueContainer) -> TaskId:
+    def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
         """
         Enqueues a task. ::py::method:`enqueue_task` provides a more
         user-friendly way of creating a task.
 
         Args:
+            ns (GNamespace): The namespace.
             value (TaskValueContainer): The task's input values.
 
         Returns:
             TaskId: The task id.
+        """
+        raise NotImplementedError()
+
+    def get_namespace(self, task_id: TaskId) -> GNamespace | None:
+        """
+        Retrieves the namespace of the given task.
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            GNamespace | None: The namespace or None if the task does not
+                exist.
         """
         raise NotImplementedError()
 
@@ -107,12 +125,14 @@ class ScattermindAPI:
 
     def enqueue_task(
             self,
+            ns: GNamespace | str,
             obj: dict[str, str | list[Any] | np.ndarray | torch.Tensor],
             ) -> TaskId:
         """
         Enqueues a task.
 
         Args:
+            ns (GNamespace | str): The namespace or a namespace string.
             obj (dict[str, str | list[Any] | np.ndarray | torch.Tensor]):
                 The task's input values. Values can be strings or various forms
                 of tensor data (nested float lists, numpy arrays, etc.).
@@ -120,6 +140,8 @@ class ScattermindAPI:
         Returns:
             TaskId: The task id.
         """
+        if not isinstance(ns, GNamespace):
+            ns = GNamespace(ns)
 
         def convert(
                 val: str | list[Any] | np.ndarray | torch.Tensor,
@@ -130,10 +152,12 @@ class ScattermindAPI:
                 return val.clone().detach()
             return create_tensor(val, dtype=None).clone().detach()
 
-        return self.enqueue(TaskValueContainer({
-            key: convert(value)
-            for key, value in obj.items()
-        }))
+        return self.enqueue(
+            ns,
+            TaskValueContainer({
+                key: convert(value)
+                for key, value in obj.items()
+            }))
 
     def wait_for(
             self,
@@ -190,3 +214,39 @@ class ScattermindAPI:
                 time.sleep(wait_time)
         for task_id in cur_ids:  # FIXME write timeout test?
             yield (task_id, self.get_response(task_id))
+
+    def namespaces(self) -> set[GNamespace]:
+        """
+        Retrieve all registered namespaces.
+
+        Returns:
+            set[GNamespace]: All namespaces.
+        """
+        raise NotImplementedError()
+
+    def entry_graph_name(self, ns: GNamespace) -> str:
+        """
+        Retrieves the name of the entry graph.
+
+        Returns:
+            str: The graph name.
+        """
+        raise NotImplementedError()
+
+    def main_inputs(self, ns: GNamespace) -> set[str]:
+        """
+        Retrieves the inputs of the main graph.
+
+        Returns:
+            set[str]: The names of the input fields.
+        """
+        raise NotImplementedError()
+
+    def main_outputs(self, ns: GNamespace) -> set[str]:
+        """
+        Retrieves the outputs of the main graph.
+
+        Returns:
+            set[str]: The names of the output fields.
+        """
+        raise NotImplementedError()

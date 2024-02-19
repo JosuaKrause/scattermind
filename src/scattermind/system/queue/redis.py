@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """A redis implementation of a queue pool."""
+from collections.abc import Callable
 from typing import Literal
 
 from redipy import ExecFunction, Redis, RedisConfig
@@ -39,6 +40,7 @@ KeyName = Literal[
     "tasks",  # zset str
     "claims",  # list str
     "expect",  # hash (byte_size, weight)
+    "loads",  # set
 ]
 """Base keys for different storage categories."""
 
@@ -134,6 +136,21 @@ class RedisQueuePool(QueuePool):
         """
         return cls.key(
             "expect", f"{qid.to_parseable()}:{field}")
+
+    @classmethod
+    def key_loads(cls, qid: QueueId | None) -> str:
+        """
+        Computes the full key for loaded queues.
+
+        Args:
+            qid (QueueId | None): The queue id or None to obtain the prefix
+                only.
+
+        Returns:
+            str: The full key. The type of the key is a set.
+        """
+        return cls.key(
+            "loads", "" if qid is None else f"{qid.to_parseable()}")
 
     def push_task_id(self, qid: QueueId, task_id: TaskId) -> None:
         # FIXME something better than two connections
@@ -234,6 +251,52 @@ class RedisQueuePool(QueuePool):
             for elem in
             self._redis.lrange(claims_key, 0, -1)
         ]
+
+    def get_queue_listeners(self, qid: QueueId) -> int:
+        # FIXME: add sets to redipy
+        redis = self._redis.maybe_get_redis_runtime()
+        assert redis is not None
+        with redis.get_connection() as conn:
+            return conn.scard(self.key_loads(qid))
+
+    def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> int:
+        redis = self._redis.maybe_get_redis_runtime()
+        assert redis is not None
+        total = 0
+        # NOTE: we do not want pipelining/scripting here
+        with redis.get_connection() as conn:
+            for cur_loads in redis.keys_str(self.key_loads(None)):
+                to_remove: set[bytes] = set()
+                for executor_id_bytes in conn.smembers(cur_loads):
+                    remove = False
+                    try:
+                        executor_id = ExecutorId.parse(
+                            executor_id_bytes.decode("utf-8"))
+                        remove = not is_active(executor_id)
+                    except ValueError:
+                        remove = True
+                    if remove:
+                        to_remove.add(executor_id_bytes)
+                if to_remove:
+                    conn.srem(cur_loads, *to_remove)
+                    total += len(to_remove)
+        return total
+
+    def add_queue_listener(
+            self, qid: QueueId, executor_id: ExecutorId) -> None:
+        # FIXME: add sets to redipy
+        redis = self._redis.maybe_get_redis_runtime()
+        assert redis is not None
+        with redis.get_connection() as conn:
+            conn.sadd(self.key_loads(qid), executor_id.to_parseable())
+
+    def remove_queue_listener(
+            self, qid: QueueId, executor_id: ExecutorId) -> None:
+        # FIXME: add sets to redipy
+        redis = self._redis.maybe_get_redis_runtime()
+        assert redis is not None
+        with redis.get_connection() as conn:
+            conn.srem(self.key_loads(qid), executor_id.to_parseable())
 
     def expect_task_weight(
             self,
