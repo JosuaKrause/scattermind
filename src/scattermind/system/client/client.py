@@ -90,7 +90,6 @@ class ClientPool(Module):
             self,
             ns: GNamespace,
             original_input: 'TaskValueContainer') -> TaskId:
-        # FIXME
         """
         Create a new task from a given input.
 

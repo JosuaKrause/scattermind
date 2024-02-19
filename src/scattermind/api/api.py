@@ -225,7 +225,6 @@ class ScattermindAPI:
         raise NotImplementedError()
 
     def entry_graph_name(self, ns: GNamespace) -> str:
-        # FIXME
         """
         Retrieves the name of the entry graph.
 
@@ -235,7 +234,6 @@ class ScattermindAPI:
         raise NotImplementedError()
 
     def main_inputs(self, ns: GNamespace) -> set[str]:
-        # FIXME
         """
         Retrieves the inputs of the main graph.
 
@@ -245,7 +243,6 @@ class ScattermindAPI:
         raise NotImplementedError()
 
     def main_outputs(self, ns: GNamespace) -> set[str]:
-        # FIXME
         """
         Retrieves the outputs of the main graph.
 
