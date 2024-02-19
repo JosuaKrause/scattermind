@@ -156,12 +156,25 @@ class Queue:
         """
         return self._queue_pool.get_incoming_byte_size(self._qid)
 
+    def total_weight(self) -> float:
+        """
+        Retrieves the actual current weight of the queue without taking the
+        byte size into account.
+
+        Returns:
+            float: The total task weight currently in the queue.
+        """
+        res = 0.0
+        for task in self.get_unclaimed_tasks():
+            res += task.get_simple_weight_in()
+        return res
+
     def total_backpressure(self) -> float:
         """
         Retrieves the actual current backpressure / weight of the queue.
 
         Returns:
-            float: The total weight currently in the queue.
+            float: The total weight (pressure) currently in the queue.
         """
         res = 0.0
         for task in self.get_unclaimed_tasks():
@@ -699,6 +712,11 @@ class QueuePool(Module):
                 left_qme["length"] = queue_length
                 return queue_length
 
+            def left_weight() -> float:
+                weight = left_queue.total_weight()
+                left_qme["weight"] = weight
+                return weight
+
             def left_pressure() -> float:
                 pressure = left_queue.total_backpressure()
                 left_qme["pressure"] = pressure
@@ -729,6 +747,11 @@ class QueuePool(Module):
                 right_qme["length"] = queue_length
                 return queue_length
 
+            def right_weight() -> float:
+                weight = right_queue.total_weight()
+                right_qme["weight"] = weight
+                return weight
+
             def right_pressure() -> float:
                 pressure = right_queue.total_backpressure()
                 right_qme["pressure"] = pressure
@@ -756,12 +779,14 @@ class QueuePool(Module):
 
             pick_node = strategy.pick_node(
                 left_queue_length=left_queue_length,
+                left_weight=left_weight,
                 left_pressure=left_pressure,
                 left_expected_pressure=left_expected_pressure,
                 left_cost_to_load=left_cost_to_load,
                 left_claimants=left_claimants,
                 left_loaded=left_loaded,
                 right_queue_length=right_queue_length,
+                right_weight=right_weight,
                 right_pressure=right_pressure,
                 right_expected_pressure=right_expected_pressure,
                 right_cost_to_load=right_cost_to_load,
@@ -804,6 +829,9 @@ class QueuePool(Module):
         def own_queue_length() -> int:
             return own_queue.get_queue_length()
 
+        def own_weight() -> float:
+            return own_queue.total_weight()
+
         def own_pressure() -> float:
             return own_queue.total_backpressure()
 
@@ -824,6 +852,9 @@ class QueuePool(Module):
         def other_queue_length() -> int:
             return other_queue.get_queue_length()
 
+        def other_weight() -> float:
+            return other_queue.total_weight()
+
         def other_pressure() -> float:
             return other_queue.total_backpressure()
 
@@ -841,12 +872,14 @@ class QueuePool(Module):
 
         if strategy.want_to_switch(
                 own_queue_length=own_queue_length,
+                own_weight=own_weight,
                 own_pressure=own_pressure,
                 own_expected_pressure=own_expected_pressure,
                 own_cost_to_load=own_cost_to_load,
                 own_claimants=own_claimants,
                 own_loaded=own_loaded,
                 other_queue_length=other_queue_length,
+                other_weight=other_weight,
                 other_pressure=other_pressure,
                 other_expected_pressure=other_expected_pressure,
                 other_cost_to_load=other_cost_to_load,

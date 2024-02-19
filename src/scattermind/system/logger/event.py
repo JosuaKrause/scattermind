@@ -77,6 +77,7 @@ OutputEvent = TypedDict('OutputEvent', {
 QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
     "name": Literal["queue_input"],
     "length": NotRequired[int],
+    "weight": NotRequired[float],
     "pressure": NotRequired[float],
     "expected_pressure": NotRequired[float],
     "cost": NotRequired[float],

@@ -33,17 +33,18 @@ class NodeStrategy:
     """A node strategy defines which node to load next. It compares nodes by
     input size and pressure and costs to load. The weight might not be enough
     to change the current active node in which case a load does not happen."""
-    # FIXME break down pressure into components
     def pick_node(
             self,
             *,
             left_queue_length: Callable[[], int],
+            left_weight: Callable[[], float],
             left_pressure: Callable[[], float],
             left_expected_pressure: Callable[[], float],
             left_cost_to_load: Callable[[], float],
             left_claimants: Callable[[], int],
             left_loaded: Callable[[], int],
             right_queue_length: Callable[[], int],
+            right_weight: Callable[[], float],
             right_pressure: Callable[[], float],
             right_expected_pressure: Callable[[], float],
             right_cost_to_load: Callable[[], float],
@@ -54,6 +55,8 @@ class NodeStrategy:
 
         Args:
             left_queue_length (Callable[[], int]): The length of the left input
+                queue.
+            left_weight (Callable[[], float]): The weight of the left input
                 queue.
             left_pressure (Callable[[], float]): The pressure of the left input
                 queue.
@@ -68,6 +71,8 @@ class NodeStrategy:
                 loaded the left node.
             right_queue_length (Callable[[], int]): The length of the right
                 input queue.
+            right_weight (Callable[[], float]): The weight of the right input
+                queue.
             right_pressure (Callable[[], float]): The pressure of the right
                 input queue.
             right_expected_pressure (Callable[[], float]): The upcoming
@@ -88,12 +93,14 @@ class NodeStrategy:
     def want_to_switch(
             self,
             own_queue_length: Callable[[], int],
+            own_weight: Callable[[], float],
             own_pressure: Callable[[], float],
             own_expected_pressure: Callable[[], float],
             own_cost_to_load: Callable[[], float],
             own_claimants: Callable[[], int],
             own_loaded: Callable[[], int],
             other_queue_length: Callable[[], int],
+            other_weight: Callable[[], float],
             other_pressure: Callable[[], float],
             other_expected_pressure: Callable[[], float],
             other_cost_to_load: Callable[[], float],
@@ -104,6 +111,8 @@ class NodeStrategy:
 
         Args:
             own_queue_length (Callable[[], int]): The length of the own input
+                queue.
+            own_weight (Callable[[], float]): The weight of the own input
                 queue.
             own_pressure (Callable[[], float]): The pressure of the own input
                 queue.
@@ -118,6 +127,8 @@ class NodeStrategy:
                 loaded the own node.
             other_queue_length (Callable[[], int]): The length of the other
                 input queue.
+            other_weight (Callable[[], float]): The weight of the other input
+                queue.
             other_pressure (Callable[[], float]): The pressure of the other
                 input queue.
             other_expected_pressure (Callable[[], float]): The upcoming
