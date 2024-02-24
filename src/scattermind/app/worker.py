@@ -22,9 +22,11 @@ from scattermind.system.base import ExecutorId
 from scattermind.system.config.config import Config
 from scattermind.system.config.loader import ConfigJSON, load_config
 from scattermind.system.graph.graphdef import FullGraphDefJSON
+from scattermind.system.torch_util import set_system_device
 
 
-def worker_start(*, config_file: str, graph_def: str) -> None:
+def worker_start(
+        *, config_file: str, graph_def: str, device: str | None) -> None:
     """
     Load configuration, graph, and start execution.
 
@@ -32,7 +34,11 @@ def worker_start(*, config_file: str, graph_def: str) -> None:
         config_file (str): The configuration file.
         graph_def (str): The graph definition file or folder containing
             graph definition files.
+        device (str): Overrides the system device if set.
     """
+    if device is not None:
+        set_system_device(device)
+
     with open(config_file, "rb") as fin:
         config_obj = cast(ConfigJSON, json.load(fin))
     config: Config = load_config(ExecutorId.create, config_obj)

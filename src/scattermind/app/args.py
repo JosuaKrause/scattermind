@@ -55,7 +55,8 @@ def parse_args() -> argparse.Namespace:
     def run_worker(args: argparse.Namespace) -> None:
         worker_start(
             config_file=args.config,
-            graph_def=args.graph)
+            graph_def=args.graph,
+            device=args.device)
 
     subparser_worker = subparser.add_parser("worker")
     subparser_worker.set_defaults(func=run_worker)
@@ -65,5 +66,10 @@ def parse_args() -> argparse.Namespace:
         "--config",
         type=str,
         help="json config file")
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="overrides the system device")
 
     return parser.parse_args()

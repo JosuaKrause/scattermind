@@ -268,15 +268,18 @@ SYS_DEVICE: torch.device | None = None
 """The system device for torch objects."""
 
 
-def set_system_device(device: torch.device) -> None:
+def set_system_device(device: torch.device | str) -> None:
     """
     Sets the system device for torch objects.
     This overwrites automatic detection.
 
     Args:
-        device (torch.device): The desired torch device.
+        device (torch.device | str): The desired torch device.
     """
     global SYS_DEVICE  # pylint: disable=global-statement
+
+    if isinstance(device, str):
+        device = torch.device(device)
 
     SYS_DEVICE = device
 

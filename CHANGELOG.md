@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.2] - 2024-02-24
+
+### Added
+
+- Add override for worker system device.
+
 ## [0.3.1] - 2024-02-24
 
 ### Added
