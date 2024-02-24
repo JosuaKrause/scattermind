@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - 2024-02-24
+
+### Added
+
+- Allow folders to load worker graphs.
+
 ## [0.3.0] - 2024-02-19
 
 ### Added

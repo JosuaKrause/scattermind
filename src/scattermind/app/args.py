@@ -29,7 +29,7 @@ def parse_args_worker(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--graph",
         type=str,
-        help="graph definition json file")
+        help="graph definition json file or folder containing json files")
     parser.add_argument(
         "--prefix",  # FIXME implement
         type=str,
@@ -55,7 +55,7 @@ def parse_args() -> argparse.Namespace:
     def run_worker(args: argparse.Namespace) -> None:
         worker_start(
             config_file=args.config,
-            graph_def_file=args.graph)
+            graph_def=args.graph)
 
     subparser_worker = subparser.add_parser("worker")
     subparser_worker.set_defaults(func=run_worker)
