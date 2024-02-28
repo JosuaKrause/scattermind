@@ -2,9 +2,14 @@
 
 ## [release candidate]
 
+### Added
+
+- Add 'bool' node argument. ([#7])
+- Add default value for node arguments. ([#7])
+
 ### Change
 
-- Changed License to Apache 2.
+- Changed License to Apache 2. ([#7])
 
 ## [0.3.2] - 2024-02-24
 
@@ -44,3 +49,4 @@
 [#3]: https://github.com/JosuaKrause/scattermind/pull/3
 [#5]: https://github.com/JosuaKrause/scattermind/pull/5
 [#6]: https://github.com/JosuaKrause/scattermind/pull/6
+[#7]: https://github.com/JosuaKrause/scattermind/pull/7
