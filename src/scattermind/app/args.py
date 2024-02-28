@@ -40,17 +40,35 @@ def parse_args_worker(parser: argparse.ArgumentParser) -> None:
         help="bonus score for nodes with the same executor prefix")
 
 
+def display_welcome(args: argparse.Namespace, command: str) -> None:
+    """
+    Prints the welcome message if `--no-welcome` is unset.
+
+    Args:
+        args (argparse.Namespace): The arguments.
+        command (str): The name of the command.
+    """
+    if args.no_welcome:
+        return
+    import scattermind  # pylint: disable=import-outside-toplevel
+
+    print(
+        f"Starting {scattermind.__name__}({scattermind.__version__}) "
+        f"as {command}")
+
+
 def parse_args() -> argparse.Namespace:
     """
     Parse command line arguments for the scattermind CLI.
 
     Returns:
-        argparse.Namespace: The argument parser.
+        argparse.Namespace: The arguments.
     """
     parser = argparse.ArgumentParser(description="Run a scattermind command.")
     subparser = parser.add_subparsers(title="Commands")
 
     def run_worker(args: argparse.Namespace) -> None:
+        display_welcome(args, "worker")
         worker_start(
             config_file=args.config,
             graph_def=args.graph,
@@ -69,6 +87,9 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="overrides the system device")
-    parser.add_argument("--no-welcome", action="store_true")
+    parser.add_argument(
+        "--no-welcome",
+        action="store_true",
+        help="suppresses the welcome message")
 
     return parser.parse_args()
