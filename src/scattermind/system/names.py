@@ -14,7 +14,6 @@
 """This module defines name classes. The classes guarantee that no invalid
 characters are used in a name. Names are comparable for equality and can be
 used as keys in dictionaries."""
-from typing import TypeAlias
 
 
 NAME_SEP = ":"
@@ -200,7 +199,25 @@ class QualifiedGraphName:
         return self.__str__()
 
 
-QualifiedNodeName: TypeAlias = tuple[QualifiedGraphName, NName]
+class QualifiedNodeName:
+    """A node name representation primarily for display purposes."""
+    def __init__(self, graph: QualifiedGraphName, node: NName) -> None:
+        """
+        Creates a node name for display purposes.
+
+        Args:
+            graph (QualifiedGraphName): The graph the node belongs to.
+            node (NName): The node name.
+        """
+        self._graph = graph
+        self._node = node
+
+    def __str__(self) -> str:
+        return (
+            f"Node[{self._graph.to_parseable()}{NAME_SEP}{self._node.get()}]")
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class QualifiedName:

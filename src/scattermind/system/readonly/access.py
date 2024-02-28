@@ -18,7 +18,7 @@ from typing import Generic, TypeVar
 
 import torch
 
-from scattermind.system.base import Module
+from scattermind.system.base import Module, NodeId
 from scattermind.system.info import DataInfo
 from scattermind.system.torch_util import deserialize_tensor
 
@@ -176,5 +176,22 @@ class ReadonlyAccess(Module, Generic[T]):
 
         Args:
             hnd (T): The implementation defined handle.
+        """
+        raise NotImplementedError()
+
+    def get_scratchspace(self, node_id: NodeId) -> str:
+        """
+        Creates a local temporary folder location for a given node. The
+        scratchspace can be written to and read from and the data persists.
+        The data can be removed by the system at any time if the node is not
+        loaded. If multiple executors load the same node no synchronization
+        happens and the node needs to make sure to handle concurrent write
+        access.
+
+        Args:
+            node_id (NodeId): The node id.
+
+        Returns:
+            str: The local path to the folder.
         """
         raise NotImplementedError()

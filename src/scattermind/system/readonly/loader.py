@@ -20,6 +20,7 @@ from scattermind.system.readonly.access import ReadonlyAccess
 
 LocalReadonlyAccessModule = TypedDict('LocalReadonlyAccessModule', {
     "name": Literal["ram"],
+    "scratch": str,
 })
 """A RAM based readonly access. This can only be used locally and is used
 mostly for tests."""
@@ -51,5 +52,5 @@ def load_readonly_access(module: ReadonlyAccessModule) -> ReadonlyAccess:
         return plugin(**kwargs)
     if module["name"] == "ram":
         from scattermind.system.readonly.ram import RAMAccess
-        return RAMAccess()
+        return RAMAccess(module["scratch"])
     raise ValueError(f"unknown readonly access: {module['name']}")

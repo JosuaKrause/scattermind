@@ -13,10 +13,11 @@
 # limitations under the License.
 """A RAM based readonly access. It has a writer interface initially fill the
 data. It is most commonly used for test cases."""
+import os
 import threading
 from io import BytesIO, SEEK_END, SEEK_SET
 
-from scattermind.system.base import L_EITHER, Locality
+from scattermind.system.base import L_EITHER, Locality, NodeId
 from scattermind.system.readonly.access import ReadonlyAccess
 from scattermind.system.readonly.writer import RoAWriter
 
@@ -24,9 +25,10 @@ from scattermind.system.readonly.writer import RoAWriter
 class RAMAccess(ReadonlyAccess[str], RoAWriter[str]):
     """A RAM based readonly access. It has a writer interface initially fill
     the data. It is most commonly used for test cases."""
-    def __init__(self) -> None:
+    def __init__(self, scratch_folder: str) -> None:
         super().__init__()
         self._objs: dict[str, BytesIO] = {}
+        self._scratch_folder = scratch_folder
         self._lock = threading.RLock()
 
     @staticmethod
@@ -58,3 +60,11 @@ class RAMAccess(ReadonlyAccess[str], RoAWriter[str]):
 
     def close(self, hnd: str) -> None:
         pass
+
+    def get_scratchspace(self, node_id: NodeId) -> str:
+        name = node_id.to_parseable()
+        prefix = name[:3]
+        postfix = name[3:]
+        path = os.path.join(self._scratch_folder, prefix, postfix)
+        os.makedirs(path, exist_ok=True)
+        return path

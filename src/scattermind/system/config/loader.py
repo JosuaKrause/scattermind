@@ -211,6 +211,7 @@ def load_test(
         },
         "readonly_access": {
             "name": "ram",
+            "scratch": "invalid",
         },
         "logger": {
             "listeners": [

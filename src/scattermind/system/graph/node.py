@@ -94,7 +94,8 @@ class Node:
             QualifiedNodeName: The name.
         """
         graph_id = self._graph.get_graph_of(self._node_id)
-        return (queue_pool.get_graph_name(graph_id), self.get_name())
+        return QualifiedNodeName(
+            queue_pool.get_graph_name(graph_id), self.get_name())
 
     def get_graph(self) -> GraphId:
         """

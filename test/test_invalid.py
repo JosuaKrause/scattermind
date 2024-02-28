@@ -133,11 +133,12 @@ def test_queue_pool() -> None:
             ValueError,
             match=r"readonly access needs to be initialized first"):
         config.get_readonly_access()
-    roa = load_readonly_access({"name": "ram"})
+    roa = load_readonly_access({"name": "ram", "scratch": "invalid"})
     config.set_readonly_access(roa)
     with pytest.raises(
             ValueError, match=r"readonly access already initialized"):
-        config.set_readonly_access(load_readonly_access({"name": "ram"}))
+        config.set_readonly_access(load_readonly_access(
+            {"name": "ram", "scratch": "invalid"}))
 
     with pytest.raises(
             ValueError, match=r"queue pool needs to be initialized first"):
