@@ -14,13 +14,17 @@
 """The main interface for `readonly` data access."""
 import contextlib
 from collections.abc import Iterator
-from typing import Generic, TypeVar
+from typing import Generic, TYPE_CHECKING, TypeVar
 
 import torch
 
 from scattermind.system.base import Module, NodeId
 from scattermind.system.info import DataInfo
 from scattermind.system.torch_util import deserialize_tensor
+
+
+if TYPE_CHECKING:
+    from scattermind.system.graph.node import Node
 
 
 T = TypeVar('T')
@@ -179,7 +183,7 @@ class ReadonlyAccess(Module, Generic[T]):
         """
         raise NotImplementedError()
 
-    def get_scratchspace(self, node_id: NodeId) -> str:
+    def get_scratchspace(self, node: 'Node') -> str:
         """
         Creates a local temporary folder location for a given node. The
         scratchspace can be written to and read from and the data persists.
@@ -187,6 +191,26 @@ class ReadonlyAccess(Module, Generic[T]):
         loaded. If multiple executors load the same node no synchronization
         happens and the node needs to make sure to handle concurrent write
         access.
+
+        Args:
+            node (Node): The node.
+
+        Returns:
+            str: The local path to the folder.
+        """
+        return self.do_get_scratchspace(node.get_id())
+
+    def do_get_scratchspace(self, node_id: NodeId) -> str:
+        """
+        Creates a local temporary folder location for a given node. The
+        scratchspace can be written to and read from and the data persists.
+        The data can be removed by the system at any time if the node is not
+        loaded. If multiple executors load the same node no synchronization
+        happens and the node needs to make sure to handle concurrent write
+        access.
+
+        This is the internal implementation. Call
+        ::py:method:`get_scratchspace` instead.
 
         Args:
             node_id (NodeId): The node id.

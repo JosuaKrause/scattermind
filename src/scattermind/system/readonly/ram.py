@@ -61,7 +61,7 @@ class RAMAccess(ReadonlyAccess[str], RoAWriter[str]):
     def close(self, hnd: str) -> None:
         pass
 
-    def get_scratchspace(self, node_id: NodeId) -> str:
+    def do_get_scratchspace(self, node_id: NodeId) -> str:
         name = node_id.to_parseable()
         prefix = name[:3]
         postfix = name[3:]
