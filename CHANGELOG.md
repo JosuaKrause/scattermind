@@ -1,5 +1,11 @@
 # Changelog
 
+## [release candidate]
+
+### Change
+
+- Changed License to Apache 2.
+
 ## [0.3.2] - 2024-02-24
 
 ### Added
