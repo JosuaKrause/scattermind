@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for the utility modules."""
+import os
 from typing import Any
 
 import numpy as np
 import pytest
+import tomllib
 import torch
 
 from scattermind.system.info import DataInfo
@@ -290,3 +292,13 @@ def test_invalid() -> None:
         mask_from_shape([1, 2, 3], [2, 1, 3])
     with pytest.raises(ValueError, match=r"invalid str from tensor"):
         tensor_to_str(create_tensor(np.array([240, 159, 152, 0]), dtype="int"))
+
+
+def test_version() -> None:
+    """Test the version field."""
+    import scattermind  # pylint: disable=import-outside-toplevel
+
+    with open(os.path.join(__file__, "../pyproject.toml"), "rb") as fin:
+        pyproject = tomllib.load(fin)
+    version = pyproject["project"]["version"]
+    assert scattermind.__version__ == version

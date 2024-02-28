@@ -69,5 +69,6 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="overrides the system device")
+    parser.add_argument("--no-welcome", action="store_true")
 
     return parser.parse_args()

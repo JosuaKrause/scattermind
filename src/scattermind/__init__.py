@@ -13,3 +13,21 @@
 # limitations under the License.
 """Scattermind is a decentralized and distributed horizontally scalable model
 execution framework."""
+
+
+# def _get_version() -> str:
+#     # pylint: disable=import-outside-toplevel
+#     try:
+#         import os
+#         import tomllib
+
+#         with open(os.path.join(__file__, "../pyproject.toml"), "rb") as fin:
+#             pyproject = tomllib.load(fin)
+#         return pyproject["project"]["version"]
+#     except Exception:  # pylint: disable=broad-exception-caught
+#         from importlib.metadata import version
+
+#         return version("scattermind")
+
+
+__version__ = "abc"  # _get_version()  # pylint: disable=invalid-name
