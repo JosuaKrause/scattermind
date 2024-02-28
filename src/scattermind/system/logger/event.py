@@ -18,7 +18,7 @@ from typing import Literal, NotRequired, TypedDict
 from scattermind.system.base import TaskId
 from scattermind.system.logger.context import ContextInfo
 from scattermind.system.logger.error import ErrorCode
-from scattermind.system.names import NName
+from scattermind.system.names import QualifiedNodeName
 
 
 ErrorEvent = TypedDict('ErrorEvent', {
@@ -58,7 +58,7 @@ TaskEvent = TypedDict('TaskEvent', {
 NodeEvent = TypedDict('NodeEvent', {
     "name": Literal["node"],
     "action": Literal["load", "load_done", "unload"],
-    "target": NName,
+    "target": QualifiedNodeName,
 })
 """Event to indicate that a node has been loaded or unloaded."""
 

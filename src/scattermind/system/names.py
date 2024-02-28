@@ -14,6 +14,9 @@
 """This module defines name classes. The classes guarantee that no invalid
 characters are used in a name. Names are comparable for equality and can be
 used as keys in dictionaries."""
+from typing import TypeAlias
+
+
 NAME_SEP = ":"
 """Separator for names and queue id generation."""
 INVALID_CHARACTERS = {
@@ -195,6 +198,9 @@ class QualifiedGraphName:
 
     def __repr__(self) -> str:
         return self.__str__()
+
+
+QualifiedNodeName: TypeAlias = tuple[QualifiedGraphName, NName]
 
 
 class QualifiedName:

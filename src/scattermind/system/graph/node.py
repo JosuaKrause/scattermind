@@ -19,7 +19,7 @@ from scattermind.system.base import ExecutorId, GraphId, NodeId, QueueId
 from scattermind.system.graph.args import NodeArg, NodeArgs
 from scattermind.system.info import DataFormat, DataFormatJSON, DataInfo
 from scattermind.system.logger.context import ContextInfo
-from scattermind.system.names import NName, QName, ValueMap
+from scattermind.system.names import NName, QName, QualifiedNodeName, ValueMap
 from scattermind.system.payload.values import ComputeState
 from scattermind.system.queue.queue import QueuePool
 from scattermind.system.readonly.access import ReadonlyAccess
@@ -83,6 +83,19 @@ class Node:
         """
         return self._graph.get_node_name(self._node_id)
 
+    def get_qualified_name(self, queue_pool: QueuePool) -> QualifiedNodeName:
+        """
+        Retrieves the qualified name of the node.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+
+        Returns:
+            QualifiedNodeName: The name.
+        """
+        graph_id = self._graph.get_graph_of(self._node_id)
+        return (queue_pool.get_graph_name(graph_id), self.get_name())
+
     def get_graph(self) -> GraphId:
         """
         Retrieves the graph the node belongs to.
@@ -130,7 +143,11 @@ class Node:
         Returns:
             NodeArg: The node argument value.
         """
-        return self._graph.get_node_arguments(self._node_id)[name]
+        graph = self._graph
+        res = graph.get_node_arguments(self._node_id).get(name)
+        if res is None:
+            return NodeArg(graph.get_namespace(), name, None)
+        return res
 
     def get_value_map(self) -> ValueMap:
         """

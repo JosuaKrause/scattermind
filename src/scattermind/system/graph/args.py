@@ -113,6 +113,15 @@ class NodeArg:
         """
         return self._arg
 
+    def is_set(self) -> bool:
+        """
+        Whether the value of this argument is set.
+
+        Returns:
+            bool: True, if the value is set.
+        """
+        return self._arg is not None
+
     @overload
     def get(
             self,

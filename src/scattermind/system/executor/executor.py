@@ -140,7 +140,7 @@ class ExecutorManager(Module):
                     {
                         "name": "node",
                         "action": "unload",
-                        "target": node.get_name(),
+                        "target": node.get_qualified_name(queue_pool),
                     })
                 queue_pool.remove_node_listener(node, own_id)
                 node.unload(own_id)
@@ -149,7 +149,7 @@ class ExecutorManager(Module):
                 {
                     "name": "node",
                     "action": "load",
-                    "target": new_node.get_name(),
+                    "target": new_node.get_qualified_name(queue_pool),
                 })
             queue_pool.add_node_listener(new_node, own_id)
             new_node.load(own_id, roa)
@@ -159,7 +159,7 @@ class ExecutorManager(Module):
                 {
                     "name": "node",
                     "action": "load_done",
-                    "target": new_node.get_name(),
+                    "target": new_node.get_qualified_name(queue_pool),
                 })
         assert self._node is not None
         return self._node
