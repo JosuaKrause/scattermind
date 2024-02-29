@@ -44,7 +44,9 @@ def _get_version() -> str:
                     if pyproject["project"]["name"] == "scattermind":
                         PACKAGE_VERSION = f"{pyproject['project']['version']}*"
             except Exception:  # pylint: disable=broad-exception-caught
-                PACKAGE_VERSION = "unknown"
+                pass
+        if PACKAGE_VERSION is None:
+            PACKAGE_VERSION = "unknown"
     return PACKAGE_VERSION
 
 
