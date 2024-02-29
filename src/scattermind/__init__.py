@@ -15,22 +15,40 @@
 execution framework."""
 
 
+from typing import Any
+
+
+PACKAGE_VERSION: str | None = None
+
+
 def _get_version() -> str:
     # pylint: disable=import-outside-toplevel
-    try:
-        import os
+    global PACKAGE_VERSION  # pylint: disable=global-statement
 
-        import tomllib
+    if PACKAGE_VERSION is None:
+        try:
+            from importlib.metadata import PackageNotFoundError, version
 
-        with open(os.path.join(__file__, "../pyproject.toml"), "rb") as fin:
-            pyproject = tomllib.load(fin)
-        if pyproject["project"]["name"] == "scattermind":
-            return pyproject["project"]["version"]
-    except Exception:  # pylint: disable=broad-exception-caught
-        pass
-    from importlib.metadata import version
+            PACKAGE_VERSION = version("scattermind")
+        except PackageNotFoundError:
+            try:
+                import os
 
-    return version("scattermind")
+                import tomllib
+
+                pyproject_fname = os.path.join(
+                    __file__, "../../pyproject.toml")
+                if (os.path.exists(pyproject_fname)
+                        and os.path.isfile(pyproject_fname)):
+                    pyproject = tomllib.load(pyproject_fname)
+                    if pyproject["project"]["name"] == "scattermind":
+                        PACKAGE_VERSION = f"{pyproject['project']['version']}*"
+            except Exception:  # pylint: disable=broad-exception-caught
+                PACKAGE_VERSION = "unknown"
+    return PACKAGE_VERSION
 
 
-__version__ = _get_version()  # pylint: disable=invalid-name
+def __getattr__(name: str) -> Any:
+    if name in ("version", "__version__"):
+        return _get_version()
+    raise AttributeError(f"No attribute {name} in module {__name__}.")

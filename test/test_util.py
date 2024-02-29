@@ -302,3 +302,4 @@ def test_version() -> None:
         pyproject = tomllib.load(fin)
     version = pyproject["project"]["version"]
     assert scattermind.__version__ == version
+    assert scattermind.version == version
