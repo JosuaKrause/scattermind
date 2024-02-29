@@ -33,7 +33,6 @@ def _get_version() -> str:
         except PackageNotFoundError:
             try:
                 import os
-
                 import tomllib
 
                 pyproject_fname = os.path.join(

@@ -13,11 +13,11 @@
 # limitations under the License.
 """Tests for the utility modules."""
 import os
+import tomllib
 from typing import Any
 
 import numpy as np
 import pytest
-import tomllib
 import torch
 
 from scattermind.system.info import DataInfo
