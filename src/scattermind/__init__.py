@@ -36,7 +36,7 @@ def _get_version() -> str:
                 import tomllib
 
                 pyproject_fname = os.path.join(
-                    __file__, "../../pyproject.toml")
+                    os.path.dirname(__file__), "../../pyproject.toml")
                 if (os.path.exists(pyproject_fname)
                         and os.path.isfile(pyproject_fname)):
                     pyproject = tomllib.load(pyproject_fname)

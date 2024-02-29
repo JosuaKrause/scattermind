@@ -298,7 +298,8 @@ def test_version() -> None:
     """Test the version field."""
     import scattermind  # pylint: disable=import-outside-toplevel
 
-    with open(os.path.join(__file__, "../pyproject.toml"), "rb") as fin:
+    fname = os.path.join(os.path.dirname(__file__), "../pyproject.toml")
+    with open(fname, "rb") as fin:
         pyproject = tomllib.load(fin)
     version = pyproject["project"]["version"]
     assert scattermind.__version__ == version
