@@ -148,7 +148,9 @@ def test_plugins() -> None:
         ReadonlyAccess,
         "scattermind.system.readonly.ram",
         lambda args: load_readonly_access(cast(ReadonlyAccessModule, args)),
-        {})
+        {
+            "scratch": "invalid",
+        })
 
     run_tests()
 

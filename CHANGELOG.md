@@ -8,6 +8,10 @@
 - Add default value for node arguments. ([#7])
 - Add scratchspace for ROA. ([#7])
 
+### Breaking
+
+- New mandatory argument to RAMAccess. ([#7])
+
 ### Change
 
 - Changed License to Apache 2. ([#7])
