@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.3] - 2024-02-28
+
+### Added
+
+- Add 'bool' node argument. ([#7])
+- Add default value for node arguments. ([#7])
+- Add scratchspace for ROA. ([#7])
+
+### Breaking
+
+- New mandatory argument to RAMAccess. ([#7])
+
+### Change
+
+- Changed License to Apache 2. ([#7])
+
 ## [0.3.2] - 2024-02-24
 
 ### Added
@@ -38,3 +54,4 @@
 [#3]: https://github.com/JosuaKrause/scattermind/pull/3
 [#5]: https://github.com/JosuaKrause/scattermind/pull/5
 [#6]: https://github.com/JosuaKrause/scattermind/pull/6
+[#7]: https://github.com/JosuaKrause/scattermind/pull/7

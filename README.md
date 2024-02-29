@@ -19,7 +19,6 @@ A rough outline of planned features:
 - split nodes
 - benchmark
 - diffusion model
-- llama2 model
 - push notification on result
 - computation timing estimates
 - self configuration

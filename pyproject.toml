@@ -2,7 +2,7 @@
     name = "scattermind"
     description = "A decentralized and distributed horizontally scalable model execution framework."
     readme = "README.md"
-    version = "0.3.2"
+    version = "0.3.3"
     authors = [
         {name = "Josua Krause", email = "josua.krause@gmail.com"},
     ]
@@ -15,7 +15,7 @@
     requires-python = ">=3.11"
     classifiers = [
         "Development Status :: 4 - Beta",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.11",

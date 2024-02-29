@@ -1,17 +1,56 @@
-# Scattermind distributes computation of machine learning models.
 # Copyright (C) 2024 Josua Krause
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Scattermind is a decentralized and distributed horizontally scalable model
 execution framework."""
+
+
+from typing import Any
+
+
+PACKAGE_VERSION: str | None = None
+
+
+def _get_version() -> str:
+    # pylint: disable=import-outside-toplevel
+    global PACKAGE_VERSION  # pylint: disable=global-statement
+
+    if PACKAGE_VERSION is None:
+        try:
+            from importlib.metadata import PackageNotFoundError, version
+
+            PACKAGE_VERSION = version("scattermind")
+        except PackageNotFoundError:
+            try:
+                import os
+                import tomllib
+
+                pyproject_fname = os.path.join(
+                    os.path.dirname(__file__), "../../pyproject.toml")
+                if (os.path.exists(pyproject_fname)
+                        and os.path.isfile(pyproject_fname)):
+                    with open(pyproject_fname, "rb") as fin:
+                        pyproject = tomllib.load(fin)
+                    if pyproject["project"]["name"] == "scattermind":
+                        PACKAGE_VERSION = f"{pyproject['project']['version']}*"
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass
+        if PACKAGE_VERSION is None:
+            PACKAGE_VERSION = "unknown"
+    return PACKAGE_VERSION
+
+
+def __getattr__(name: str) -> Any:
+    if name in ("version", "__version__"):
+        return _get_version()
+    raise AttributeError(f"No attribute {name} in module {__name__}.")

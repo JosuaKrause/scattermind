@@ -1,18 +1,16 @@
-# Scattermind distributes computation of machine learning models.
 # Copyright (C) 2024 Josua Krause
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Provides node arguments."""
 from typing import cast, Literal, overload
 
@@ -25,10 +23,11 @@ from scattermind.system.names import (
 )
 from scattermind.system.readonly.access import DataAccess
 from scattermind.system.torch_util import DTypeName, get_dtype_name
-from scattermind.system.util import as_int_list, as_shape
+from scattermind.system.util import as_int_list, as_shape, to_bool
 
 
 ArgType = Literal[
+    "bool",
     "str",
     "int",
     "float",
@@ -45,7 +44,8 @@ ArgType = Literal[
 
 
 ArgumentType = (
-    str
+    bool
+    | str
     | int
     | float
     | list[int]
@@ -54,10 +54,12 @@ ArgumentType = (
     | DataInfoJSON
     | DTypeName
     | DataAccess
+    | None
 )
 """Available argument types as python types as seen in the JSON."""
 ArgumentRetType = (
-    str
+    bool
+    | str
     | int
     | float
     | list[int]
@@ -111,51 +113,103 @@ class NodeArg:
         """
         return self._arg
 
+    def is_set(self) -> bool:
+        """
+        Whether the value of this argument is set.
+
+        Returns:
+            bool: True, if the value is set.
+        """
+        return self._arg is not None
+
     @overload
-    def get(self, type_name: Literal["str"]) -> str:
+    def get(
+            self,
+            type_name: Literal["bool"],
+            default: bool | None = None) -> bool:
         ...
 
     @overload
-    def get(self, type_name: Literal["int"]) -> int:
+    def get(
+            self,
+            type_name: Literal["str"],
+            default: str | None = None) -> str:
         ...
 
     @overload
-    def get(self, type_name: Literal["float"]) -> float:
+    def get(
+            self,
+            type_name: Literal["int"],
+            default: int | None = None) -> int:
         ...
 
     @overload
-    def get(self, type_name: Literal["list_int"]) -> list[int]:
+    def get(
+            self,
+            type_name: Literal["float"],
+            default: float | None = None) -> float:
         ...
 
     @overload
-    def get(self, type_name: Literal["shape"]) -> list[int | None]:
+    def get(
+            self,
+            type_name: Literal["list_int"],
+            default: list[int] | None = None) -> list[int]:
         ...
 
     @overload
-    def get(self, type_name: Literal["ushape"]) -> list[int]:
+    def get(
+            self,
+            type_name: Literal["shape"],
+            default: list[int | None] | None = None) -> list[int | None]:
         ...
 
     @overload
-    def get(self, type_name: Literal["format"]) -> DataFormatJSON:
+    def get(
+            self,
+            type_name: Literal["ushape"],
+            default: list[int] | None = None) -> list[int]:
         ...
 
     @overload
-    def get(self, type_name: Literal["info"]) -> DataInfo:
+    def get(
+            self,
+            type_name: Literal["format"],
+            default: DataFormatJSON | None = None) -> DataFormatJSON:
         ...
 
     @overload
-    def get(self, type_name: Literal["graph"]) -> QualifiedGraphName:
+    def get(
+            self,
+            type_name: Literal["info"],
+            default: DataInfo | None = None) -> DataInfo:
         ...
 
     @overload
-    def get(self, type_name: Literal["dtype"]) -> DTypeName:
+    def get(
+            self,
+            type_name: Literal["graph"],
+            default: QualifiedGraphName | None = None) -> QualifiedGraphName:
         ...
 
     @overload
-    def get(self, type_name: Literal["data"]) -> DataAccess:
+    def get(
+            self,
+            type_name: Literal["dtype"],
+            default: DTypeName | None = None) -> DTypeName:
         ...
 
-    def get(self, type_name: ArgType) -> ArgumentRetType:
+    @overload
+    def get(
+            self,
+            type_name: Literal["data"],
+            default: DataAccess | None = None) -> DataAccess:
+        ...
+
+    def get(
+            self,
+            type_name: ArgType,
+            default: ArgumentRetType | None = None) -> ArgumentRetType:
         """
         Parses the argument and converts it into the internal type.
 
@@ -163,14 +217,23 @@ class NodeArg:
             type_name (ArgType): The name of the argument type. This should be
                 a literal string to make type checking infer the return
                 type correctly.
+            default (ArgumentRetType | None): The default value. If None, no
+                default value is provided.
 
         Raises:
             ValueError: If the argument could not be parsed.
+            KeyError: If the argument was not set and no default is provided.
 
         Returns:
             ArgumentRetType: The argument converted to the internal type.
         """
         val = self._arg
+        if val is None:
+            if default is None:
+                raise KeyError(f"argument {self._name} not set")
+            return default
+        if type_name == "bool":
+            return to_bool(cast(str, val))
         if type_name == "str":
             return f"{val}"
         if type_name == "graph":

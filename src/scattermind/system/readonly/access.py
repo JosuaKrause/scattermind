@@ -1,28 +1,30 @@
-# Scattermind distributes computation of machine learning models.
 # Copyright (C) 2024 Josua Krause
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """The main interface for `readonly` data access."""
 import contextlib
 from collections.abc import Iterator
-from typing import Generic, TypeVar
+from typing import Generic, TYPE_CHECKING, TypeVar
 
 import torch
 
-from scattermind.system.base import Module
+from scattermind.system.base import Module, NodeId
 from scattermind.system.info import DataInfo
 from scattermind.system.torch_util import deserialize_tensor
+
+
+if TYPE_CHECKING:
+    from scattermind.system.graph.node import Node
 
 
 T = TypeVar('T')
@@ -178,5 +180,42 @@ class ReadonlyAccess(Module, Generic[T]):
 
         Args:
             hnd (T): The implementation defined handle.
+        """
+        raise NotImplementedError()
+
+    def get_scratchspace(self, node: 'Node') -> str:
+        """
+        Creates a local temporary folder location for a given node. The
+        scratchspace can be written to and read from and the data persists.
+        The data can be removed by the system at any time if the node is not
+        loaded. If multiple executors load the same node no synchronization
+        happens and the node needs to make sure to handle concurrent write
+        access.
+
+        Args:
+            node (Node): The node.
+
+        Returns:
+            str: The local path to the folder.
+        """
+        return self.do_get_scratchspace(node.get_id())
+
+    def do_get_scratchspace(self, node_id: NodeId) -> str:
+        """
+        Creates a local temporary folder location for a given node. The
+        scratchspace can be written to and read from and the data persists.
+        The data can be removed by the system at any time if the node is not
+        loaded. If multiple executors load the same node no synchronization
+        happens and the node needs to make sure to handle concurrent write
+        access.
+
+        This is the internal implementation. Call
+        ::py:method:`get_scratchspace` instead.
+
+        Args:
+            node_id (NodeId): The node id.
+
+        Returns:
+            str: The local path to the folder.
         """
         raise NotImplementedError()

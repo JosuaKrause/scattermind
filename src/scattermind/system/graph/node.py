@@ -1,18 +1,16 @@
-# Scattermind distributes computation of machine learning models.
 # Copyright (C) 2024 Josua Krause
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """A node in the execution graph."""
 import threading
 from typing import TYPE_CHECKING
@@ -21,7 +19,7 @@ from scattermind.system.base import ExecutorId, GraphId, NodeId, QueueId
 from scattermind.system.graph.args import NodeArg, NodeArgs
 from scattermind.system.info import DataFormat, DataFormatJSON, DataInfo
 from scattermind.system.logger.context import ContextInfo
-from scattermind.system.names import NName, QName, ValueMap
+from scattermind.system.names import NName, QName, QualifiedNodeName, ValueMap
 from scattermind.system.payload.values import ComputeState
 from scattermind.system.queue.queue import QueuePool
 from scattermind.system.readonly.access import ReadonlyAccess
@@ -85,6 +83,20 @@ class Node:
         """
         return self._graph.get_node_name(self._node_id)
 
+    def get_qualified_name(self, queue_pool: QueuePool) -> QualifiedNodeName:
+        """
+        Retrieves the qualified name of the node.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+
+        Returns:
+            QualifiedNodeName: The name.
+        """
+        graph_id = self._graph.get_graph_of(self._node_id)
+        return QualifiedNodeName(
+            queue_pool.get_graph_name(graph_id), self.get_name())
+
     def get_graph(self) -> GraphId:
         """
         Retrieves the graph the node belongs to.
@@ -132,7 +144,11 @@ class Node:
         Returns:
             NodeArg: The node argument value.
         """
-        return self._graph.get_node_arguments(self._node_id)[name]
+        graph = self._graph
+        res = graph.get_node_arguments(self._node_id).get(name)
+        if res is None:
+            return NodeArg(graph.get_namespace(), name, None)
+        return res
 
     def get_value_map(self) -> ValueMap:
         """

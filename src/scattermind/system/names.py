@@ -1,21 +1,21 @@
-# Scattermind distributes computation of machine learning models.
 # Copyright (C) 2024 Josua Krause
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """This module defines name classes. The classes guarantee that no invalid
 characters are used in a name. Names are comparable for equality and can be
 used as keys in dictionaries."""
+
+
 NAME_SEP = ":"
 """Separator for names and queue id generation."""
 INVALID_CHARACTERS = {
@@ -194,6 +194,27 @@ class QualifiedGraphName:
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}[{self.to_parseable()}]"
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
+class QualifiedNodeName:
+    """A node name representation primarily for display purposes."""
+    def __init__(self, graph: QualifiedGraphName, node: NName) -> None:
+        """
+        Creates a node name for display purposes.
+
+        Args:
+            graph (QualifiedGraphName): The graph the node belongs to.
+            node (NName): The node name.
+        """
+        self._graph = graph
+        self._node = node
+
+    def __str__(self) -> str:
+        return (
+            f"Node[{self._graph.to_parseable()}{NAME_SEP}{self._node.get()}]")
 
     def __repr__(self) -> str:
         return self.__str__()
