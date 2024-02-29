@@ -39,7 +39,8 @@ def _get_version() -> str:
                     os.path.dirname(__file__), "../../pyproject.toml")
                 if (os.path.exists(pyproject_fname)
                         and os.path.isfile(pyproject_fname)):
-                    pyproject = tomllib.load(pyproject_fname)
+                    with open(pyproject_fname, "rb") as fin:
+                        pyproject = tomllib.load(fin)
                     if pyproject["project"]["name"] == "scattermind":
                         PACKAGE_VERSION = f"{pyproject['project']['version']}*"
             except Exception:  # pylint: disable=broad-exception-caught
