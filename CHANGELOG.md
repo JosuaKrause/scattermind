@@ -1,11 +1,12 @@
 # Changelog
 
-## [release candidate]
+## [0.3.3] - 2024-02-28
 
 ### Added
 
 - Add 'bool' node argument. ([#7])
 - Add default value for node arguments. ([#7])
+- Add scratchspace for ROA. ([#7])
 
 ### Change
 
