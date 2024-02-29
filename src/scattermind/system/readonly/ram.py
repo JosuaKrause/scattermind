@@ -25,10 +25,10 @@ from scattermind.system.readonly.writer import RoAWriter
 class RAMAccess(ReadonlyAccess[str], RoAWriter[str]):
     """A RAM based readonly access. It has a writer interface initially fill
     the data. It is most commonly used for test cases."""
-    def __init__(self, scratch_folder: str) -> None:
+    def __init__(self, scratch: str) -> None:
         super().__init__()
         self._objs: dict[str, BytesIO] = {}
-        self._scratch_folder = scratch_folder
+        self._scratch_folder = scratch
         self._lock = threading.RLock()
 
     @staticmethod
