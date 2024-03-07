@@ -2,7 +2,7 @@
     name = "scattermind"
     description = "A decentralized and distributed horizontally scalable model execution framework."
     readme = "README.md"
-    version = "0.3.3"
+    version = "0.3.4"
     authors = [
         {name = "Josua Krause", email = "josua.krause@gmail.com"},
     ]
@@ -123,6 +123,7 @@
 
 [tool.pylint.messages_control]
     disable = [
+        "bad-docstring-quotes",
         "duplicate-code",
         "docstring-first-line-empty",
         "fixme",

@@ -115,7 +115,7 @@ class RedisClientPool(ClientPool):
             task_id (TaskId): The task.
             value (str): The value to set.
         """
-        pipe.set(self.key(name, task_id), value)
+        pipe.set_value(self.key(name, task_id), value)
 
     def delete(
             self,
@@ -146,7 +146,7 @@ class RedisClientPool(ClientPool):
         Returns:
             str | None: The value or None if it is not set.
         """
-        return self._redis.get(self.key(name, task_id))
+        return self._redis.get_value(self.key(name, task_id))
 
     def create_task(
             self,
@@ -221,7 +221,7 @@ class RedisClientPool(ClientPool):
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "status", task_id, TASK_STATUS_DONE)
             # TODO create function to properly allow grouping
-            pipe.get(self.key("result", task_id))
+            pipe.get_value(self.key("result", task_id))
             _, res = pipe.execute()
         if res is None:
             return None
