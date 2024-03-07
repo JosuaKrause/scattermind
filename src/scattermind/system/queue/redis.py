@@ -236,10 +236,8 @@ class RedisQueuePool(QueuePool):
         raise AssertionError(res)
 
     def claimant_count(self, qid: QueueId) -> int:
-        # FIXME: add functionality in redipy
-        redis = self._redis.maybe_get_redis_runtime()
-        assert redis is not None
-        return redis.keys_count(self.key_claims(qid, None))
+        res = self._redis.keys(match=self.key_claims(qid, None), block=False)
+        return len(res)
 
     def unclaim_tasks(
             self, qid: QueueId, executor_id: ExecutorId) -> list[TaskId]:
@@ -251,50 +249,34 @@ class RedisQueuePool(QueuePool):
         ]
 
     def get_queue_listeners(self, qid: QueueId) -> int:
-        # FIXME: add sets to redipy
-        redis = self._redis.maybe_get_redis_runtime()
-        assert redis is not None
-        with redis.get_connection() as conn:
-            return conn.scard(self.key_loads(qid))
+        return self._redis.scard(self.key_loads(qid))
 
     def clean_listeners(self, is_active: Callable[[ExecutorId], bool]) -> int:
-        redis = self._redis.maybe_get_redis_runtime()
-        assert redis is not None
         total = 0
         # NOTE: we do not want pipelining/scripting here
-        with redis.get_connection() as conn:
-            for cur_loads in redis.keys_str(self.key_loads(None)):
-                to_remove: set[bytes] = set()
-                for executor_id_bytes in conn.smembers(cur_loads):
-                    remove = False
-                    try:
-                        executor_id = ExecutorId.parse(
-                            executor_id_bytes.decode("utf-8"))
-                        remove = not is_active(executor_id)
-                    except ValueError:
-                        remove = True
-                    if remove:
-                        to_remove.add(executor_id_bytes)
-                if to_remove:
-                    conn.srem(cur_loads, *to_remove)
-                    total += len(to_remove)
+        for cur_loads in self._redis.iter_keys(match=self.key_loads(None)):
+            to_remove: set[str] = set()
+            for executor_id_str in self._redis.smembers(cur_loads):
+                remove = False
+                try:
+                    executor_id = ExecutorId.parse(executor_id_str)
+                    remove = not is_active(executor_id)
+                except ValueError:
+                    remove = True
+                if remove:
+                    to_remove.add(executor_id_str)
+            if to_remove:
+                self._redis.srem(cur_loads, *to_remove)
+                total += len(to_remove)
         return total
 
     def add_queue_listener(
             self, qid: QueueId, executor_id: ExecutorId) -> None:
-        # FIXME: add sets to redipy
-        redis = self._redis.maybe_get_redis_runtime()
-        assert redis is not None
-        with redis.get_connection() as conn:
-            conn.sadd(self.key_loads(qid), executor_id.to_parseable())
+        self._redis.sadd(self.key_loads(qid), executor_id.to_parseable())
 
     def remove_queue_listener(
             self, qid: QueueId, executor_id: ExecutorId) -> None:
-        # FIXME: add sets to redipy
-        redis = self._redis.maybe_get_redis_runtime()
-        assert redis is not None
-        with redis.get_connection() as conn:
-            conn.srem(self.key_loads(qid), executor_id.to_parseable())
+        self._redis.srem(self.key_loads(qid), executor_id.to_parseable())
 
     def expect_task_weight(
             self,
