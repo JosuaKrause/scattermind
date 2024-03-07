@@ -68,7 +68,7 @@ class RedisDataStore(DataStore):
         expire_in = None
         if self._mode == DM_TIME:
             expire_in = EXPIRE_DEFAULT
-        self._redis.set(
+        self._redis.set_value(
             key.to_parseable(),
             bytes_to_redis(data),
             expire_in=expire_in)
@@ -76,7 +76,8 @@ class RedisDataStore(DataStore):
 
     def get_data(self, data_id: DataId) -> bytes | None:
         rdata_id = self.ensure_id_type(data_id, RedisDataId)
-        return maybe_redis_to_bytes(self._redis.get(rdata_id.to_parseable()))
+        return maybe_redis_to_bytes(
+            self._redis.get_value(rdata_id.to_parseable()))
 
     def data_id_type(self) -> type[RedisDataId]:
         return RedisDataId

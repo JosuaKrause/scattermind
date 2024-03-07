@@ -154,9 +154,9 @@ class RedisQueuePool(QueuePool):
         # FIXME something better than two connections
         if self._check_assertions:
             assert_key = self.key_assert(task_id)
-            if not self._redis.set(
+            if not self._redis.set_value(
                     assert_key, qid.to_parseable(), mode=RSM_MISSING):
-                aqid = self._redis.get(assert_key)
+                aqid = self._redis.get_value(assert_key)
                 raise AssertionError(
                     f"cannot add {task_id} to {qid} because "
                     f"it is already in queue {aqid}")
@@ -320,7 +320,7 @@ class RedisQueuePool(QueuePool):
         return res
 
     def maybe_get_queue(self, task_id: TaskId) -> QueueId | None:
-        res = self._redis.get(self.key_assert(task_id))
+        res = self._redis.get_value(self.key_assert(task_id))
         if res is None:
             return None
         return QueueId.parse(res)
