@@ -14,14 +14,14 @@
 """Provides functionality to send tasks and retrieve results."""
 import time
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, TypedDict
 
 import numpy as np
 import torch
 
-from scattermind.system.base import TaskId
+from scattermind.system.base import QueueId, TaskId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
-from scattermind.system.names import GNamespace
+from scattermind.system.names import GNamespace, QualifiedNodeName
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     ResponseObject,
@@ -30,7 +30,19 @@ from scattermind.system.response import (
     TASK_STATUS_READY,
     TaskStatus,
 )
-from scattermind.system.torch_util import create_tensor, str_to_tensor
+from scattermind.system.torch_util import (
+    create_tensor,
+    DTypeName,
+    str_to_tensor,
+)
+
+
+QueueCounts = TypedDict('QueueCounts', {
+    "id": QueueId,
+    "name": QualifiedNodeName,
+    "count": int,
+})
+"""Information about a queue."""
 
 
 class ScattermindAPI:
@@ -226,6 +238,9 @@ class ScattermindAPI:
         """
         Retrieves the name of the entry graph.
 
+        Args:
+            ns (GNamespace): The namespace.
+
         Returns:
             str: The graph name.
         """
@@ -234,6 +249,9 @@ class ScattermindAPI:
     def main_inputs(self, ns: GNamespace) -> set[str]:
         """
         Retrieves the inputs of the main graph.
+
+        Args:
+            ns (GNamespace): The namespace.
 
         Returns:
             set[str]: The names of the input fields.
@@ -244,7 +262,36 @@ class ScattermindAPI:
         """
         Retrieves the outputs of the main graph.
 
+        Args:
+            ns (GNamespace): The namespace.
+
         Returns:
             set[str]: The names of the output fields.
+        """
+        raise NotImplementedError()
+
+    def output_format(
+            self,
+            ns: GNamespace,
+            output_name: str) -> tuple[DTypeName, list[int | None]]:
+        """
+        Retrieves the shape of a given main graph output.
+
+        Args:
+            ns (GNamespace): The namespace
+            output_name (str): The name of the output field.
+
+        Returns:
+            tuple[DTypeName, list[int | None]]: The dtype and shape of the
+                output.
+        """
+        raise NotImplementedError()
+
+    def get_queue_stats(self) -> Iterable[QueueCounts]:
+        """
+        Retrieves information about all active queues.
+
+        Returns:
+            Iterable[QueueCounts]: The information about each queue.
         """
         raise NotImplementedError()

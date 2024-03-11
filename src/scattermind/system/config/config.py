@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Configurations connect modules together to make scattermind work."""
+from collections.abc import Iterable
 from typing import cast, TypeVar
 
-from scattermind.api.api import ScattermindAPI
+from scattermind.api.api import QueueCounts, ScattermindAPI
 from scattermind.system.base import L_EITHER, Locality, Module, TaskId
 from scattermind.system.client.client import ClientPool
 from scattermind.system.executor.executor import ExecutorManager
@@ -32,6 +33,7 @@ from scattermind.system.queue.queue import (
 from scattermind.system.readonly.access import ReadonlyAccess
 from scattermind.system.readonly.writer import RoAWriter
 from scattermind.system.response import ResponseObject, TaskStatus
+from scattermind.system.torch_util import DTypeName
 
 
 ModuleT = TypeVar('ModuleT', bound=Module)
@@ -406,3 +408,27 @@ class Config(ScattermindAPI):
         queue_pool = self.get_queue_pool()
         output = queue_pool.get_output_format(queue_pool.get_entry_graph(ns))
         return set(output.keys())
+
+    def output_format(
+            self,
+            ns: GNamespace,
+            output_name: str) -> tuple[DTypeName, list[int | None]]:
+        queue_pool = self.get_queue_pool()
+        output = queue_pool.get_output_format(queue_pool.get_entry_graph(ns))
+        output_fmt = output[output_name]
+        return output_fmt.dtype(), output_fmt.shape()
+
+    def get_queue_stats(self) -> Iterable[QueueCounts]:
+        queue_pool = self.get_queue_pool()
+        for qid in queue_pool.get_all_queues():
+            queue = queue_pool.get_queue(qid)
+            count = queue.get_queue_length()
+            if count <= 0:
+                continue
+            qual_name = queue.get_consumer_node().get_qualified_name(
+                queue_pool)
+            yield {
+                "id": qid,
+                "name": qual_name,
+                "count": count,
+            }

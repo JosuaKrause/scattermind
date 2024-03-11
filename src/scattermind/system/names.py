@@ -212,9 +212,17 @@ class QualifiedNodeName:
         self._graph = graph
         self._node = node
 
+    def get(self) -> str:
+        """
+        The name as string.
+
+        Returns:
+            str: The name as readable string.
+        """
+        return f"{self._graph.to_parseable()}{NAME_SEP}{self._node.get()}"
+
     def __str__(self) -> str:
-        return (
-            f"Node[{self._graph.to_parseable()}{NAME_SEP}{self._node.get()}]")
+        return f"Node[{self.get()}]"
 
     def __repr__(self) -> str:
         return self.__str__()
