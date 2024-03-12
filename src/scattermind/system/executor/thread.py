@@ -101,6 +101,7 @@ class ThreadExecutorManager(ExecutorManager):
                         "action": "start",
                     })
                 try:
+                    conn_count = 0
                     while not self.is_done() and thread is self._thread:
                         work = self._work
                         if work is None:
@@ -112,8 +113,11 @@ class ThreadExecutorManager(ExecutorManager):
                             if not work(self) and sleep_on_idle > 0.0:
                                 time.sleep(sleep_on_idle)
                         except (ConnectionError, redis.ConnectionError):
-                            logger.log_error("error.executor", "connection")
-                            time.sleep(sleep_on_idle)
+                            conn_count += 1
+                            if conn_count > 10:
+                                logger.log_error(
+                                    "error.executor", "connection")
+                            time.sleep(60)
                     running = False
                 finally:
                     with LOCK:
@@ -187,6 +191,7 @@ class ThreadExecutorManager(ExecutorManager):
         def run() -> None:
             try:
                 while True:
+                    conn_error = 0
                     try:
                         executor_count, listener_count = reclaim_all_once()
                         if executor_count or listener_count:
@@ -199,7 +204,10 @@ class ThreadExecutorManager(ExecutorManager):
                                     "listeners": listener_count,
                                 })
                     except (ConnectionError, redis.ConnectionError):
-                        logger.log_error("error.executor", "connection")
+                        conn_error += 1
+                        if conn_error > 10:
+                            logger.log_error("error.executor", "connection")
+                        time.sleep(60)
                     reclaim_sleep = self._reclaim_sleep
                     if reclaim_sleep > 0.0:
                         time.sleep(reclaim_sleep)
