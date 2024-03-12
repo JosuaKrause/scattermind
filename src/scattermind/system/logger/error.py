@@ -36,6 +36,7 @@ ErrorCode = Literal[
     "defunc_executor",
     "memory_purge",
     "out_of_memory",
+    "connection",
     "uncaught_executor",
 ]
 """The type of error."""

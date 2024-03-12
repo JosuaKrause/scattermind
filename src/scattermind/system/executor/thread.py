@@ -18,6 +18,8 @@ import threading
 import time
 from collections.abc import Callable
 
+import redis
+
 from scattermind.system.base import ExecutorId, L_EITHER, Locality
 from scattermind.system.executor.executor import Executor, ExecutorManager
 from scattermind.system.logger.context import add_context
@@ -106,7 +108,11 @@ class ThreadExecutorManager(ExecutorManager):
                         sleep_on_idle = self._sleep_on_idle * 0.5
                         sleep_on_idle += random.uniform(
                             0.0, max(sleep_on_idle, 0.0))
-                        if not work(self) and sleep_on_idle > 0.0:
+                        try:
+                            if not work(self) and sleep_on_idle > 0.0:
+                                time.sleep(sleep_on_idle)
+                        except (ConnectionError, redis.ConnectionError):
+                            logger.log_error("error.executor", "connection")
                             time.sleep(sleep_on_idle)
                     running = False
                 finally:
@@ -181,16 +187,19 @@ class ThreadExecutorManager(ExecutorManager):
         def run() -> None:
             try:
                 while True:
-                    executor_count, listener_count = reclaim_all_once()
-                    if executor_count or listener_count:
-                        logger.log_event(
-                            "tally.executor.reclaim",
-                            {
-                                "name": "executor",
-                                "action": "reclaim",
-                                "executors": executor_count,
-                                "listeners": listener_count,
-                            })
+                    try:
+                        executor_count, listener_count = reclaim_all_once()
+                        if executor_count or listener_count:
+                            logger.log_event(
+                                "tally.executor.reclaim",
+                                {
+                                    "name": "executor",
+                                    "action": "reclaim",
+                                    "executors": executor_count,
+                                    "listeners": listener_count,
+                                })
+                    except (ConnectionError, redis.ConnectionError):
+                        logger.log_error("error.executor", "connection")
                     reclaim_sleep = self._reclaim_sleep
                     if reclaim_sleep > 0.0:
                         time.sleep(reclaim_sleep)
