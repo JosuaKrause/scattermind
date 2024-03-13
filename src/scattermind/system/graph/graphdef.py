@@ -82,6 +82,7 @@ GraphDefJSON = TypedDict('GraphDefJSON', {
     "vmap": ValueMapJSON,
     "nodes": list[NodeDefJSON],
     "is_block": NotRequired[bool],
+    "cache": NotRequired[bool],
 })
 """
 Graph definition. `name` and `description` are for information purposes only.
@@ -93,6 +94,8 @@ the outputs of the graph to locations in the stack frame. `nodes` is a list of
 all nodes of the graph. `is_block` specifies that the whole graph should be
 computed in one go instead pushing tasks to queues and picking them up for
 computation. If a graph is a block, only the input queue of the graph is used.
+If cache is True the inputs of the graph get cached. If the graph is not pure
+an exception is raised.
 """
 
 FullGraphDefJSON = TypedDict('FullGraphDefJSON', {
@@ -153,6 +156,8 @@ def graph_to_json(graph: Graph, queue_pool: QueuePool) -> FullGraphDefJSON:
                 wname: qual.to_parseable()
                 for wname, qual in vmap.items()
             },
+            "is_block": False,  # FIXME: implement block
+            "cache": False,  # FIXME: implement caching
         }
         graphs.append(gdef)
     return {
@@ -251,6 +256,7 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
                 wname: QualifiedName.parse(fname)
                 for wname, fname in gobj["vmap"].items()
             })
+        # FIXME: implement caching: gobj["cache"]
     try:
         entry_id = GraphId.parse(def_obj["entry"])
     except ValueError:

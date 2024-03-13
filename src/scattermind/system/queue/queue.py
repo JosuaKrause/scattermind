@@ -380,6 +380,28 @@ class QueuePool(Module):
         self._graph_names[graph_id] = gname
         self._graph_descs[graph_id] = desc
 
+    # FIXME: caching
+    # def set_caching(
+    #         self,
+    #         from_queue: QueueId,
+    #         to_queue: QueueId,
+    #         is_caching: bool) -> None:
+    #     """
+    #     Sets whether to cache the inputs to the queue.
+
+    #     Args:
+    #         queue_id (QueueId): The queue id.
+    #         is_caching (bool): Whether to cache the inputs of the queue. The
+    #             queue must be pure.
+
+    #     Raises:
+    #         ValueError: If the queue is not pure when trying to cache.
+    #     """
+    #     pass
+
+    # def is_cached_queue(self, graph_id: GraphId) -> bool:
+    #     return False
+
     def get_graph_id(self, gname: QualifiedGraphName) -> GraphId:
         """
         Get the graph id for the given name.
