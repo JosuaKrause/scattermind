@@ -40,7 +40,8 @@ from scattermind.system.torch_util import (
 QueueCounts = TypedDict('QueueCounts', {
     "id": QueueId,
     "name": QualifiedNodeName,
-    "count": int,
+    "queue_length": int,
+    "listeners": int,
 })
 """Information about a queue."""
 
