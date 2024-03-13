@@ -18,7 +18,7 @@ import threading
 import time
 from collections.abc import Callable
 
-import redis
+import redis as redis_lib
 
 from scattermind.system.base import ExecutorId, L_EITHER, Locality
 from scattermind.system.executor.executor import Executor, ExecutorManager
@@ -112,7 +112,7 @@ class ThreadExecutorManager(ExecutorManager):
                         try:
                             if not work(self) and sleep_on_idle > 0.0:
                                 time.sleep(sleep_on_idle)
-                        except (ConnectionError, redis.ConnectionError):
+                        except (ConnectionError, redis_lib.ConnectionError):
                             conn_count += 1
                             if conn_count > 10:
                                 logger.log_error(
@@ -203,7 +203,7 @@ class ThreadExecutorManager(ExecutorManager):
                                     "executors": executor_count,
                                     "listeners": listener_count,
                                 })
-                    except (ConnectionError, redis.ConnectionError):
+                    except (ConnectionError, redis_lib.ConnectionError):
                         conn_error += 1
                         if conn_error > 10:
                             logger.log_error("error.executor", "connection")
