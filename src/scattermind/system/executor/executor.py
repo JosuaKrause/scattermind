@@ -200,9 +200,6 @@ class ExecutorManager(Module):
                 return False
             state = ComputeState(queue_pool, store, node, tasks)
             eqids = []
-            for qid, (weight, byte_size) in node.expected_meta(state).items():
-                queue_pool.expect_task_weight(weight, byte_size, qid, own_id)
-                eqids.append(qid)
             e_msg: str | None = None
             r_msg: str | None = None
             e_code: ErrorCode | None = None
@@ -214,6 +211,12 @@ class ExecutorManager(Module):
             success = False
             maybe_requeue: dict[TaskId, ErrorInfo] = {}
             try:
+                with logger.log_output("output.node", "prepare"):
+                    for qid, meta_info in node.expected_meta(state).items():
+                        weight, byte_size = meta_info
+                        queue_pool.expect_task_weight(
+                            weight, byte_size, qid, own_id)
+                        eqids.append(qid)
                 with logger.log_output("output.node", "execute"):
                     node.execute_tasks(state)
                 success = True
