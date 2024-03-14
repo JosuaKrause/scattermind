@@ -41,6 +41,13 @@ RetryEvent = TypedDict('RetryEvent', {
 an error that triggered the retry."""
 
 
+GhostTaskEvent = TypedDict('GhostTaskEvent', {
+    "name": Literal["ghost"],
+    "message": str,
+    "task": TaskId,
+})
+
+
 WarningEvent = TypedDict('WarningEvent', {
     "name": Literal["warning"],
     "message": str,
@@ -99,6 +106,7 @@ might not always be fired."""
 AnyEvent = (
     ErrorEvent
     | RetryEvent
+    | GhostTaskEvent
     | WarningEvent
     | TaskEvent
     | NodeEvent

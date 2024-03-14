@@ -926,7 +926,9 @@ class QueuePool(Module):
         """
         cpool = self.get_client_pool()
         task_id = cpool.create_task(ns, original_input)
-        self._enqueue_task_id(cpool, store, task_id)
+        if not self._enqueue_task_id(cpool, store, task_id):
+            raise AssertionError(
+                f"newly created task is a ghost task? {task_id}")
         return task_id
 
     def maybe_requeue_task_id(
@@ -962,7 +964,15 @@ class QueuePool(Module):
                     raise AssertionError(
                         f"{ctx_fmt()} {task_id} already waiting at {mqid}")
             cpool.clear_progress(task_id)
-            self._enqueue_task_id(cpool, store, task_id)
+            if not self._enqueue_task_id(cpool, store, task_id):
+                logger.log_event(
+                    "error.task",
+                    {
+                        "name": "ghost",
+                        "message": "Cleaned up ghost task.",
+                        "task": task_id,
+                    },
+                    adjust_ctx=adj_ctx)
 
     def handle_task_result(
             self,
@@ -1053,7 +1063,7 @@ class QueuePool(Module):
             self,
             cpool: ClientPool,
             store: DataStore,
-            task_id: TaskId) -> None:
+            task_id: TaskId) -> bool:
         """
         Raw enqueueing a task to the overall input.
 
@@ -1061,9 +1071,18 @@ class QueuePool(Module):
             cpool (ClientPool): The client pool.
             store (DataStore): The data store for storing the payload data.
             task_id (TaskId): The task id.
+
+        Returns:
+            bool: Whether the task was enqueued. Ghost tasks can get created
+                when a task is removed while it is still in a queue. This will
+                cause an error to be thrown which ultimately leads to an
+                attempt to enqueue the task again. If that happens we will
+                properly remove the task and return False here.
         """
         ns = cpool.get_namespace(task_id)
-        assert ns is not None
+        if ns is None:  # NOTE: ghost task
+            cpool.clear_task(task_id)
+            return False
         entry_graph_id = self.get_entry_graph(ns)
         input_format = self.get_input_format(entry_graph_id)
         cpool.init_data(store, task_id, input_format)
@@ -1071,6 +1090,7 @@ class QueuePool(Module):
         qid = node.get_input_queue()
         cpool.set_bulk_status([task_id], TASK_STATUS_WAIT)
         self.push_task_id(qid, task_id)
+        return True
 
     def get_compute_task(
             self,
