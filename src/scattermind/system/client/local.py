@@ -16,19 +16,12 @@ import threading
 from collections.abc import Iterable
 from typing import TypeVar
 
-from scattermind.system.base import (
-    DataId,
-    GraphId,
-    L_LOCAL,
-    Locality,
-    QueueId,
-    TaskId,
-)
-from scattermind.system.client.client import ClientPool
+from scattermind.system.base import CacheId, DataId, L_LOCAL, Locality, TaskId
+from scattermind.system.client.client import ClientPool, TaskFrame
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.error import ErrorInfo
-from scattermind.system.names import GNamespace, NName, ValueMap
+from scattermind.system.names import GNamespace, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import DataContainer, TaskValueContainer
 from scattermind.system.response import (
@@ -60,8 +53,7 @@ class LocalClientPool(ClientPool):
         self._weight: dict[TaskId, float] = {}
         self._byte_size: dict[TaskId, int] = {}
         self._stack_data: dict[TaskId, list[DataContainer]] = {}
-        self._stack_frame: dict[
-            TaskId, list[tuple[NName, GraphId, QueueId]]] = {}
+        self._stack_frame: dict[TaskId, list[TaskFrame]] = {}
         self._results: dict[TaskId, TaskValueContainer | None] = {}
         self._error: dict[TaskId, ErrorInfo] = {}
         self._lock = threading.RLock()
@@ -139,16 +131,27 @@ class LocalClientPool(ClientPool):
     def get_error(self, task_id: TaskId) -> ErrorInfo | None:
         return self._error.get(task_id)
 
+    def set_entry_cache_id(self, cache_id: CacheId) -> None:
+        # FIXME implement caching
+        raise ValueError("caching is not allowed yet")
+
+    def get_entry_cache_id(self) -> CacheId | None:
+        # FIXME implement caching
+        return None
+
     def inc_retries(self, task_id: TaskId) -> int:
         with self._lock:
-            self._retries[task_id] += 1
+            try:
+                self._retries[task_id] += 1
+            except KeyError:
+                self._retries[task_id] = 1
             return self._retries[task_id]
 
     def get_retries(self, task_id: TaskId) -> int:
-        return self._retries[task_id]
+        return self._retries.get(task_id, 0)
 
-    def get_task_start(self, task_id: TaskId) -> str:
-        return self._start_times[task_id]
+    def get_task_start(self, task_id: TaskId) -> str | None:
+        return self._start_times.get(task_id)
 
     def set_duration_value(self, task_id: TaskId, seconds: float) -> None:
         with self._lock:
@@ -167,7 +170,7 @@ class LocalClientPool(ClientPool):
             *,
             weight: float,
             byte_size: int,
-            push_frame: tuple[NName, GraphId, QueueId] | None) -> GNamespace:
+            push_frame: TaskFrame | None) -> GNamespace:
         with self._lock:
             print(f"{ctx_fmt()} commit {task_id} {self._stack_data[task_id]}")
             self._weight[task_id] = weight
@@ -185,7 +188,7 @@ class LocalClientPool(ClientPool):
             self,
             task_id: TaskId,
             data_id_type: type[DataId],
-            ) -> tuple[tuple[NName, GraphId, QueueId] | None, DataContainer]:
+            ) -> tuple[TaskFrame | None, DataContainer]:
         with self._lock:
             stack_frame = self._stack_frame[task_id]
             if stack_frame:

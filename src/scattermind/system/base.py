@@ -535,3 +535,56 @@ class Module:  # pylint: disable=too-few-public-methods
             Locality: The locality mode.
         """
         raise NotImplementedError()
+
+
+class CacheId:
+    """A cache id identifies a cachable input for a given graph."""
+    def __init__(self, graph_id: GraphId, cache_id: str) -> None:
+        """
+        Creates a cache id.
+
+        Args:
+            graph_id (GraphId): The graph.
+            cache_id (str): The raw hash to identify the input.
+        """
+        self._graph_id = graph_id
+        self._cache_id = cache_id
+
+    def get_graph_id(self) -> GraphId:
+        """
+        Gets the graph.
+
+        Returns:
+            GraphId: The graph.
+        """
+        return self._graph_id
+
+    def get_cache_id(self) -> str:
+        """
+        Returns the raw input hash.
+
+        Returns:
+            str: The raw input hash.
+        """
+        return self._cache_id
+
+    def __eq__(self, other: object) -> bool:
+        if other is self:
+            return True
+        if not isinstance(other, CacheId):
+            return False
+        if self.get_graph_id() != other.get_graph_id():
+            return False
+        return self.get_graph_id() == other.get_graph_id()
+
+    def __ne__(self, other: object) -> bool:
+        return not self.__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash(self._cache_id)
+
+    def __str__(self) -> str:
+        return f"gid={self.get_graph_id()},cid={self.get_cache_id()}"
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}[{self.__str__()}]"

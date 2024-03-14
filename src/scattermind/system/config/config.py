@@ -331,9 +331,21 @@ class Config(ScattermindAPI):
         return self.get_queue_pool().get_queue_strategy()
 
     def set_graph_cache(self, graph_cache: GraphCache) -> None:
+        """
+        Sets the cache for graph inputs.
+
+        Args:
+            graph_cache (GraphCache): The graph cache.
+        """
         self.get_queue_pool().set_graph_cache(graph_cache)
 
     def get_graph_cache(self) -> GraphCache:
+        """
+        Get the cache for graph inputs.
+
+        Returns:
+            GraphCache: The graph cache.
+        """
         return self.get_queue_pool().get_graph_cache()
 
     def load_graph(self, graph_def: FullGraphDefJSON) -> GNamespace:

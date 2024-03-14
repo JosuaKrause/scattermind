@@ -20,6 +20,7 @@ from redipy.api import PipelineAPI
 from redipy.graph.expr import JSONType
 
 from scattermind.system.base import (
+    CacheId,
     DataId,
     GraphId,
     L_REMOTE,
@@ -27,7 +28,7 @@ from scattermind.system.base import (
     QueueId,
     TaskId,
 )
-from scattermind.system.client.client import ClientPool
+from scattermind.system.client.client import ClientPool, TaskFrame
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.error import (
     ErrorInfo,
@@ -241,6 +242,14 @@ class RedisClientPool(ClientPool):
             return None
         return from_error_json(redis_to_robj(res))
 
+    def set_entry_cache_id(self, cache_id: CacheId) -> None:
+        # FIXME implement caching
+        raise ValueError("caching is not allowed yet")
+
+    def get_entry_cache_id(self) -> CacheId | None:
+        # FIXME implement caching
+        return None
+
     def inc_retries(self, task_id: TaskId) -> int:
         return int(self._redis.incrby(self.key("retries", task_id), 1))
 
@@ -250,11 +259,8 @@ class RedisClientPool(ClientPool):
             return 0
         return int(res)
 
-    def get_task_start(self, task_id: TaskId) -> str:
-        res = self.get_value("start_time", task_id)
-        if res is None:
-            raise ValueError(f"no start time set for {task_id}")
-        return res
+    def get_task_start(self, task_id: TaskId) -> str | None:
+        return self.get_value("start_time", task_id)
 
     def set_duration_value(self, task_id: TaskId, seconds: float) -> None:
         with self._redis.pipeline() as pipe:
@@ -273,18 +279,19 @@ class RedisClientPool(ClientPool):
             *,
             weight: float,
             byte_size: int,
-            push_frame: tuple[NName, GraphId, QueueId] | None) -> GNamespace:
+            push_frame: TaskFrame | None) -> GNamespace:
         # FIXME proper operation grouping
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "weight", task_id, f"{weight}")
             pipe.incrby(self.key("byte_size", task_id), byte_size)
             stack_data_key = self.key("stack_data", task_id)
             if push_frame is not None:
-                name, graph_id, qid = push_frame
+                name, graph_id, qid, cache_id = push_frame
                 pipe.rpush(self.key("stack_frame", task_id), robj_to_redis({
                     "name": name.get(),
                     "graph_id": graph_id.to_parseable(),
                     "qid": qid.to_parseable(),
+                    "cache_id": cache_id,  # FIXME
                 }))
                 self._stack.push_frame(stack_data_key)
             for field, data_id in data.items():
@@ -300,7 +307,7 @@ class RedisClientPool(ClientPool):
             self,
             task_id: TaskId,
             data_id_type: type[DataId],
-            ) -> tuple[tuple[NName, GraphId, QueueId] | None, DataContainer]:
+            ) -> tuple[TaskFrame | None, DataContainer]:
         # FIXME proper operation grouping
         stack_data_key = self.key("stack_data", task_id)
         res = {
@@ -315,7 +322,7 @@ class RedisClientPool(ClientPool):
         name = NName(frame["name"])
         graph_id = GraphId.parse(frame["graph_id"])
         qid = QueueId.parse(frame["qid"])
-        return (name, graph_id, qid), res
+        return (name, graph_id, qid, None), res
 
     def get_weight(self, task_id: TaskId) -> float:
         res = self.get_value("weight", task_id)

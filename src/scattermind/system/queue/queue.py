@@ -630,11 +630,26 @@ class QueuePool(Module):
         return self._queue_strategy
 
     def get_graph_cache(self) -> GraphCache:
+        """
+        Gets the cache for graph inputs.
+
+        Raises:
+            ValueError: If the cache has not been set.
+
+        Returns:
+            GraphCache: The graph cache.
+        """
         if self._graph_cache is None:
             raise ValueError("graph cache not set!")
         return self._graph_cache
 
     def set_graph_cache(self, graph_cache: GraphCache) -> None:
+        """
+        Sets the cache for graph inputs.
+
+        Args:
+            graph_cache (GraphCache): The graph cache.
+        """
         self._graph_cache = graph_cache
 
     def get_all_nodes(self) -> Iterable['Node']:
@@ -848,11 +863,28 @@ class QueuePool(Module):
                 })
             return left_node if pick_node == PICK_LEFT else right_node
 
+        good_node: 'Node | None' = None
         for node in self.get_all_nodes():
             if node == current_node:
                 continue
-            candidate_node = process_node(candidate_node, node)
-        if current_node is None:
+            try:
+                candidate_node = process_node(candidate_node, node)
+                good_node = candidate_node
+            except Exception:  # pylint: disable=broad-except
+                if good_node is not None:
+                    try:
+                        process_node(good_node, node)
+                    except Exception:  # pylint: disable=broad-except
+                        # FIXME: log exception
+                        # NOTE: node is faulty
+                        return (node, node == current_node)
+                    try:
+                        process_node(good_node, candidate_node)
+                    except Exception:  # pylint: disable=broad-except
+                        # FIXME: log exception
+                        # NOTE: candidate_node is faulty
+                        return (candidate_node, node == current_node)
+        if current_node is None or good_node is None:
             return (candidate_node, True)
         own_queue = self.get_queue(current_node.get_input_queue())
 
@@ -877,30 +909,31 @@ class QueuePool(Module):
         def own_loaded() -> int:
             return own_queue.get_listener_count()
 
-        other_queue = self.get_queue(candidate_node.get_input_queue())
+        def want_to_switch_to(candidate_node: 'Node') -> bool:
+            other_queue = self.get_queue(candidate_node.get_input_queue())
 
-        def other_queue_length() -> int:
-            return other_queue.get_queue_length()
+            def other_queue_length() -> int:
+                return other_queue.get_queue_length()
 
-        def other_weight() -> float:
-            return other_queue.total_weight()
+            def other_weight() -> float:
+                return other_queue.total_weight()
 
-        def other_pressure() -> float:
-            return other_queue.total_backpressure()
+            def other_pressure() -> float:
+                return other_queue.total_backpressure()
 
-        def other_expected_pressure() -> float:
-            return other_queue.total_expected_pressure()
+            def other_expected_pressure() -> float:
+                return other_queue.total_expected_pressure()
 
-        def other_cost_to_load() -> float:
-            return candidate_node.get_load_cost()
+            def other_cost_to_load() -> float:
+                return candidate_node.get_load_cost()
 
-        def other_claimants() -> int:
-            return other_queue.claimant_count()
+            def other_claimants() -> int:
+                return other_queue.claimant_count()
 
-        def other_loaded() -> int:
-            return other_queue.get_listener_count()
+            def other_loaded() -> int:
+                return other_queue.get_listener_count()
 
-        if strategy.want_to_switch(
+            return strategy.want_to_switch(
                 own_queue_length=own_queue_length,
                 own_weight=own_weight,
                 own_pressure=own_pressure,
@@ -914,8 +947,19 @@ class QueuePool(Module):
                 other_expected_pressure=other_expected_pressure,
                 other_cost_to_load=other_cost_to_load,
                 other_claimants=other_claimants,
-                other_loaded=other_loaded):
-            return (candidate_node, candidate_node != current_node)
+                other_loaded=other_loaded)
+
+        try:
+            if want_to_switch_to(candidate_node):
+                return (candidate_node, candidate_node != current_node)
+        except Exception:  # pylint: disable=broad-except
+            # FIXME: log exception
+            try:
+                want_to_switch_to(good_node)
+                return (candidate_node, candidate_node != current_node)
+            except Exception:  # pylint: disable=broad-except
+                # FIXME: log exception
+                pass
         return (current_node, False)
 
     def enqueue_task(
@@ -999,6 +1043,8 @@ class QueuePool(Module):
                 but has not committed and pushed the task to a new queue if
                 any.
         """
+        # FIXME continue caching
+        # graph_cache = self.get_graph_cache()
         cpool = self.get_client_pool()
         data_id_type = store.data_id_type()
         task_id = task.get_task_id()
@@ -1017,12 +1063,13 @@ class QueuePool(Module):
                 graph_id = self.get_entry_graph(ns)
                 is_final = True
             else:
-                m_nname, graph_id, qid = next_frame
+                m_nname, graph_id, qid, _cache_id = next_frame
             vmap = self.get_output_value_map(graph_id)
             ret_data = {
                 QualifiedName(m_nname, vname): frame_data[frame_qual]
                 for vname, frame_qual in vmap.items()
             }
+            # graph_cache.put_cached_output(graph_id, )
             if is_final:
                 final_vmap = {
                     qual.get_value_name(): qual

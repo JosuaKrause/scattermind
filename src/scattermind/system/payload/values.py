@@ -723,7 +723,7 @@ class ComputeState:
                 dids,
                 add_weight=add_weight,
                 byte_size=byte_size,
-                push_frame=(caller_name, graph_id, return_qid),
+                push_frame=(caller_name, graph_id, return_qid, None),
                 next_qid=next_qid)
             self._tasks_out.append(task)
 

@@ -13,9 +13,16 @@
 # limitations under the License.
 """Provides the client pool interface."""
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeAlias, TypeVar
 
-from scattermind.system.base import DataId, GraphId, Module, QueueId, TaskId
+from scattermind.system.base import (
+    CacheId,
+    DataId,
+    GraphId,
+    Module,
+    QueueId,
+    TaskId,
+)
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.error import ErrorInfo
@@ -39,6 +46,9 @@ DT = TypeVar('DT', bound=DataId)
 TASK_MAX_RETRIES = 5
 """The maximum number the same task can be repeated for executed before giving
 up and setting the error and updating the state to error."""
+
+
+TaskFrame: TypeAlias = tuple[NName, GraphId, QueueId, CacheId | None]
 
 
 class ClientPool(Module):
@@ -218,6 +228,27 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
+    def set_entry_cache_id(self, cache_id: CacheId) -> None:
+        """
+        Sets the cache id for the entry graph. This value should only be set
+        if the graph is pure and caching is enabled.
+
+        Args:
+            cache_id (CacheId): The cache id.
+        """
+        raise NotImplementedError()
+
+    def get_entry_cache_id(self) -> CacheId | None:
+        """
+        Retrieves the cache id for the entry graph.
+
+        Returns:
+            CacheId | None: The cache id for the entry graph. If caching is
+                disabled for the entry graph or the graph is not pure this
+                value will be None.
+        """
+        raise NotImplementedError()
+
     def inc_retries(self, task_id: TaskId) -> int:
         """
         Increase the number of retries of the task.
@@ -239,11 +270,11 @@ class ClientPool(Module):
 
         Returns:
             int: The number of retries. If this is the first execution attempt,
-                the number is 0.
+                the number is 0. If the task does not exist the number is 0.
         """
         raise NotImplementedError()
 
-    def get_task_start(self, task_id: TaskId) -> str:
+    def get_task_start(self, task_id: TaskId) -> str | None:
         """
         Returns an ISO formatted time string that indicates the start time of
         the task.
@@ -252,7 +283,8 @@ class ClientPool(Module):
             task_id (TaskId): The task id.
 
         Returns:
-            str: When the task was created as ISO formatted time string.
+            str | None: When the task was created as ISO formatted time string.
+                If the task does not exist None is returned.
         """
         raise NotImplementedError()
 
@@ -290,7 +322,7 @@ class ClientPool(Module):
             *,
             weight: float,
             byte_size: int,
-            push_frame: tuple[NName, GraphId, QueueId] | None) -> GNamespace:
+            push_frame: TaskFrame | None) -> GNamespace:
         """
         Commit the current state of the task. This updates the state of the
         task and makes the new state visible to other executors.
@@ -300,7 +332,7 @@ class ClientPool(Module):
             data (DataContainer): The data of the current stack frame.
             weight (float): The current weight of the task.
             byte_size (int): The current size in bytes of the task.
-            push_frame (tuple[NName, GraphId, QueueId] | None): If non-None,
+            push_frame (TaskFrame | None): If non-None,
                 a new stack frame is created. The tuple indicates the name of
                 the calling node (the node initiating the push; this is used
                 later to make the results of the subgraph available in the
@@ -314,7 +346,7 @@ class ClientPool(Module):
             self,
             task_id: TaskId,
             data_id_type: type[DataId],
-            ) -> tuple[tuple[NName, GraphId, QueueId] | None, 'DataContainer']:
+            ) -> tuple[TaskFrame | None, 'DataContainer']:
         """
         Pops the current frame from the stack. This function should be called
         when computing a subgraph and obtaining the final result.
@@ -325,7 +357,7 @@ class ClientPool(Module):
                 the payload data store.
 
         Returns:
-            tuple[tuple[NName, GraphId, QueueId] | None, DataContainer]:
+            tuple[TaskFrame | None, DataContainer]:
                 Returns the calling tuple and the full stack frame. The calling
                 tuple consists of the caller node name (to make the results
                 of the subgraph available in the caller graph), the graph id
@@ -432,7 +464,7 @@ class ComputeTask:
         self._vmap = vmap
         self._weight_out: float | None = None
         self._byte_size_out: int | None = None
-        self._push_frame: tuple[NName, GraphId, QueueId] | None = None
+        self._push_frame: TaskFrame | None = None
         self._data_out: 'DataContainer | None' = None
         self._next_qid: QueueId | None = None
 
@@ -527,12 +559,12 @@ class ComputeTask:
             raise ValueError("no output byte size set")
         return self._byte_size_out
 
-    def get_push_frame(self) -> tuple[NName, GraphId, QueueId] | None:
+    def get_push_frame(self) -> TaskFrame | None:
         """
         Get the push frame info if it has been set.
 
         Returns:
-            tuple[NName, GraphId, QueueId] | None: If set, the tuple is the
+            TaskFrame | None: If set, the tuple is the
                 caller node name from the calling graph. This is used for
                 making the results of the subgraph available in the calling
                 graph. The second element of the tuple is the subgraph id to
@@ -563,7 +595,7 @@ class ComputeTask:
             *,
             add_weight: float,
             byte_size: int,
-            push_frame: tuple[NName, GraphId, QueueId] | None,
+            push_frame: TaskFrame | None,
             next_qid: QueueId) -> None:
         """
         Set the result of the current execution.
@@ -572,7 +604,7 @@ class ComputeTask:
             data_out (DataContainer): The result of the current execution.
             add_weight (float): How much weight to add to the task.
             byte_size (int): The newly added byte size to the task.
-            push_frame (tuple[NName, GraphId, QueueId] | None): The push frame
+            push_frame (TaskFrame | None): The push frame
                 if a subgraph calculation is triggered. The tuple consists of
                 the calling node name (for providing the results of the
                 subgraph to the calling graph), the subgraph id (defining the
