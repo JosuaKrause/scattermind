@@ -17,6 +17,7 @@ from typing import cast, TypeVar
 
 from scattermind.api.api import QueueCounts, ScattermindAPI
 from scattermind.system.base import L_EITHER, Locality, Module, TaskId
+from scattermind.system.cache.cache import GraphCache
 from scattermind.system.client.client import ClientPool
 from scattermind.system.executor.executor import ExecutorManager
 from scattermind.system.graph.graph import Graph
@@ -328,6 +329,12 @@ class Config(ScattermindAPI):
             QueueStrategy: The queue strategy.
         """
         return self.get_queue_pool().get_queue_strategy()
+
+    def set_graph_cache(self, graph_cache: GraphCache) -> None:
+        self.get_queue_pool().set_graph_cache(graph_cache)
+
+    def get_graph_cache(self) -> GraphCache:
+        return self.get_queue_pool().get_graph_cache()
 
     def load_graph(self, graph_def: FullGraphDefJSON) -> GNamespace:
         graph = json_to_graph(self.get_queue_pool(), graph_def)

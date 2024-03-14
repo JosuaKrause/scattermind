@@ -22,6 +22,7 @@ from scattermind.system.base import (
     QueueId,
     TaskId,
 )
+from scattermind.system.cache.cache import GraphCache
 from scattermind.system.client.client import ClientPool, ComputeTask
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt, get_ctx
@@ -278,6 +279,7 @@ class QueuePool(Module):
         self._input_queues: dict[QueueId, 'Node'] = {}
         self._node_strategy: NodeStrategy | None = None
         self._queue_strategy: QueueStrategy | None = None
+        self._graph_cache: GraphCache | None = None
 
     def set_client_pool(self, client_pool: ClientPool) -> None:
         """
@@ -626,6 +628,14 @@ class QueuePool(Module):
         if self._queue_strategy is None:
             raise ValueError("queue strategy not set!")
         return self._queue_strategy
+
+    def get_graph_cache(self) -> GraphCache:
+        if self._graph_cache is None:
+            raise ValueError("graph cache not set!")
+        return self._graph_cache
+
+    def set_graph_cache(self, graph_cache: GraphCache) -> None:
+        self._graph_cache = graph_cache
 
     def get_all_nodes(self) -> Iterable['Node']:
         """

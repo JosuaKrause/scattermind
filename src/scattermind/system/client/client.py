@@ -560,6 +560,7 @@ class ComputeTask:
     def set_result(
             self,
             data_out: 'DataContainer',
+            *,
             add_weight: float,
             byte_size: int,
             push_frame: tuple[NName, GraphId, QueueId] | None,

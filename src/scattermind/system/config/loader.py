@@ -16,6 +16,7 @@ from collections.abc import Callable
 from typing import TypedDict
 
 from scattermind.system.base import ExecutorId, once_test_executors
+from scattermind.system.cache.loader import GraphCacheModule, load_graph_cache
 from scattermind.system.client.loader import ClientPoolModule, load_client_pool
 from scattermind.system.config.config import Config
 from scattermind.system.executor.loader import (
@@ -63,6 +64,7 @@ ConfigJSON = TypedDict('ConfigJSON', {
     "data_store": DataStoreModule,
     "executor_manager": ExecutorManagerModule,
     "queue_pool": QueuePoolModule,
+    "graph_cache": GraphCacheModule,
     "strategy": StrategyModule,
     "readonly_access": ReadonlyAccessModule,
     "logger": LoggerDef,
@@ -95,6 +97,7 @@ def load_config(
         load_executor_manager(exec_gen, config_obj["executor_manager"]))
     config.set_queue_pool(load_queue_pool(config_obj["queue_pool"]))
     config.set_client_pool(load_client_pool(config_obj["client_pool"]))
+    config.set_graph_cache(load_graph_cache(config_obj["graph_cache"]))
     strategy_obj = config_obj["strategy"]
     config.set_node_strategy(load_node_strategy(strategy_obj["node"]))
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
@@ -136,7 +139,8 @@ def load_test(
         is_redis: bool,
         max_store_size: int = 1024 * 1024,
         parallelism: int = 0,
-        batch_size: int = 5) -> Config:
+        batch_size: int = 5,
+        no_cache: bool = True) -> Config:
     """
     Load a configuration for unit tests.
 
@@ -148,6 +152,7 @@ def load_test(
             via threads. Defaults to 0.
         batch_size (int, optional): The batch size defining the number of
             tasks that get computed together. Defaults to 5.
+        no_cache (bool, optional): Whether to use no caching. Defaults to True.
 
     Returns:
         Config: The configuration.
@@ -156,6 +161,7 @@ def load_test(
     client_pool: ClientPoolModule
     data_store: DataStoreModule
     queue_pool: QueuePoolModule
+    graph_cache: GraphCacheModule
     if parallelism > 0:
         executor_manager = {
             "name": "thread",
@@ -196,11 +202,19 @@ def load_test(
             "name": "local",
             "check_assertions": True,
         }
+    if no_cache:
+        graph_cache = {
+            "name": "nocache",
+        }
+    else:
+        # FIXME: create graph cache
+        raise ValueError("not supported for now!")
     test_config: ConfigJSON = {
         "client_pool": client_pool,
         "data_store": data_store,
         "executor_manager": executor_manager,
         "queue_pool": queue_pool,
+        "graph_cache": graph_cache,
         "strategy": {
             "node": {
                 "name": "simple",

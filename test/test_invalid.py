@@ -316,6 +316,16 @@ def test_compute_task(is_redis: bool) -> None:
     with pytest.raises(ValueError, match="no next queue id set"):
         task.get_next_queue_id()
     qid = QueueId.parse("Q5883f8c8a5bc4d56ae3202d1dc548118")
-    task.set_result(DataContainer(), 1.0, 1, None, qid)
+    task.set_result(
+        DataContainer(),
+        add_weight=1.0,
+        byte_size=1,
+        push_frame=None,
+        next_qid=qid)
     with pytest.raises(ValueError, match="result already set"):
-        task.set_result(DataContainer(), 2.0, 2, None, qid)
+        task.set_result(
+            DataContainer(),
+            add_weight=2.0,
+            byte_size=2,
+            push_frame=None,
+            next_qid=qid)
