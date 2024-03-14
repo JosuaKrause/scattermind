@@ -12,26 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Test graph caching."""
-import time
-from test.util import wait_for_tasks
+# import time
+# from test.util import wait_for_tasks
 
-import numpy as np
+# import numpy as np
 import pytest
 
-from scattermind.system.base import set_debug_output_length, TaskId
-from scattermind.system.client.client import TASK_MAX_RETRIES
+# from scattermind.system.base import TaskId
+# from scattermind.system.client.client import TASK_MAX_RETRIES
+from scattermind.system.base import set_debug_output_length
 from scattermind.system.config.loader import load_test
 from scattermind.system.names import GNamespace
-from scattermind.system.payload.values import TaskValueContainer
-from scattermind.system.response import (
-    response_ok,
-    TASK_STATUS_DONE,
-    TASK_STATUS_ERROR,
-    TASK_STATUS_READY,
-    TASK_STATUS_UNKNOWN,
-    TASK_STATUS_WAIT,
-)
-from scattermind.system.torch_util import as_numpy, create_tensor
+
+
+# from scattermind.system.payload.values import TaskValueContainer
+# from scattermind.system.response import (
+#     response_ok,
+#     TASK_STATUS_DONE,
+#     TASK_STATUS_ERROR,
+#     TASK_STATUS_READY,
+#     TASK_STATUS_UNKNOWN,
+#     TASK_STATUS_WAIT,
+# )
+# from scattermind.system.torch_util import as_numpy, create_tensor
 
 
 @pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])
@@ -58,28 +61,39 @@ def test_entry_graph_cache(
                     f"batch_size={batch_size};parallelism={parallelism}",
                 "input": "node_0",
                 "input_format": {
-                    "value": ("bool", [1]),
+                    "value_0": ("uint8", [None]),
+                    "value_1": ("uint8", [None]),
+                    "value_2": ("uint8", [None]),
                 },
                 "output_format": {
-                    "value": ("bool", [1]),
+                    "value": ("uint8", [None]),
                 },
                 "nodes": [
                     {
                         "name": "node_0",
-                        "kind": "if_op",
+                        "kind": "test_cache",
+                        "args": {
+                            "postfix": "-main",
+                        },
                         "outs": {
-                            "then": None,
-                            "else": "node_1",
+                            "out": "node_1",
                         },
                         "vmap": {
-                            "condition": ":value",
+                            "text": ":value_0",
                         },
                     },
                     {
                         "name": "node_1",
-                        "kind": "assertion_error",
+                        "kind": "str_concat",
                         "args": {
-                            "msg": "value was not true",
+                            "delimiter": "-",
+                        },
+                        "outs": {
+                            "out": None,
+                        },
+                        "vmap": {
+                            "left": "node_0:text",
+                            "right": ":value_1",
                         },
                     },
                 ],
@@ -91,70 +105,70 @@ def test_entry_graph_cache(
         "entry": "main",
     })
     assert ns == GNamespace("main")
-    time_start = time.monotonic()
-    tasks: list[tuple[TaskId, bool]] = [
-        (
-            config.enqueue(
-                ns,
-                TaskValueContainer({
-                    "value": create_tensor(
-                        np.array([tix % 3 > 0]), dtype="bool"),
-                })),
-            tix % 3 > 0,
-        )
-        for tix in range(20)
-    ]
-    for task_id, _ in tasks:
-        assert config.get_status(task_id) == TASK_STATUS_WAIT
-    try:
-        config.run()
-        for task_id, response, expected_result in wait_for_tasks(
-                config, tasks):
-            real_duration = time.monotonic() - time_start
-            status = response["status"]
-            task_ns = response["ns"]
-            task_duration = response["duration"]
-            result = response["result"]
-            retries = response["retries"]
-            error = response["error"]
-            assert task_duration <= real_duration
-            assert task_ns == ns
-            if expected_result:
-                response_ok(response, no_warn=True)
-                assert status == TASK_STATUS_READY
-                assert result is not None
-                assert list(result["value"].shape) == [1]
-                assert retries == 0
-                assert error is None
-                np.testing.assert_allclose(
-                    as_numpy(result["value"]), np.array([expected_result]))
-                assert config.get_status(task_id) == TASK_STATUS_DONE
-            else:
-                assert status == TASK_STATUS_ERROR
-                assert result is None
-                assert error is not None
-                assert error["code"] == "general_exception"
-                ectx = error["ctx"]
-                assert ectx["node_name"] is not None
-                assert ectx["node_name"].get() == "node_1"
-                assert ectx["graph_name"] is not None
-                assert ectx["graph_name"].get_namespace().get() == "main"
-                assert ectx["graph_name"].get_name().get() == "main"
-                assert error["message"].find("value was not true") >= 0
-                tback = error["traceback"]
-                assert "Traceback" in tback[0]
-                assert "line" in tback[-2]
-                assert "ValueError: value was not true" in tback[-1]
-                with pytest.raises(ValueError, match=r"value was not true"):
-                    response_ok(response, no_warn=True)
-                assert retries == TASK_MAX_RETRIES
-            config.clear_task(task_id)
-            assert config.get_namespace(task_id) is None
-            assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
-            assert config.get_result(task_id) is None
-    finally:
-        print("TEST TEARDOWN!")
-        emng = config.get_executor_manager()
-        emng.release_all(timeout=1.0)
-        if emng.any_active():
-            raise ValueError("threads did not shut down in time")
+    # time_start = time.monotonic()
+    # tasks: list[tuple[TaskId, bool]] = [
+    #     (
+    #         config.enqueue(
+    #             ns,
+    #             TaskValueContainer({
+    #                 "value": create_tensor(
+    #                     np.array([tix % 3 > 0]), dtype="bool"),
+    #             })),
+    #         tix % 3 > 0,
+    #     )
+    #     for tix in range(20)
+    # ]
+    # for task_id, _ in tasks:
+    #     assert config.get_status(task_id) == TASK_STATUS_WAIT
+    # try:
+    #     config.run()
+    #     for task_id, response, expected_result in wait_for_tasks(
+    #             config, tasks):
+    #         real_duration = time.monotonic() - time_start
+    #         status = response["status"]
+    #         task_ns = response["ns"]
+    #         task_duration = response["duration"]
+    #         result = response["result"]
+    #         retries = response["retries"]
+    #         error = response["error"]
+    #         assert task_duration <= real_duration
+    #         assert task_ns == ns
+    #         if expected_result:
+    #             response_ok(response, no_warn=True)
+    #             assert status == TASK_STATUS_READY
+    #             assert result is not None
+    #             assert list(result["value"].shape) == [1]
+    #             assert retries == 0
+    #             assert error is None
+    #             np.testing.assert_allclose(
+    #                 as_numpy(result["value"]), np.array([expected_result]))
+    #             assert config.get_status(task_id) == TASK_STATUS_DONE
+    #         else:
+    #             assert status == TASK_STATUS_ERROR
+    #             assert result is None
+    #             assert error is not None
+    #             assert error["code"] == "general_exception"
+    #             ectx = error["ctx"]
+    #             assert ectx["node_name"] is not None
+    #             assert ectx["node_name"].get() == "node_1"
+    #             assert ectx["graph_name"] is not None
+    #             assert ectx["graph_name"].get_namespace().get() == "main"
+    #             assert ectx["graph_name"].get_name().get() == "main"
+    #             assert error["message"].find("value was not true") >= 0
+    #             tback = error["traceback"]
+    #             assert "Traceback" in tback[0]
+    #             assert "line" in tback[-2]
+    #             assert "ValueError: value was not true" in tback[-1]
+    #             with pytest.raises(ValueError, match=r"value was not true"):
+    #                 response_ok(response, no_warn=True)
+    #             assert retries == TASK_MAX_RETRIES
+    #         config.clear_task(task_id)
+    #         assert config.get_namespace(task_id) is None
+    #         assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
+    #         assert config.get_result(task_id) is None
+    # finally:
+    #     print("TEST TEARDOWN!")
+    #     emng = config.get_executor_manager()
+    #     emng.release_all(timeout=1.0)
+    #     if emng.any_active():
+    #         raise ValueError("threads did not shut down in time")

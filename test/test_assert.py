@@ -175,6 +175,7 @@ def test_ghost(
         batch_size (int): The batch size for processing.
         is_redis (bool): Whether to use redis.
     """
+    set_debug_output_length(7)
     shape = [len(base), len(base[0])]
     config = load_test(batch_size=batch_size, is_redis=is_redis)
     ns = config.load_graph({

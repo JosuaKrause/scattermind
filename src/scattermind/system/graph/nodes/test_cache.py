@@ -82,7 +82,7 @@ class TestCache(Node):
 
     def execute_tasks(self, state: ComputeState) -> None:
         prefix = seen_prefix(self.get_id())
-        postfix = "-nocache"
+        postfix = self.get_arg("postfix").get("str")
         inputs = state.get_values()
         outs: list[str] = []
         for text in inputs.get_data("text").iter_values():
