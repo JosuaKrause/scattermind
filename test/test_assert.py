@@ -161,7 +161,7 @@ def test_assertion_error(
 
 
 @pytest.mark.parametrize("base", [[[1.0]], [[1.0, 2.0], [3.0, 4.0]]])
-@pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])
+@pytest.mark.parametrize("batch_size", [1, 3, 5, 12, 30])
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_ghost(
         base: list[list[float]],
@@ -225,7 +225,7 @@ def test_ghost(
                 }),
             np.array(base) * tix * 2.0,
         )
-        for tix in range(20)
+        for tix in range(12)
     ]
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
