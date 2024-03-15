@@ -48,7 +48,7 @@ TASK_MAX_RETRIES = 5
 up and setting the error and updating the state to error."""
 
 
-TaskFrame: TypeAlias = tuple[NName, GraphId, QueueId, CacheId | None]
+TaskFrame: TypeAlias = tuple[NName, GraphId, QueueId]
 
 
 class ClientPool(Module):
@@ -110,11 +110,28 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
+    def get_original_input(
+            self,
+            task_id: TaskId,
+            input_format: DataFormat) -> 'TaskValueContainer':
+        """
+        Retrieves the original input to the graph.
+
+        Args:
+            task_id (TaskId): The task id.
+            input_format (DataFormat): The input format.
+
+        Returns:
+            TaskValueContainer: The original input to the graph.
+        """
+        raise NotImplementedError()
+
     def init_data(
             self,
             store: DataStore,
             task_id: TaskId,
-            input_format: DataFormat) -> None:
+            input_format: DataFormat,
+            original_input: 'TaskValueContainer') -> None:
         """
         Initializes payload data for execution of a task. Note, the input data
         of a task is always stored in the client pool. Here, we are moving that
@@ -124,6 +141,7 @@ class ClientPool(Module):
             store (DataStore): The payload data store.
             task_id (TaskId): The task id.
             input_format (DataFormat): The expected input format of the graph.
+            original_input (TaskValueContainer): The original input.
         """
         raise NotImplementedError()
 
@@ -228,28 +246,40 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
-    def set_entry_cache_id(self, task_id: TaskId, cache_id: CacheId) -> None:
+    def push_cache_id(self, task_id: TaskId, cache_id: CacheId | None) -> None:
         """
-        Sets the cache id for the entry graph. This value should only be set
-        if the graph is pure and caching is enabled.
+        Pushes a cache id to the cache stack. This value should only be not
+        None if the graph is pure and caching is enabled.
 
         Args:
             task_id (TaskId): The task id.
-            cache_id (CacheId): The cache id.
+            cache_id (CacheId | None): The cache id or None.
         """
         raise NotImplementedError()
 
-    def get_entry_cache_id(self, task_id: TaskId) -> CacheId | None:
+    def peek_cache_id(self, task_id: TaskId) -> CacheId | None:
         """
-        Retrieves the cache id for the entry graph.
+        Retrieves the cache id at the top of the cache stack.
 
         Args:
             task_id (TaskId): The task id.
 
         Returns:
-            CacheId | None: The cache id for the entry graph. If caching is
-                disabled for the entry graph or the graph is not pure this
-                value will be None.
+            CacheId | None: The cache id. If caching is disabled for the graph
+                or the graph is not pure this value will be None.
+        """
+        raise NotImplementedError()
+
+    def pop_cache_id(self, task_id: TaskId) -> CacheId | None:
+        """
+        Retrieves and removes the cache id at the top of the cache stack.
+
+        Args:
+            task_id (TaskId): The task id.
+
+        Returns:
+            CacheId | None: The cache id. If caching is disabled for the graph
+                or the graph is not pure this value will be None.
         """
         raise NotImplementedError()
 

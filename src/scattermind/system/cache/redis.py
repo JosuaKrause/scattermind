@@ -17,7 +17,7 @@ from redipy import Redis, RedisConfig
 from scattermind.system.base import CacheId, L_EITHER, Locality
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.info import DataFormat
-from scattermind.system.payload.values import ComputeValues, LazyValues
+from scattermind.system.payload.values import TaskValueContainer
 
 
 class RedisCache(GraphCache):
@@ -34,8 +34,11 @@ class RedisCache(GraphCache):
             self,
             cache_id: CacheId,
             output_format: DataFormat,
-            output_data: dict[str, LazyValues]) -> None:
+            output_data: TaskValueContainer) -> None:
         raise NotImplementedError()
 
-    def get_cached_output(self, cache_id: CacheId) -> ComputeValues | None:
+    def get_cached_output(
+            self,
+            cache_id: CacheId,
+            output_format: DataFormat) -> TaskValueContainer | None:
         raise NotImplementedError()

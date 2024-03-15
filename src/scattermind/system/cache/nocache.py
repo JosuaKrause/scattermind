@@ -15,7 +15,7 @@
 from scattermind.system.base import CacheId, L_EITHER, Locality
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.info import DataFormat
-from scattermind.system.payload.values import ComputeValues, LazyValues
+from scattermind.system.payload.values import TaskValueContainer
 
 
 class NoCache(GraphCache):
@@ -28,8 +28,11 @@ class NoCache(GraphCache):
             self,
             cache_id: CacheId,
             output_format: DataFormat,
-            output_data: dict[str, LazyValues]) -> None:
+            output_data: TaskValueContainer) -> None:
         pass
 
-    def get_cached_output(self, cache_id: CacheId) -> ComputeValues | None:
+    def get_cached_output(
+            self,
+            cache_id: CacheId,
+            output_format: DataFormat) -> TaskValueContainer | None:
         return None

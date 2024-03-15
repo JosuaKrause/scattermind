@@ -703,7 +703,6 @@ class ComputeState:
         """
         qname_obj = QName(qname)
         queue_pool = self._queue_pool
-        # graph_cache = queue_pool.get_graph_cache()
         store = self._store
         node = self._node
         caller_name = node.get_name()
@@ -718,8 +717,6 @@ class ComputeState:
         print(f"{ctx_fmt()} push_call data={data} data_format={data_format}")
         data_ids: list[DataContainer] = [{} for _ in tasks]
         byte_sizes: list[int] = [0 for _ in tasks]
-        # cache_hit: list[bool] = [False for _ in tasks]
-        # FIXME update to use caching
 
         for key, cvalues in data.items():
             qual = QualifiedName(None, key)
@@ -732,7 +729,7 @@ class ComputeState:
                 dids,
                 add_weight=add_weight,
                 byte_size=byte_size,
-                push_frame=(caller_name, graph_id, return_qid, None),
+                push_frame=(caller_name, graph_id, return_qid),
                 next_qid=next_qid)
             self._tasks_out.append(task)
 

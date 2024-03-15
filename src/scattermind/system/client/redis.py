@@ -68,7 +68,7 @@ KeyName = Literal[
     "duration",  # float
     "weight",  # float
     "byte_size",  # int
-    "cache_id",  # str
+    "cache_id",  # list cache_id str
     "stack_data",  # list obj str
     "stack_frame",  # list obj str
     "result",  # TVC str
@@ -168,15 +168,21 @@ class RedisClientPool(ClientPool):
             # NOTE: no need to set stack_frame or cache_id yet
         return task_id
 
+    def get_original_input(
+            self,
+            task_id: TaskId,
+            input_format: DataFormat) -> TaskValueContainer:
+        value = self.get_value("values", task_id)
+        if value is None:
+            raise ValueError(f"unknown task {task_id}")
+        return redis_to_tvc(value, input_format)
+
     def init_data(
             self,
             store: DataStore,
             task_id: TaskId,
-            input_format: DataFormat) -> None:
-        value = self.get_value("values", task_id)
-        if value is None:
-            raise ValueError(f"unknown task {task_id}")
-        original_input = redis_to_tvc(value, input_format)
+            input_format: DataFormat,
+            original_input: TaskValueContainer) -> None:
         byte_size = original_input.byte_size(input_format)
         stack_data: DataContainer = {}  # TODO: directly place instead
         original_input.place_data(None, store, input_format, stack_data)
@@ -243,13 +249,20 @@ class RedisClientPool(ClientPool):
             return None
         return from_error_json(redis_to_robj(res))
 
-    def set_entry_cache_id(self, task_id: TaskId, cache_id: CacheId) -> None:
-        with self._redis.pipeline() as pipe:
-            self.set_value(pipe, "cache_id", task_id, cache_id.to_parseable())
+    def push_cache_id(self, task_id: TaskId, cache_id: CacheId | None) -> None:
+        self._redis.rpush(
+            self.key("cache_id", task_id),
+            "" if cache_id is None else cache_id.to_parseable())
 
-    def get_entry_cache_id(self, task_id: TaskId) -> CacheId | None:
-        res = self.get_value("cache_id", task_id)
-        if res is None:
+    def peek_cache_id(self, task_id: TaskId) -> CacheId | None:
+        res = self._redis.lrange(self.key("cache_id", task_id), -1, -1)
+        if not res or not res[0]:
+            return None
+        return CacheId.parse(res[0])
+
+    def pop_cache_id(self, task_id: TaskId) -> CacheId | None:
+        res = self._redis.rpop(self.key("cache_id", task_id))
+        if not res:
             return None
         return CacheId.parse(res)
 
@@ -289,13 +302,11 @@ class RedisClientPool(ClientPool):
             pipe.incrby(self.key("byte_size", task_id), byte_size)
             stack_data_key = self.key("stack_data", task_id)
             if push_frame is not None:
-                name, graph_id, qid, cache_id = push_frame
+                name, graph_id, qid = push_frame
                 pipe.rpush(self.key("stack_frame", task_id), robj_to_redis({
                     "name": name.get(),
                     "graph_id": graph_id.to_parseable(),
                     "qid": qid.to_parseable(),
-                    "cache_id":
-                        None if cache_id is None else cache_id.to_parseable(),
                 }))
                 self._stack.push_frame(stack_data_key)
             for field, data_id in data.items():
@@ -326,11 +337,7 @@ class RedisClientPool(ClientPool):
         name = NName(frame["name"])
         graph_id = GraphId.parse(frame["graph_id"])
         qid = QueueId.parse(frame["qid"])
-        cache_id = (
-            None
-            if frame["cache_id"] is None
-            else CacheId.parse(frame["cache_id"]))
-        return (name, graph_id, qid, cache_id), res
+        return (name, graph_id, qid), res
 
     def get_weight(self, task_id: TaskId) -> float:
         res = self.get_value("weight", task_id)
@@ -368,6 +375,7 @@ class RedisClientPool(ClientPool):
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "weight", task_id, "1.0")
             self.set_value(pipe, "byte_size", task_id, "0")
+            self.delete(pipe, "cache_id", task_id)
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
 

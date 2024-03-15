@@ -157,7 +157,7 @@ def graph_to_json(graph: Graph, queue_pool: QueuePool) -> FullGraphDefJSON:
                 for wname, qual in vmap.items()
             },
             "is_block": False,  # FIXME: implement block
-            "cache": queue_pool.is_cached_queue(graph_id),
+            "cache": queue_pool.is_cached_graph(graph_id),
         }
         graphs.append(gdef)
     return {

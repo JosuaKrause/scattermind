@@ -52,7 +52,7 @@ class LocalClientPool(ClientPool):
         self._duration: dict[TaskId, float] = {}
         self._weight: dict[TaskId, float] = {}
         self._byte_size: dict[TaskId, int] = {}
-        self._cache_ids: dict[TaskId, CacheId] = {}
+        self._cache_ids: dict[TaskId, list[CacheId | None]] = {}
         self._stack_data: dict[TaskId, list[DataContainer]] = {}
         self._stack_frame: dict[TaskId, list[TaskFrame]] = {}
         self._results: dict[TaskId, TaskValueContainer | None] = {}
@@ -77,18 +77,25 @@ class LocalClientPool(ClientPool):
             self._start_times[task_id] = get_time_str()
             self._weight[task_id] = 1.0
             self._byte_size[task_id] = 0
+            self._cache_ids[task_id] = []
             self._stack_data[task_id] = [{}]
             self._stack_frame[task_id] = []
             return task_id
+
+    def get_original_input(
+            self,
+            task_id: TaskId,
+            input_format: DataFormat) -> TaskValueContainer:
+        return self._values[task_id]
 
     def init_data(
             self,
             store: DataStore,
             task_id: TaskId,
-            input_format: DataFormat) -> None:
+            input_format: DataFormat,
+            original_input: TaskValueContainer) -> None:
         with self._lock:
             stack_data = self._stack_data[task_id][-1]
-            original_input = self._values[task_id]
             byte_size = original_input.byte_size(input_format)
             original_input.place_data(None, store, input_format, stack_data)
             self._byte_size[task_id] = byte_size
@@ -132,11 +139,26 @@ class LocalClientPool(ClientPool):
     def get_error(self, task_id: TaskId) -> ErrorInfo | None:
         return self._error.get(task_id)
 
-    def set_entry_cache_id(self, task_id: TaskId, cache_id: CacheId) -> None:
-        self._cache_ids[task_id] = cache_id
+    def push_cache_id(self, task_id: TaskId, cache_id: CacheId | None) -> None:
+        with self._lock:
+            cache_ids = self._cache_ids.get(task_id)
+            if cache_ids is None:
+                cache_ids = []
+                self._cache_ids[task_id] = cache_ids
+            cache_ids.append(cache_id)
 
-    def get_entry_cache_id(self, task_id: TaskId) -> CacheId | None:
-        return self._cache_ids.get(task_id)
+    def peek_cache_id(self, task_id: TaskId) -> CacheId | None:
+        try:
+            return self._cache_ids.get(task_id, [])[-1]
+        except IndexError:
+            return None
+
+    def pop_cache_id(self, task_id: TaskId) -> CacheId | None:
+        with self._lock:
+            cache_ids = self._cache_ids.get(task_id)
+            if not cache_ids:
+                return None
+            return cache_ids.pop()
 
     def inc_retries(self, task_id: TaskId) -> int:
         with self._lock:
@@ -224,6 +246,7 @@ class LocalClientPool(ClientPool):
         with self._lock:
             self._weight[task_id] = 1.0
             self._byte_size[task_id] = 0
+            self._cache_ids[task_id] = []
             self._stack_data[task_id] = [{}]
             self._stack_frame[task_id] = []
             print(f"{ctx_fmt()} clear progress {task_id}")

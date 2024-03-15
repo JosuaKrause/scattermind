@@ -16,11 +16,7 @@ import hashlib
 
 from scattermind.system.base import CacheId, GraphId, Module
 from scattermind.system.info import DataFormat
-from scattermind.system.payload.values import (
-    ComputeValues,
-    LazyValues,
-    TaskValueContainer,
-)
+from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.redis_util import tensor_to_redis
 
 
@@ -31,6 +27,17 @@ class GraphCache(Module):
             graph_id: GraphId,
             input_format: DataFormat,
             tvc: TaskValueContainer) -> CacheId:
+        """
+        Computes the cache id for the given input.
+
+        Args:
+            graph_id (GraphId): The graph id.
+            input_format (DataFormat): The format of the input.
+            tvc (TaskValueContainer): The data.
+
+        Returns:
+            CacheId: The cache id.
+        """
         blake = hashlib.blake2b(digest_size=32)
         for key in sorted(input_format.keys()):
             key_bytes = key.encode("utf-8")
@@ -45,8 +52,29 @@ class GraphCache(Module):
             self,
             cache_id: CacheId,
             output_format: DataFormat,
-            output_data: dict[str, LazyValues]) -> None:
+            output_data: TaskValueContainer) -> None:
+        """
+        Caches the given result.
+
+        Args:
+            cache_id (CacheId): The cache id.
+            output_format (DataFormat): The output format.
+            output_data (TaskValueContainer): The data.
+        """
         raise NotImplementedError()
 
-    def get_cached_output(self, cache_id: CacheId) -> ComputeValues | None:
+    def get_cached_output(
+            self,
+            cache_id: CacheId,
+            output_format: DataFormat) -> TaskValueContainer | None:
+        """
+        Retrieves the cached data.
+
+        Args:
+            cache_id (CacheId): The cache id.
+            output_format (DataFormat): The expected output format.
+
+        Returns:
+            TaskValueContainer | None: The data if it is available.
+        """
         raise NotImplementedError()

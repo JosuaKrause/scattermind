@@ -16,6 +16,7 @@ from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
 
 from scattermind.system.base import (
+    CacheId,
     ExecutorId,
     GraphId,
     Module,
@@ -403,7 +404,16 @@ class QueuePool(Module):
 
         self._graph_caching.add(graph_id)
 
-    def is_cached_queue(self, graph_id: GraphId) -> bool:
+    def is_cached_graph(self, graph_id: GraphId) -> bool:
+        """
+        Whether the given graph input should be cached.
+
+        Args:
+            graph_id (GraphId): The graph id.
+
+        Returns:
+            bool: True, if the graph input should be cached.
+        """
         return graph_id in self._graph_caching
 
     def get_graph_id(self, gname: QualifiedGraphName) -> GraphId:
@@ -1045,8 +1055,7 @@ class QueuePool(Module):
                 but has not committed and pushed the task to a new queue if
                 any.
         """
-        # FIXME continue caching
-        # graph_cache = self.get_graph_cache()
+        graph_cache = self.get_graph_cache()
         cpool = self.get_client_pool()
         data_id_type = store.data_id_type()
         task_id = task.get_task_id()
@@ -1065,13 +1074,12 @@ class QueuePool(Module):
                 graph_id = self.get_entry_graph(ns)
                 is_final = True
             else:
-                m_nname, graph_id, qid, _cache_id = next_frame
+                m_nname, graph_id, qid = next_frame
             vmap = self.get_output_value_map(graph_id)
             ret_data = {
                 QualifiedName(m_nname, vname): frame_data[frame_qual]
                 for vname, frame_qual in vmap.items()
             }
-            # graph_cache.put_cached_output(graph_id, )
             if is_final:
                 final_vmap = {
                     qual.get_value_name(): qual
@@ -1081,6 +1089,10 @@ class QueuePool(Module):
                 tvc_out = TaskValueContainer.extract_data(
                     store, output_format, ret_data, final_vmap)
                 if tvc_out is not None:
+                    cache_id = cpool.pop_cache_id(task_id)
+                    if cache_id is not None:
+                        graph_cache.put_cached_output(
+                            cache_id, output_format, tvc_out)
                     cpool.set_final_output(task_id, tvc_out)
                     cpool.set_duration(task_id)
                     cpool.set_bulk_status([task_id], TASK_STATUS_READY)
@@ -1144,7 +1156,21 @@ class QueuePool(Module):
             return False
         entry_graph_id = self.get_entry_graph(ns)
         input_format = self.get_input_format(entry_graph_id)
-        cpool.init_data(store, task_id, input_format)
+        original_input = cpool.get_original_input(task_id, input_format)
+        graph_cache = self.get_graph_cache()
+        cache_id: CacheId | None = None
+        if self.is_cached_graph(entry_graph_id):
+            cache_id = graph_cache.get_cache_id(
+                entry_graph_id, input_format, original_input)
+            output_format = self.get_output_format(entry_graph_id)
+            result = graph_cache.get_cached_output(cache_id, output_format)
+            if result is not None:
+                cpool.set_final_output(task_id, result)
+                cpool.set_duration(task_id)
+                cpool.set_bulk_status([task_id], TASK_STATUS_READY)
+                return True
+        cpool.push_cache_id(task_id, cache_id)
+        cpool.init_data(store, task_id, input_format, original_input)
         node = self.get_input_node(entry_graph_id)
         qid = node.get_input_queue()
         cpool.set_bulk_status([task_id], TASK_STATUS_WAIT)
