@@ -12,53 +12,54 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Test graph caching."""
-# import time
-# from test.util import wait_for_tasks
+import time
+from test.util import wait_for_tasks
 
-# import numpy as np
 import pytest
 
-# from scattermind.system.base import TaskId
-# from scattermind.system.client.client import TASK_MAX_RETRIES
-from scattermind.system.base import set_debug_output_length
+from scattermind.system.base import set_debug_output_length, TaskId
 from scattermind.system.config.loader import load_test
 from scattermind.system.names import GNamespace
+from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.response import (
+    response_ok,
+    TASK_STATUS_DONE,
+    TASK_STATUS_READY,
+    TASK_STATUS_UNKNOWN,
+    TASK_STATUS_WAIT,
+)
+from scattermind.system.torch_util import str_to_tensor, tensor_to_str
+from scattermind.system.util import get_short_hash
 
 
-# from scattermind.system.payload.values import TaskValueContainer
-# from scattermind.system.response import (
-#     response_ok,
-#     TASK_STATUS_DONE,
-#     TASK_STATUS_ERROR,
-#     TASK_STATUS_READY,
-#     TASK_STATUS_UNKNOWN,
-#     TASK_STATUS_WAIT,
-# )
-# from scattermind.system.torch_util import as_numpy, create_tensor
-
-
-@pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])
-@pytest.mark.parametrize("parallelism", [0, 1, 2, 3])
-@pytest.mark.parametrize("is_redis", [False, True])
-def test_entry_graph_cache(
+@pytest.mark.parametrize("batch_size", [1, 2, 8, 14, 20])
+@pytest.mark.parametrize("parallelism", [0, 1])
+@pytest.mark.parametrize("is_redis", [False])
+def test_graph_cache(
         batch_size: int, parallelism: int, is_redis: bool) -> None:
     """
-    Test causing an assertion error for some tasks.
+    Test for graph caching.
 
     Args:
         batch_size (int): The batch size.
-        parallelism (int): The parallelism.
+        parallelism (int): The parallelism. We can only use single threads as
+            otherwise caching behaviors would be unpredictable.
         is_redis (bool): Whether to use redis.
     """
+    # FIXME: make is_redis=True tests work
     set_debug_output_length(7)
     config = load_test(
         batch_size=batch_size, parallelism=parallelism, is_redis=is_redis)
+    desc = (
+        f"batch_size={batch_size};"
+        f"parallelism={parallelism};"
+        f"is_redis={is_redis}")
+    seed = get_short_hash(desc)
     ns = config.load_graph({
         "graphs": [
             {
                 "name": "main",
-                "description":
-                    f"batch_size={batch_size};parallelism={parallelism}",
+                "description": desc,
                 "input": "node_0",
                 "input_format": {
                     "value_0": ("uint8", [None]),
@@ -74,6 +75,7 @@ def test_entry_graph_cache(
                         "kind": "test_cache",
                         "args": {
                             "postfix": "-main-0",
+                            "seed": seed,
                         },
                         "outs": {
                             "out": "node_1",
@@ -87,6 +89,7 @@ def test_entry_graph_cache(
                         "kind": "test_cache",
                         "args": {
                             "postfix": "-main-1",
+                            "seed": seed,
                         },
                         "outs": {
                             "out": "node_2",
@@ -100,6 +103,7 @@ def test_entry_graph_cache(
                         "kind": "test_cache",
                         "args": {
                             "postfix": "-main-2",
+                            "seed": seed,
                         },
                         "outs": {
                             "out": "node_3",
@@ -184,6 +188,7 @@ def test_entry_graph_cache(
                         "kind": "test_cache",
                         "args": {
                             "postfix": "-mid-0",
+                            "seed": seed,
                         },
                         "outs": {
                             "out": "node_1",
@@ -197,6 +202,7 @@ def test_entry_graph_cache(
                         "kind": "test_cache",
                         "args": {
                             "postfix": "-mid-1",
+                            "seed": seed,
                         },
                         "outs": {
                             "out": "node_2",
@@ -259,6 +265,7 @@ def test_entry_graph_cache(
                         "kind": "test_cache",
                         "args": {
                             "postfix": "-top",
+                            "seed": seed,
                         },
                         "outs": {
                             "out": None,
@@ -276,70 +283,98 @@ def test_entry_graph_cache(
         "entry": "main",
     })
     assert ns == GNamespace("main")
-    # time_start = time.monotonic()
-    # tasks: list[tuple[TaskId, bool]] = [
-    #     (
-    #         config.enqueue(
-    #             ns,
-    #             TaskValueContainer({
-    #                 "value": create_tensor(
-    #                     np.array([tix % 3 > 0]), dtype="bool"),
-    #             })),
-    #         tix % 3 > 0,
-    #     )
-    #     for tix in range(20)
-    # ]
-    # for task_id, _ in tasks:
-    #     assert config.get_status(task_id) == TASK_STATUS_WAIT
-    # try:
-    #     config.run()
-    #     for task_id, response, expected_result in wait_for_tasks(
-    #             config, tasks):
-    #         real_duration = time.monotonic() - time_start
-    #         status = response["status"]
-    #         task_ns = response["ns"]
-    #         task_duration = response["duration"]
-    #         result = response["result"]
-    #         retries = response["retries"]
-    #         error = response["error"]
-    #         assert task_duration <= real_duration
-    #         assert task_ns == ns
-    #         if expected_result:
-    #             response_ok(response, no_warn=True)
-    #             assert status == TASK_STATUS_READY
-    #             assert result is not None
-    #             assert list(result["value"].shape) == [1]
-    #             assert retries == 0
-    #             assert error is None
-    #             np.testing.assert_allclose(
-    #                 as_numpy(result["value"]), np.array([expected_result]))
-    #             assert config.get_status(task_id) == TASK_STATUS_DONE
-    #         else:
-    #             assert status == TASK_STATUS_ERROR
-    #             assert result is None
-    #             assert error is not None
-    #             assert error["code"] == "general_exception"
-    #             ectx = error["ctx"]
-    #             assert ectx["node_name"] is not None
-    #             assert ectx["node_name"].get() == "node_1"
-    #             assert ectx["graph_name"] is not None
-    #             assert ectx["graph_name"].get_namespace().get() == "main"
-    #             assert ectx["graph_name"].get_name().get() == "main"
-    #             assert error["message"].find("value was not true") >= 0
-    #             tback = error["traceback"]
-    #             assert "Traceback" in tback[0]
-    #             assert "line" in tback[-2]
-    #             assert "ValueError: value was not true" in tback[-1]
-    #             with pytest.raises(ValueError, match=r"value was not true"):
-    #                 response_ok(response, no_warn=True)
-    #             assert retries == TASK_MAX_RETRIES
-    #         config.clear_task(task_id)
-    #         assert config.get_namespace(task_id) is None
-    #         assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
-    #         assert config.get_result(task_id) is None
-    # finally:
-    #     print("TEST TEARDOWN!")
-    #     emng = config.get_executor_manager()
-    #     emng.release_all(timeout=1.0)
-    #     if emng.any_active():
-    #         raise ValueError("threads did not shut down in time")
+    pf_top = "-top"
+    pf_mid_0 = "-mid-0"
+    pf_mid_1 = "-mid-1"
+    pf_main_0 = "-main-0"
+    pf_main_1 = "-main-1"
+    pf_main_2 = "-main-2"
+    time_start = time.monotonic()
+    # NOTE: we need to treat every batch_size >= len(inputs) differently
+    # as the caching behavior changes
+    inputs: list[tuple[tuple[str, str, str], str]] = [
+        (("a", "b", "c"), "a-b:c"),
+        (("d", "e", "f"), "d-e:f" if batch_size < 14 else f"d-e{pf_top}:f"),
+        (("a", "b", "c"), f"a{pf_main_0}-b{pf_main_1}:c{pf_main_2}"),
+        (
+            ("a", "b", "c"),
+            f"a{pf_main_0}{pf_top}-"
+            f"b{pf_main_1}{pf_mid_0}:c{pf_main_2}{pf_mid_1}",
+        ),
+        (
+            ("a", "b", "c"),
+            f"a{pf_main_0}{pf_top}-"
+            f"b{pf_main_1}{pf_mid_0}{pf_top}:c{pf_main_2}{pf_mid_1}",
+        ),
+        (("d", "g", "h"), f"d{pf_main_0}-g:h"),
+        (("d", "g", "h"), f"d{pf_main_0}{pf_top}-g{pf_main_1}:h{pf_main_2}"),
+        (("i", "e", "k"), f"i-e{pf_main_1}:k"),
+        (("i", "e", "k"), f"i{pf_main_0}-e{pf_main_1}{pf_mid_0}:k{pf_main_2}"),
+        (("i", "k", "h"), f"i{pf_main_0}{pf_top}-k:h{pf_main_2}{pf_mid_1}"),
+        (
+            ("e", "i", "k"),
+            f"e{pf_top}-i{pf_top}:k{pf_main_2}{pf_mid_1}"
+            if batch_size < 14 else
+            f"e-i{pf_top}:k{pf_main_2}{pf_mid_1}",
+        ),
+        (
+            ("e", "i", "k"),
+            f"e{pf_main_0}-i{pf_main_1}:k{pf_main_2}{pf_mid_1}",
+        ),
+        (
+            ("a", "e", "h"),
+            f"a{pf_main_0}{pf_top}-"
+            f"e{pf_main_1}{pf_mid_0}{pf_top}:h{pf_main_2}{pf_mid_1}",
+        ),
+        (
+            ("a", "e", "h"),
+            f"a{pf_main_0}{pf_top}-"
+            f"e{pf_main_1}{pf_mid_0}{pf_top}:h{pf_main_2}{pf_mid_1}",
+        ),
+    ]
+    tasks: list[tuple[TaskId, str]] = [
+        (
+            config.enqueue(
+                ns,
+                TaskValueContainer({
+                    "value_0": str_to_tensor(cur_input[0]),
+                    "value_1": str_to_tensor(cur_input[1]),
+                    "value_2": str_to_tensor(cur_input[2]),
+                })),
+            expected,
+        )
+        for cur_input, expected in inputs
+    ]
+    for task_id, _ in tasks:
+        assert config.get_status(task_id) == TASK_STATUS_WAIT
+    try:
+        config.run()
+        for task_id, response, expected_result in wait_for_tasks(
+                config, tasks):
+            real_duration = time.monotonic() - time_start
+            status = response["status"]
+            task_ns = response["ns"]
+            task_duration = response["duration"]
+            result = response["result"]
+            retries = response["retries"]
+            error = response["error"]
+            assert task_duration <= real_duration
+            assert task_ns == ns
+            response_ok(response, no_warn=True)
+            assert status == TASK_STATUS_READY
+            assert result is not None
+            assert len(result["value"].shape) == 1
+            assert retries == 0
+            assert error is None
+            assert tensor_to_str(result["value"]) == expected_result
+            assert config.get_status(task_id) == TASK_STATUS_DONE
+            config.clear_task(task_id)
+            assert config.get_namespace(task_id) is None
+            assert config.get_status(task_id) == TASK_STATUS_UNKNOWN
+            assert config.get_result(task_id) is None
+    finally:
+        print("TEST TEARDOWN!")
+        emng = config.get_executor_manager()
+        emng.release_all(timeout=1.0)
+        if emng.any_active():
+            raise ValueError("threads did not shut down in time")

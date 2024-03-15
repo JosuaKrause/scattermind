@@ -27,18 +27,19 @@ from scattermind.system.torch_util import str_to_tensor, tensor_to_str
 SEEN: set[str] = set()
 
 
-def seen_prefix(node_id: NodeId) -> str:
+def seen_prefix(node_id: NodeId, seed: str) -> str:
     """
     Creates a prefix unique to the current test case and node.
 
     Args:
         node_id (NodeId): The node.
+        seed (str): A configuration dependent seed.
 
     Returns:
         str: The prefix for seen values.
     """
     salt = get_test_salt()
-    return f"{salt}:{node_id.to_parseable()}"
+    return f"{salt}:{node_id.to_parseable()}:{seed}:"
 
 
 class TestCache(Node):
@@ -81,13 +82,14 @@ class TestCache(Node):
         }
 
     def execute_tasks(self, state: ComputeState) -> None:
-        prefix = seen_prefix(self.get_id())
+        seed = self.get_arg("seed").get("str")
+        prefix = seen_prefix(self.get_id(), seed)
         postfix = self.get_arg("postfix").get("str")
         inputs = state.get_values()
         outs: list[str] = []
         for text in inputs.get_data("text").iter_values():
             cur = tensor_to_str(text)
-            cur_seen = f"{prefix}:{cur}"
+            cur_seen = f"{prefix}{cur}"
             if cur_seen in SEEN:
                 cur = f"{cur}{postfix}"
             SEEN.add(cur_seen)
@@ -98,5 +100,5 @@ class TestCache(Node):
                 "out",
                 [task],
                 {
-                    "value": state.create_single(str_to_tensor(out)),
+                    "text": state.create_single(str_to_tensor(out)),
                 })

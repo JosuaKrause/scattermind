@@ -559,6 +559,15 @@ class ComputeState:
             node.get_input_data_format(), store, tasks)
         self._tasks_out: list[ComputeTask] = []
 
+    def get_node(self) -> 'Node':
+        """
+        Gets the associated node.
+
+        Returns:
+            Node: The node.
+        """
+        return self._node
+
     def get_inputs_tasks(self) -> Iterable[ComputeTask]:
         """
         Retrieve current / accepted tasks.
@@ -744,10 +753,16 @@ class ComputeState:
         store = self._store
         node = self._node
         data_format = self._node.get_output_data_format(qname_obj)
-        data = {
-            key: values[key].to_compute_values(data_info)
-            for key, data_info in data_format.items()
-        }
+        try:
+            data = {
+                key: values[key].to_compute_values(data_info)
+                for key, data_info in data_format.items()
+            }
+        except KeyError as kexc:
+            missing_key = kexc.args[0]
+            raise ValueError(
+                f"unexpected output name. expected '{missing_key}' but got "
+                f"{set(values.keys())} in {self.get_node()}") from kexc
         data_ids: list[DataContainer] = [{} for _ in tasks]
         byte_sizes: list[int] = [0 for _ in tasks]
         for key, cvalues in data.items():
