@@ -52,7 +52,7 @@ else
     if [ ! $CI = "true" ] && command -v conda &>/dev/null 2>&1; then
         conda install -y pytorch torchvision torchaudio -c pytorch
     else
-        ${PYTHON} -m pip install --progress-bar off --pre torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cpu
+        ${PYTHON} -m pip install --progress-bar off torch torchvision torchaudio
     fi
 fi
 
