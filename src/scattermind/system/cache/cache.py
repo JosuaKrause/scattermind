@@ -26,8 +26,6 @@ from scattermind.system.redis_util import tensor_to_redis
 
 class GraphCache(Module):
     """A caching layer for graph input and outputs."""
-    # FIXME remove pylint disable
-    # pylint: disable=missing-function-docstring
     def get_cache_id(
             self,
             graph_id: GraphId,

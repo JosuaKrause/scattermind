@@ -88,6 +88,8 @@ class ThreadExecutorManager(ExecutorManager):
         self._done = is_done
 
     def _maybe_start(self) -> None:
+        # FIXME: detect when all workers terminated and exit the program with
+        # the correct status code
         assert self._logger is not None
         logger = self._logger
 

@@ -254,6 +254,31 @@ class Graph:
                 return False
         return True
 
+    def set_caching(
+            self,
+            queue_pool: QueuePool,
+            graph_id: GraphId,
+            *,
+            is_caching: bool) -> None:
+        """
+        Sets whether to cache the inputs to the graph.
+
+        Args:
+            queue_pool (QueuePool): The queue pool.
+            graph_id (GraphId): The graph id.
+            is_caching (bool): Whether to cache the inputs of the graph. The
+                graph must be pure.
+
+        Raises:
+            ValueError: If the graph is not pure when trying to cache.
+        """
+        if not is_caching:
+            queue_pool.set_caching(graph_id, is_caching=False)
+            return
+        if not self.is_pure(queue_pool, graph_id):
+            raise ValueError(f"cannot cache {graph_id} as it is not pure")
+        queue_pool.set_caching(graph_id, is_caching=True)
+
     def traverse_graph(
             self, queue_pool: QueuePool, graph_id: GraphId) -> list[Node]:
         """

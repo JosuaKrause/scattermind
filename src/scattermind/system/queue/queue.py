@@ -271,6 +271,7 @@ class QueuePool(Module):
         self._graph_ids: dict[QualifiedGraphName, GraphId] = {}
         self._graph_names: dict[GraphId, QualifiedGraphName] = {}
         self._graph_descs: dict[GraphId, str] = {}
+        self._graph_caching: set[GraphId] = set()
         self._input_nodes: dict[GraphId, 'Node'] = {}
         self._input_formats: dict[GraphId, DataFormat] = {}
         self._output_formats: dict[GraphId, DataFormat] = {}
@@ -382,27 +383,28 @@ class QueuePool(Module):
         self._graph_names[graph_id] = gname
         self._graph_descs[graph_id] = desc
 
-    # FIXME: caching
-    # def set_caching(
-    #         self,
-    #         from_queue: QueueId,
-    #         to_queue: QueueId,
-    #         is_caching: bool) -> None:
-    #     """
-    #     Sets whether to cache the inputs to the queue.
+    def set_caching(
+            self,
+            graph_id: GraphId,
+            *,
+            is_caching: bool) -> None:
+        """
+        Sets whether to cache the inputs to the graph. Ensure the graph is pure
+        before setting the value.
 
-    #     Args:
-    #         queue_id (QueueId): The queue id.
-    #         is_caching (bool): Whether to cache the inputs of the queue. The
-    #             queue must be pure.
+        Args:
+            graph_id (GraphId): The graph id.
+            is_caching (bool): Whether to cache the inputs of the graph. The
+                graph must be pure.
+        """
+        if not is_caching:
+            self._graph_caching.discard(graph_id)
+            return
 
-    #     Raises:
-    #         ValueError: If the queue is not pure when trying to cache.
-    #     """
-    #     pass
+        self._graph_caching.add(graph_id)
 
-    # def is_cached_queue(self, graph_id: GraphId) -> bool:
-    #     return False
+    def is_cached_queue(self, graph_id: GraphId) -> bool:
+        return graph_id in self._graph_caching
 
     def get_graph_id(self, gname: QualifiedGraphName) -> GraphId:
         """

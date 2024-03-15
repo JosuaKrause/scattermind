@@ -228,19 +228,23 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
-    def set_entry_cache_id(self, cache_id: CacheId) -> None:
+    def set_entry_cache_id(self, task_id: TaskId, cache_id: CacheId) -> None:
         """
         Sets the cache id for the entry graph. This value should only be set
         if the graph is pure and caching is enabled.
 
         Args:
+            task_id (TaskId): The task id.
             cache_id (CacheId): The cache id.
         """
         raise NotImplementedError()
 
-    def get_entry_cache_id(self) -> CacheId | None:
+    def get_entry_cache_id(self, task_id: TaskId) -> CacheId | None:
         """
         Retrieves the cache id for the entry graph.
+
+        Args:
+            task_id (TaskId): The task id.
 
         Returns:
             CacheId | None: The cache id for the entry graph. If caching is

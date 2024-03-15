@@ -11,15 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""A caching layer that does not do any caching."""
+"""A caching layer implemented in redis."""
+from redipy import Redis, RedisConfig
+
 from scattermind.system.base import CacheId, L_EITHER, Locality
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.info import DataFormat
 from scattermind.system.payload.values import ComputeValues, LazyValues
 
 
-class NoCache(GraphCache):
-    """No caching is performed with this graph cache."""
+class RedisCache(GraphCache):
+    """Cache using redis."""
+    def __init__(self, cfg: RedisConfig) -> None:
+        super().__init__()
+        self._redis = Redis("redis", cfg=cfg, redis_module="cache")
+
     @staticmethod
     def locality() -> Locality:
         return L_EITHER
@@ -29,7 +35,7 @@ class NoCache(GraphCache):
             cache_id: CacheId,
             output_format: DataFormat,
             output_data: dict[str, LazyValues]) -> None:
-        pass
+        raise NotImplementedError()
 
     def get_cached_output(self, cache_id: CacheId) -> ComputeValues | None:
-        return None
+        raise NotImplementedError()

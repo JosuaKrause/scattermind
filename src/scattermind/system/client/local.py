@@ -52,6 +52,7 @@ class LocalClientPool(ClientPool):
         self._duration: dict[TaskId, float] = {}
         self._weight: dict[TaskId, float] = {}
         self._byte_size: dict[TaskId, int] = {}
+        self._cache_ids: dict[TaskId, CacheId] = {}
         self._stack_data: dict[TaskId, list[DataContainer]] = {}
         self._stack_frame: dict[TaskId, list[TaskFrame]] = {}
         self._results: dict[TaskId, TaskValueContainer | None] = {}
@@ -131,20 +132,15 @@ class LocalClientPool(ClientPool):
     def get_error(self, task_id: TaskId) -> ErrorInfo | None:
         return self._error.get(task_id)
 
-    def set_entry_cache_id(self, cache_id: CacheId) -> None:
-        # FIXME implement caching
-        raise ValueError("caching is not allowed yet")
+    def set_entry_cache_id(self, task_id: TaskId, cache_id: CacheId) -> None:
+        self._cache_ids[task_id] = cache_id
 
-    def get_entry_cache_id(self) -> CacheId | None:
-        # FIXME implement caching
-        return None
+    def get_entry_cache_id(self, task_id: TaskId) -> CacheId | None:
+        return self._cache_ids.get(task_id)
 
     def inc_retries(self, task_id: TaskId) -> int:
         with self._lock:
-            try:
-                self._retries[task_id] += 1
-            except KeyError:
-                self._retries[task_id] = 1
+            self._retries[task_id] = self._retries.get(task_id, 0) + 1
             return self._retries[task_id]
 
     def get_retries(self, task_id: TaskId) -> int:
@@ -243,6 +239,7 @@ class LocalClientPool(ClientPool):
             self._duration.pop(task_id, None)
             self._weight.pop(task_id, None)
             self._byte_size.pop(task_id, None)
+            self._cache_ids.pop(task_id, None)
             self._stack_data.pop(task_id, None)
             self._stack_frame.pop(task_id, None)
             self._error.pop(task_id, None)

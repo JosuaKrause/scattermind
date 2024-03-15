@@ -547,6 +547,8 @@ class CacheId:
             graph_id (GraphId): The graph.
             cache_id (str): The raw hash to identify the input.
         """
+        if NAME_SEP in cache_id:
+            raise ValueError(f"invalid cache id: {cache_id}")
         self._graph_id = graph_id
         self._cache_id = cache_id
 
@@ -568,6 +570,31 @@ class CacheId:
         """
         return self._cache_id
 
+    def to_parseable(self) -> str:
+        """
+        Convert the cache id into a parseable representation.
+
+        Returns:
+            str: The cache id string.
+        """
+        return (
+            f"{self.get_graph_id().to_parseable()}"
+            f"{NAME_SEP}{self.get_cache_id()}")
+
+    @staticmethod
+    def parse(text: str) -> 'CacheId':
+        """
+        Parses a cache id.
+
+        Args:
+            text (str): The cache id string.
+
+        Returns:
+            CacheId: The parsed cache id.
+        """
+        graph_id_str, cache_id_str = text.split(NAME_SEP, 1)
+        return CacheId(GraphId.parse(graph_id_str), cache_id_str)
+
     def __eq__(self, other: object) -> bool:
         if other is self:
             return True
@@ -575,7 +602,7 @@ class CacheId:
             return False
         if self.get_graph_id() != other.get_graph_id():
             return False
-        return self.get_graph_id() == other.get_graph_id()
+        return self.get_cache_id() == other.get_cache_id()
 
     def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)

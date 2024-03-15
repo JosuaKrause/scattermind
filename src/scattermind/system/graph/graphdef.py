@@ -157,7 +157,7 @@ def graph_to_json(graph: Graph, queue_pool: QueuePool) -> FullGraphDefJSON:
                 for wname, qual in vmap.items()
             },
             "is_block": False,  # FIXME: implement block
-            "cache": False,  # FIXME: implement caching
+            "cache": queue_pool.is_cached_queue(graph_id),
         }
         graphs.append(gdef)
     return {
@@ -256,7 +256,8 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
                 wname: QualifiedName.parse(fname)
                 for wname, fname in gobj["vmap"].items()
             })
-        # FIXME: implement caching: gobj["cache"]
+        graph.set_caching(
+            queue_pool, graph_id, is_caching=gobj.get("cache", False))
     try:
         entry_id = GraphId.parse(def_obj["entry"])
     except ValueError:

@@ -68,6 +68,7 @@ KeyName = Literal[
     "duration",  # float
     "weight",  # float
     "byte_size",  # int
+    "cache_id",  # str
     "stack_data",  # list obj str
     "stack_frame",  # list obj str
     "result",  # TVC str
@@ -164,7 +165,7 @@ class RedisClientPool(ClientPool):
             self.set_value(pipe, "start_time", task_id, get_time_str())
             self.set_value(pipe, "weight", task_id, f"{1.0}")
             self.set_value(pipe, "byte_size", task_id, f"{0}")
-            # NOTE: no need to set stack_frame yet
+            # NOTE: no need to set stack_frame or cache_id yet
         return task_id
 
     def init_data(
@@ -242,13 +243,15 @@ class RedisClientPool(ClientPool):
             return None
         return from_error_json(redis_to_robj(res))
 
-    def set_entry_cache_id(self, cache_id: CacheId) -> None:
-        # FIXME implement caching
-        raise ValueError("caching is not allowed yet")
+    def set_entry_cache_id(self, task_id: TaskId, cache_id: CacheId) -> None:
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "cache_id", task_id, cache_id.to_parseable())
 
-    def get_entry_cache_id(self) -> CacheId | None:
-        # FIXME implement caching
-        return None
+    def get_entry_cache_id(self, task_id: TaskId) -> CacheId | None:
+        res = self.get_value("cache_id", task_id)
+        if res is None:
+            return None
+        return CacheId.parse(res)
 
     def inc_retries(self, task_id: TaskId) -> int:
         return int(self._redis.incrby(self.key("retries", task_id), 1))
@@ -291,7 +294,8 @@ class RedisClientPool(ClientPool):
                     "name": name.get(),
                     "graph_id": graph_id.to_parseable(),
                     "qid": qid.to_parseable(),
-                    "cache_id": cache_id,  # FIXME
+                    "cache_id":
+                        None if cache_id is None else cache_id.to_parseable(),
                 }))
                 self._stack.push_frame(stack_data_key)
             for field, data_id in data.items():
@@ -322,7 +326,11 @@ class RedisClientPool(ClientPool):
         name = NName(frame["name"])
         graph_id = GraphId.parse(frame["graph_id"])
         qid = QueueId.parse(frame["qid"])
-        return (name, graph_id, qid, None), res
+        cache_id = (
+            None
+            if frame["cache_id"] is None
+            else CacheId.parse(frame["cache_id"]))
+        return (name, graph_id, qid, cache_id), res
 
     def get_weight(self, task_id: TaskId) -> float:
         res = self.get_value("weight", task_id)
@@ -374,6 +382,7 @@ class RedisClientPool(ClientPool):
             self.delete(pipe, "duration", task_id)
             self.delete(pipe, "weight", task_id)
             self.delete(pipe, "byte_size", task_id)
+            self.delete(pipe, "cache_id", task_id)
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
             self.delete(pipe, "error", task_id)

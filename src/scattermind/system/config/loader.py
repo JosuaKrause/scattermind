@@ -207,8 +207,10 @@ def load_test(
             "name": "nocache",
         }
     else:
-        # FIXME: create graph cache
-        raise ValueError("not supported for now!")
+        graph_cache = {
+            "name": "redis",
+            "cfg": get_test_config(),
+        }
     test_config: ConfigJSON = {
         "client_pool": client_pool,
         "data_store": data_store,

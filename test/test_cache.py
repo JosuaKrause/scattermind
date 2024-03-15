@@ -35,8 +35,18 @@ from scattermind.system.util import get_short_hash
 @pytest.mark.parametrize("batch_size", [1, 2, 8, 14, 20])
 @pytest.mark.parametrize("parallelism", [0, 1])
 @pytest.mark.parametrize("is_redis", [False])
+@pytest.mark.parametrize("is_cache", [False, True])
+@pytest.mark.parametrize("cache_main", [False, True])
+@pytest.mark.parametrize("cache_mid", [False, True])
+@pytest.mark.parametrize("cache_top", [False, True])
 def test_graph_cache(
-        batch_size: int, parallelism: int, is_redis: bool) -> None:
+        batch_size: int,
+        parallelism: int,
+        is_redis: bool,
+        is_cache: bool,
+        cache_main: bool,
+        cache_mid: bool,
+        cache_top: bool) -> None:
     """
     Test for graph caching.
 
@@ -45,15 +55,23 @@ def test_graph_cache(
         parallelism (int): The parallelism. We can only use single threads as
             otherwise caching behaviors would be unpredictable.
         is_redis (bool): Whether to use redis.
+        is_cache (bool): Whether to cache at all.
+        cache_main (bool): Whether to cache the main graph.
+        cache_mid (bool): Whether to cache the mid graph.
+        cache_top (bool): Whether to cache the top graph.
     """
     # FIXME: make is_redis=True tests work
     set_debug_output_length(7)
     config = load_test(
-        batch_size=batch_size, parallelism=parallelism, is_redis=is_redis)
+        batch_size=batch_size,
+        parallelism=parallelism,
+        is_redis=is_redis,
+        no_cache=not is_cache)
     desc = (
         f"batch_size={batch_size};"
         f"parallelism={parallelism};"
-        f"is_redis={is_redis}")
+        f"is_redis={is_redis};"
+        f"is_cache={is_cache}")
     seed = get_short_hash(desc)
     ns = config.load_graph({
         "graphs": [
@@ -170,6 +188,7 @@ def test_graph_cache(
                 "vmap": {
                     "value": "node_5:value",
                 },
+                "cache": cache_main,
             },
             {
                 "name": "mid",
@@ -248,6 +267,7 @@ def test_graph_cache(
                 "vmap": {
                     "value": "node_3:value",
                 },
+                "cache": cache_mid,
             },
             {
                 "name": "top",
@@ -278,17 +298,18 @@ def test_graph_cache(
                 "vmap": {
                     "value": "node_0:text",
                 },
+                "cache": cache_top,
             },
         ],
         "entry": "main",
     })
     assert ns == GNamespace("main")
-    pf_top = "-top"
-    pf_mid_0 = "-mid-0"
-    pf_mid_1 = "-mid-1"
-    pf_main_0 = "-main-0"
-    pf_main_1 = "-main-1"
-    pf_main_2 = "-main-2"
+    pf_top = "" if cache_top and is_cache else "-top"
+    pf_mid_0 = "" if cache_mid and is_cache else "-mid-0"
+    pf_mid_1 = "" if cache_mid and is_cache else "-mid-1"
+    pf_main_0 = "" if cache_main and is_cache else "-main-0"
+    pf_main_1 = "" if cache_main and is_cache else "-main-1"
+    pf_main_2 = "" if cache_main and is_cache else "-main-2"
     time_start = time.monotonic()
     # NOTE: we need to treat every batch_size >= len(inputs) differently
     # as the caching behavior changes

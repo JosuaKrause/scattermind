@@ -14,6 +14,8 @@
 """Loads a graph cache."""
 from typing import Literal, TypedDict
 
+from redipy import RedisConfig
+
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.plugins import load_plugin
 
@@ -22,9 +24,14 @@ NoCacheModule = TypedDict('NoCacheModule', {
     "name": Literal["nocache"],
 })
 """No graph caching."""
+RedisCacheModule = TypedDict('RedisCacheModule', {
+    "name": Literal["redis"],
+    "cfg": RedisConfig,
+})
+"""Cache using redis."""
 
 
-GraphCacheModule = NoCacheModule
+GraphCacheModule = NoCacheModule | RedisCacheModule
 """A graph cache module configuration."""
 
 
@@ -50,4 +57,7 @@ def load_graph_cache(module: GraphCacheModule) -> GraphCache:
     if module["name"] == "nocache":
         from scattermind.system.cache.nocache import NoCache
         return NoCache()
+    if module["name"] == "redis":
+        from scattermind.system.cache.redis import RedisCache
+        return RedisCache(module["cfg"])
     raise ValueError(f"unknown graph cache: {module['name']}")
