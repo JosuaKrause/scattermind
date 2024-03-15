@@ -51,14 +51,12 @@ class GraphCache(Module):
     def put_cached_output(
             self,
             cache_id: CacheId,
-            output_format: DataFormat,
             output_data: TaskValueContainer) -> None:
         """
         Caches the given result.
 
         Args:
             cache_id (CacheId): The cache id.
-            output_format (DataFormat): The output format.
             output_data (TaskValueContainer): The data.
         """
         raise NotImplementedError()

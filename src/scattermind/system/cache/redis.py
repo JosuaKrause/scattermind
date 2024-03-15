@@ -18,6 +18,7 @@ from scattermind.system.base import CacheId, L_EITHER, Locality
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.info import DataFormat
 from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.redis_util import redis_to_tvc, tvc_to_redis
 
 
 class RedisCache(GraphCache):
@@ -30,15 +31,30 @@ class RedisCache(GraphCache):
     def locality() -> Locality:
         return L_EITHER
 
+    @staticmethod
+    def key(cache_id: CacheId) -> str:
+        """
+        Computes the full key.
+
+        Args:
+            cache_id (CacheId): The cache id.
+
+        Returns:
+            str: The full key.
+        """
+        return f"{cache_id.to_parseable()}"
+
     def put_cached_output(
             self,
             cache_id: CacheId,
-            output_format: DataFormat,
             output_data: TaskValueContainer) -> None:
-        raise NotImplementedError()
+        self._redis.set_value(self.key(cache_id), tvc_to_redis(output_data))
 
     def get_cached_output(
             self,
             cache_id: CacheId,
             output_format: DataFormat) -> TaskValueContainer | None:
-        raise NotImplementedError()
+        res = self._redis.get_value(self.key(cache_id))
+        if res is None:
+            return None
+        return redis_to_tvc(res, output_format)

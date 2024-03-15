@@ -1091,8 +1091,7 @@ class QueuePool(Module):
                 if tvc_out is not None:
                     cache_id = cpool.pop_cache_id(task_id)
                     if cache_id is not None:
-                        graph_cache.put_cached_output(
-                            cache_id, output_format, tvc_out)
+                        graph_cache.put_cached_output(cache_id, tvc_out)
                     cpool.set_final_output(task_id, tvc_out)
                     cpool.set_duration(task_id)
                     cpool.set_bulk_status([task_id], TASK_STATUS_READY)

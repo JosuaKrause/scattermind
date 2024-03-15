@@ -538,7 +538,7 @@ class Module:  # pylint: disable=too-few-public-methods
 
 
 class CacheId:
-    """A cache id identifies a cachable input for a given graph."""
+    """A cache id identifies a cacheable input for a given graph."""
     def __init__(self, graph_id: GraphId, cache_id: str) -> None:
         """
         Creates a cache id.

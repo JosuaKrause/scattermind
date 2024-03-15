@@ -27,7 +27,6 @@ class NoCache(GraphCache):
     def put_cached_output(
             self,
             cache_id: CacheId,
-            output_format: DataFormat,
             output_data: TaskValueContainer) -> None:
         pass
 
