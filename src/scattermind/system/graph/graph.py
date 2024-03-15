@@ -317,6 +317,8 @@ class Graph:
             cur = stack.pop()
             result.append(cur)
             for qid in cur.get_output_queues():
+                if qid.is_output_id():
+                    continue
                 node = queue_pool.get_queue(qid).get_consumer_node()
                 if node not in seen:
                     stack.append(node)
