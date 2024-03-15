@@ -73,7 +73,7 @@ def test_entry_graph_cache(
                         "name": "node_0",
                         "kind": "test_cache",
                         "args": {
-                            "postfix": "-main",
+                            "postfix": "-main-0",
                         },
                         "outs": {
                             "out": "node_1",
@@ -84,6 +84,72 @@ def test_entry_graph_cache(
                     },
                     {
                         "name": "node_1",
+                        "kind": "test_cache",
+                        "args": {
+                            "postfix": "-main-1",
+                        },
+                        "outs": {
+                            "out": "node_2",
+                        },
+                        "vmap": {
+                            "text": ":value_1",
+                        },
+                    },
+                    {
+                        "name": "node_2",
+                        "kind": "test_cache",
+                        "args": {
+                            "postfix": "-main-2",
+                        },
+                        "outs": {
+                            "out": "node_3",
+                        },
+                        "vmap": {
+                            "text": ":value_2",
+                        },
+                    },
+                    {
+                        "name": "node_3",
+                        "kind": "call",
+                        "args": {
+                            "graph": "top",
+                            "args": {
+                                "value_0": ("uint8", [None]),
+                            },
+                            "ret": {
+                                "value": ("uint8", [None]),
+                            },
+                        },
+                        "outs": {
+                            "out": "node_4",
+                        },
+                        "vmap": {
+                            "value_0": "node_0:text",
+                        },
+                    },
+                    {
+                        "name": "node_4",
+                        "kind": "call",
+                        "args": {
+                            "graph": "mid",
+                            "args": {
+                                "value_0": ("uint8", [None]),
+                                "value_1": ("uint8", [None]),
+                            },
+                            "ret": {
+                                "value": ("uint8", [None]),
+                            },
+                        },
+                        "outs": {
+                            "out": "node_5",
+                        },
+                        "vmap": {
+                            "value_0": "node_1:text",
+                            "value_1": "node_2:text",
+                        },
+                    },
+                    {
+                        "name": "node_5",
                         "kind": "str_concat",
                         "args": {
                             "delimiter": "-",
@@ -92,13 +158,118 @@ def test_entry_graph_cache(
                             "out": None,
                         },
                         "vmap": {
-                            "left": "node_0:text",
-                            "right": ":value_1",
+                            "left": "node_3:value",
+                            "right": "node_4:value",
                         },
                     },
                 ],
                 "vmap": {
-                    "value": ":value",
+                    "value": "node_5:value",
+                },
+            },
+            {
+                "name": "mid",
+                "description": "mid level graph",
+                "input": "node_0",
+                "input_format": {
+                    "value_0": ("uint8", [None]),
+                    "value_1": ("uint8", [None]),
+                },
+                "output_format": {
+                    "value": ("uint8", [None]),
+                },
+                "nodes": [
+                    {
+                        "name": "node_0",
+                        "kind": "test_cache",
+                        "args": {
+                            "postfix": "-mid-0",
+                        },
+                        "outs": {
+                            "out": "node_1",
+                        },
+                        "vmap": {
+                            "text": ":value_0",
+                        },
+                    },
+                    {
+                        "name": "node_1",
+                        "kind": "test_cache",
+                        "args": {
+                            "postfix": "-mid-1",
+                        },
+                        "outs": {
+                            "out": "node_2",
+                        },
+                        "vmap": {
+                            "text": ":value_1",
+                        },
+                    },
+                    {
+                        "name": "node_2",
+                        "kind": "call",
+                        "args": {
+                            "graph": "top",
+                            "args": {
+                                "value_0": ("uint8", [None]),
+                            },
+                            "ret": {
+                                "value": ("uint8", [None]),
+                            },
+                        },
+                        "outs": {
+                            "out": "node_3",
+                        },
+                        "vmap": {
+                            "value_0": "node_0:text",
+                        },
+                    },
+                    {
+                        "name": "node_3",
+                        "kind": "str_concat",
+                        "args": {
+                            "delimiter": ":",
+                        },
+                        "outs": {
+                            "out": None,
+                        },
+                        "vmap": {
+                            "left": "node_2:value",
+                            "right": "node_1:text",
+                        },
+                    },
+                ],
+                "vmap": {
+                    "value": "node_3:value",
+                },
+            },
+            {
+                "name": "top",
+                "description": "top level graph",
+                "input": "node_0",
+                "input_format": {
+                    "value_0": ("uint8", [None]),
+                },
+                "output_format": {
+                    "value": ("uint8", [None]),
+                },
+                "nodes": [
+                    {
+                        "name": "node_0",
+                        "kind": "test_cache",
+                        "args": {
+                            "postfix": "-top",
+                        },
+                        "outs": {
+                            "out": None,
+                        },
+                        "vmap": {
+                            "text": ":value_0",
+                        },
+                    },
+                ],
+                "vmap": {
+                    "value": "node_0:text",
                 },
             },
         ],
