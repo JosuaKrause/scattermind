@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests whether caching is active."""
-from scattermind.system.base import NodeId
+from scattermind.system.base import GraphId, NodeId
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.node import Node
@@ -47,8 +47,12 @@ class TestCache(Node):
     the first time. If a value is encountered twice the output is changed to
     include a postfix. This node maintains a global state. Use it only for test
     cases."""
-    def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
-        return True
+    def do_is_pure(
+            self,
+            graph: Graph,
+            queue_pool: QueuePool,
+            pure_cache: dict[GraphId, bool]) -> bool:
+        return True  # NOTE: we lie ;)
 
     def get_input_format(self) -> DataFormatJSON:
         return {
@@ -90,8 +94,10 @@ class TestCache(Node):
         for text in inputs.get_data("text").iter_values():
             cur = tensor_to_str(text)
             cur_seen = f"{prefix}{cur}"
+            print(f"test {cur}")
             if cur_seen in SEEN:
                 cur = f"{cur}{postfix}"
+                print(f"seen {cur} {cur_seen}")
             SEEN.add(cur_seen)
             outs.append(cur)
 

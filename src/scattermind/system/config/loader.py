@@ -167,7 +167,7 @@ def load_test(
             "name": "thread",
             "batch_size": batch_size,
             "parallelism": parallelism,
-            "sleep_on_idle": 0.1,
+            "sleep_on_idle": 0.01,
             "reclaim_sleep": 60.0,
         }
     else:

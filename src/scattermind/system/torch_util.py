@@ -364,37 +364,53 @@ def as_numpy(value: torch.Tensor) -> np.ndarray:
     return value.detach().cpu().numpy()
 
 
-def serialize_tensor(value: torch.Tensor) -> bytes:
+def serialize_tensor(value: torch.Tensor, *, compress: bool = True) -> bytes:
     """
     Serializes a tensor into a (compressed) byte sequence.
 
     Args:
         value (torch.Tensor): The tensor to serialize.
+        compress (bool, optional): Whether to compress the output.
+            Defaults to True.
 
     Returns:
         bytes: The serialized byte sequence.
     """
     bout = io.BytesIO()
     numpy_type = to_numpy_type(value.dtype)
-    with gzip.GzipFile(fileobj=bout, mode="wb") as fout:
-        np.save(fout, as_numpy(value).astype(numpy_type))
+    numpy_val = as_numpy(value).astype(numpy_type)
+    if compress:
+        with gzip.GzipFile(fileobj=bout, mode="wb") as fout:
+            np.save(fout, numpy_val)
+    else:
+        np.save(bout, numpy_val)
     return bout.getvalue()
 
 
-def deserialize_tensor(content: bytes, dtype: DTypeName) -> torch.Tensor:
+def deserialize_tensor(
+        content: bytes,
+        dtype: DTypeName,
+        *,
+        is_compressed: bool = True) -> torch.Tensor:
     """
     Deserializes a tensor from a byte sequence.
 
     Args:
         content (bytes): The byte sequence.
         dtype (DTypeName): The expected dtype.
+        is_compressed (bool, optional): Whether the bytes are compressed.
+            Defaults to True.
 
     Returns:
         torch.Tensor: The tensor.
     """
     binp = io.BytesIO(content)
-    with gzip.GzipFile(fileobj=binp, mode="r") as finp:
-        return create_tensor(np.load(finp), dtype=dtype)
+    if is_compressed:
+        with gzip.GzipFile(fileobj=binp, mode="r") as finp:
+            numpy_val = np.load(finp)
+    else:
+        numpy_val = np.load(binp)
+    return create_tensor(numpy_val, dtype=dtype)
 
 
 def pad_tensor(value: torch.Tensor, shape: list[int]) -> torch.Tensor:

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Concatenate two strings."""
+from scattermind.system.base import GraphId
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.node import Node
@@ -24,7 +25,11 @@ from scattermind.system.torch_util import str_to_tensor, tensor_to_str
 
 class StrConcat(Node):
     """Concatenate two strings."""
-    def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
+    def do_is_pure(
+            self,
+            graph: Graph,
+            queue_pool: QueuePool,
+            pure_cache: dict[GraphId, bool]) -> bool:
         return True
 
     def get_input_format(self) -> DataFormatJSON:

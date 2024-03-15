@@ -188,6 +188,7 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
     else:
         ns = GNamespace(ns_val)
     graph = Graph(ns)
+    graph_caching: list[tuple[GraphId, bool]] = []
     for gobj in def_obj["graphs"]:
         gname = QualifiedGraphName(ns, GName(gobj["name"]))
         graph_id_str = gobj.get("graph_id")
@@ -195,6 +196,7 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
             graph_id = GraphId.parse(graph_id_str)
         else:
             graph_id = GraphId.create(gname)
+        graph_caching.append((graph_id, gobj.get("cache", False)))
         queue_pool.add_graph(graph_id, gname, gobj.get("description", ""))
         node_ids: dict[NName, NodeId] = {}
         for node_obj in gobj["nodes"]:
@@ -256,12 +258,12 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
                 wname: QualifiedName.parse(fname)
                 for wname, fname in gobj["vmap"].items()
             })
-        graph.set_caching(
-            queue_pool, graph_id, is_caching=gobj.get("cache", False))
     try:
         entry_id = GraphId.parse(def_obj["entry"])
     except ValueError:
         entry_id = queue_pool.get_graph_id(
             QualifiedGraphName(ns, GName(def_obj["entry"])))
     queue_pool.set_entry_graph(ns, entry_id)
+    for graph_id, is_caching in graph_caching:
+        graph.set_caching(queue_pool, graph_id, is_caching=is_caching)
     return graph

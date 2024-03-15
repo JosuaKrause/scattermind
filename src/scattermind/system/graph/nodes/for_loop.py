@@ -14,7 +14,7 @@
 """Call a subgraph repeatedly until a counter reaches 0."""
 import numpy as np
 
-from scattermind.system.base import QueueId
+from scattermind.system.base import GraphId, QueueId
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.node import Node
@@ -27,7 +27,11 @@ from scattermind.system.torch_util import create_tensor
 
 class ForLoop(Node):
     """Call a subgraph repeatedly until a counter reaches 0."""
-    def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
+    def do_is_pure(
+            self,
+            graph: Graph,
+            queue_pool: QueuePool,
+            pure_cache: dict[GraphId, bool]) -> bool:
         return True
 
     def get_input_format(self) -> DataFormatJSON:

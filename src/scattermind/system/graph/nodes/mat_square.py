@@ -14,6 +14,7 @@
 """Square a square matrix."""
 import torch
 
+from scattermind.system.base import GraphId
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.node import Node
@@ -25,7 +26,11 @@ from scattermind.system.readonly.access import ReadonlyAccess
 
 class MatSquare(Node):
     """Multiply a square matrix with itself."""
-    def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
+    def do_is_pure(
+            self,
+            graph: Graph,
+            queue_pool: QueuePool,
+            pure_cache: dict[GraphId, bool]) -> bool:
         return True
 
     def get_input_format(self) -> DataFormatJSON:

@@ -1164,10 +1164,12 @@ class QueuePool(Module):
             output_format = self.get_output_format(entry_graph_id)
             result = graph_cache.get_cached_output(cache_id, output_format)
             if result is not None:
+                print(f"CACHE HIT {cache_id}")  # TODO: add logging
                 cpool.set_final_output(task_id, result)
                 cpool.set_duration(task_id)
                 cpool.set_bulk_status([task_id], TASK_STATUS_READY)
                 return True
+            print(f"CACHE MISS {cache_id}")  # TODO: add logging
         cpool.push_cache_id(task_id, cache_id)
         cpool.init_data(store, task_id, input_format, original_input)
         node = self.get_input_node(entry_graph_id)

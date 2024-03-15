@@ -236,7 +236,12 @@ class Graph:
         """
         return self._output_ids[node_id][qname]
 
-    def is_pure(self, queue_pool: QueuePool, graph_id: GraphId) -> bool:
+    def is_pure(
+            self,
+            queue_pool: QueuePool,
+            graph_id: GraphId,
+            *,
+            pure_cache: dict[GraphId, bool]) -> bool:
         """
         Whether the given graph is pure, that is, the output of the graph
         depends only on the input of the graph and the settings of the nodes.
@@ -245,14 +250,23 @@ class Graph:
         Args:
             queue_pool (QueuePool): The queue pool.
             graph_id (GraphId): The graph id.
+            pure_cache (dict[GraphId, bool]): Cache purity results on a graph
+                level.
 
         Returns:
             bool: A graph is pure if all its nodes are pure.
         """
-        for node in self.traverse_graph(queue_pool, graph_id):
-            if not node.is_pure(queue_pool):
-                return False
-        return True
+        res = pure_cache.get(graph_id)
+        if res is None:
+            # NOTE: be optimistic for self recursion
+            pure_cache[graph_id] = True
+            res = True
+            for node in self.traverse_graph(queue_pool, graph_id):
+                if not node.is_pure(queue_pool, pure_cache):
+                    res = False
+                    break
+            pure_cache[graph_id] = res
+        return res
 
     def set_caching(
             self,
@@ -275,7 +289,7 @@ class Graph:
         if not is_caching:
             queue_pool.set_caching(graph_id, is_caching=False)
             return
-        if not self.is_pure(queue_pool, graph_id):
+        if not self.is_pure(queue_pool, graph_id, pure_cache={}):
             raise ValueError(f"cannot cache {graph_id} as it is not pure")
         queue_pool.set_caching(graph_id, is_caching=True)
 

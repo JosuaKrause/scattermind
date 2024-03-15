@@ -43,7 +43,10 @@ class GraphCache(Module):
             key_bytes = key.encode("utf-8")
             blake.update(f"{len(key_bytes)}".encode("utf-8"))
             blake.update(key_bytes)
-            value_bytes = tensor_to_redis(tvc[key]).encode("utf-8")
+            # NOTE: we cannot compress the data as it would yield different
+            # results almost every time
+            value_bytes = tensor_to_redis(
+                tvc[key], compress=False).encode("utf-8")
             blake.update(f"{len(value_bytes)}".encode("utf-8"))
             blake.update(value_bytes)
         return CacheId(graph_id, blake.hexdigest())

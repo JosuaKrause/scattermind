@@ -23,24 +23,22 @@ from scattermind.system.names import GNamespace
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import (
     response_ok,
+    ResponseObject,
     TASK_STATUS_DONE,
     TASK_STATUS_READY,
     TASK_STATUS_UNKNOWN,
-    TASK_STATUS_WAIT,
 )
 from scattermind.system.torch_util import str_to_tensor, tensor_to_str
 from scattermind.system.util import get_short_hash
 
 
-@pytest.mark.parametrize("batch_size", [1, 2, 8, 14, 20])
-@pytest.mark.parametrize("parallelism", [0, 1])
-@pytest.mark.parametrize("is_redis", [False])
+@pytest.mark.parametrize("parallelism", [1, 2, 4])
+@pytest.mark.parametrize("is_redis", [False, True])
 @pytest.mark.parametrize("is_cache", [False, True])
 @pytest.mark.parametrize("cache_main", [False, True])
 @pytest.mark.parametrize("cache_mid", [False])  # FIXME: enable when ready
 @pytest.mark.parametrize("cache_top", [False])  # FIXME: enable when ready
 def test_graph_cache(
-        batch_size: int,
         parallelism: int,
         is_redis: bool,
         is_cache: bool,
@@ -51,24 +49,21 @@ def test_graph_cache(
     Test for graph caching.
 
     Args:
-        batch_size (int): The batch size.
-        parallelism (int): The parallelism. We can only use single threads as
-            otherwise caching behaviors would be unpredictable.
+        parallelism (int): The parallelism. Cannot use single executor since
+            it terminates upon completion.
         is_redis (bool): Whether to use redis.
         is_cache (bool): Whether to cache at all.
         cache_main (bool): Whether to cache the main graph.
         cache_mid (bool): Whether to cache the mid graph.
         cache_top (bool): Whether to cache the top graph.
     """
-    # FIXME: make is_redis=True tests work
+    # NOTE: batch_size can only be one to guarantee caching comes into effect
     set_debug_output_length(7)
     config = load_test(
-        batch_size=batch_size,
         parallelism=parallelism,
         is_redis=is_redis,
         no_cache=not is_cache)
     desc = (
-        f"batch_size={batch_size};"
         f"parallelism={parallelism};"
         f"is_redis={is_redis};"
         f"is_cache={is_cache}")
@@ -304,74 +299,113 @@ def test_graph_cache(
         "entry": "main",
     })
     assert ns == GNamespace("main")
-    pf_top = "" if cache_top and is_cache else "-top"
-    pf_mid_0 = "" if cache_mid and is_cache else "-mid-0"
-    pf_mid_1 = "" if cache_mid and is_cache else "-mid-1"
-    pf_main_0 = "" if cache_main and is_cache else "-main-0"
-    pf_main_1 = "" if cache_main and is_cache else "-main-1"
-    pf_main_2 = "" if cache_main and is_cache else "-main-2"
     time_start = time.monotonic()
-    # NOTE: we need to treat every batch_size >= len(inputs) differently
-    # as the caching behavior changes
-    inputs: list[tuple[tuple[str, str, str], str]] = [
-        (("a", "b", "c"), "a-b:c"),
-        (("d", "e", "f"), "d-e:f" if batch_size < 14 else f"d-e{pf_top}:f"),
-        (("a", "b", "c"), f"a{pf_main_0}-b{pf_main_1}:c{pf_main_2}"),
-        (
-            ("a", "b", "c"),
-            f"a{pf_main_0}{pf_top}-"
-            f"b{pf_main_1}{pf_mid_0}:c{pf_main_2}{pf_mid_1}",
-        ),
-        (
-            ("a", "b", "c"),
-            f"a{pf_main_0}{pf_top}-"
-            f"b{pf_main_1}{pf_mid_0}{pf_top}:c{pf_main_2}{pf_mid_1}",
-        ),
-        (("d", "g", "h"), f"d{pf_main_0}-g:h"),
-        (("d", "g", "h"), f"d{pf_main_0}{pf_top}-g{pf_main_1}:h{pf_main_2}"),
-        (("i", "e", "k"), f"i-e{pf_main_1}:k"),
-        (("i", "e", "k"), f"i{pf_main_0}-e{pf_main_1}{pf_mid_0}:k{pf_main_2}"),
-        (("i", "k", "h"), f"i{pf_main_0}{pf_top}-k:h{pf_main_2}{pf_mid_1}"),
-        (
-            ("e", "i", "k"),
-            f"e{pf_top}-i{pf_top}:k{pf_main_2}{pf_mid_1}"
-            if batch_size < 14 else
-            f"e-i{pf_top}:k{pf_main_2}{pf_mid_1}",
-        ),
-        (
-            ("e", "i", "k"),
-            f"e{pf_main_0}-i{pf_main_1}:k{pf_main_2}{pf_mid_1}",
-        ),
-        (
-            ("a", "e", "h"),
-            f"a{pf_main_0}{pf_top}-"
-            f"e{pf_main_1}{pf_mid_0}{pf_top}:h{pf_main_2}{pf_mid_1}",
-        ),
-        (
-            ("a", "e", "h"),
-            f"a{pf_main_0}{pf_top}-"
-            f"e{pf_main_1}{pf_mid_0}{pf_top}:h{pf_main_2}{pf_mid_1}",
-        ),
+    inputs: list[tuple[str, str, str]] = [
+        ("a", "b", "c"),
+        ("d", "e", "f"),
+        ("a", "b", "c"),
+        ("a", "b", "c"),
+        ("a", "b", "c"),
+        ("d", "g", "h"),
+        ("d", "g", "h"),
+        ("i", "e", "k"),
+        ("i", "e", "k"),
+        ("i", "k", "h"),
+        ("e", "i", "k"),
+        ("e", "i", "k"),
+        ("a", "e", "h"),
+        ("a", "e", "h"),
     ]
-    tasks: list[tuple[TaskId, str]] = [
-        (
-            config.enqueue(
+    cache_main_obj: dict[tuple[str, str, str], str] = {}
+    cache_mid_obj: dict[tuple[str, str], str] = {}
+    cache_top_obj: dict[str, str] = {}
+    rep_main_0: set[str] = set()
+    rep_main_1: set[str] = set()
+    rep_main_2: set[str] = set()
+    rep_mid_0: set[str] = set()
+    rep_mid_1: set[str] = set()
+    rep_top: set[str] = set()
+    pf_top = "-top"
+    pf_mid_0 = "-mid-0"
+    pf_mid_1 = "-mid-1"
+    pf_main_0 = "-main-0"
+    pf_main_1 = "-main-1"
+    pf_main_2 = "-main-2"
+
+    def top_expected(top: str) -> str:
+        res_top = cache_top_obj.get(top)
+        if res_top is not None:
+            return res_top
+        if top in rep_top:
+            val = f"{top}{pf_top}"
+        else:
+            rep_top.add(top)
+            val = top
+        if is_cache and cache_top:
+            cache_top_obj[top] = val
+        return val
+
+    def mid_expected(mid: tuple[str, str]) -> str:
+        res_mid = cache_mid_obj.get(mid)
+        if res_mid is not None:
+            return res_mid
+        val_0, val_1 = mid
+        if val_0 in rep_mid_0:
+            val_0 = f"{val_0}{pf_mid_0}"
+        else:
+            rep_mid_0.add(val_0)
+        if val_1 in rep_mid_1:
+            val_1 = f"{val_1}{pf_mid_1}"
+        else:
+            rep_mid_1.add(val_1)
+        val_0 = top_expected(val_0)
+        val = f"{val_0}:{val_1}"
+        if is_cache and cache_mid:
+            cache_mid_obj[mid] = val
+        return val
+
+    def compute_expected(input_tup: tuple[str, str, str]) -> str:
+        res_main = cache_main_obj.get(input_tup)
+        if res_main is not None:
+            return res_main
+        val_0, val_1, val_2 = input_tup
+        if val_0 in rep_main_0:
+            val_0 = f"{val_0}{pf_main_0}"
+        else:
+            rep_main_0.add(val_0)
+        if val_1 in rep_main_1:
+            val_1 = f"{val_1}{pf_main_1}"
+        else:
+            rep_main_1.add(val_1)
+        if val_2 in rep_main_2:
+            val_2 = f"{val_2}{pf_main_2}"
+        else:
+            rep_main_2.add(val_2)
+        val_0 = top_expected(val_0)
+        val_mid = mid_expected((val_1, val_2))
+        val = f"{val_0}-{val_mid}"
+        if is_cache and cache_main:
+            cache_main_obj[input_tup] = val
+        return val
+
+    try:
+        config.run()
+        print(
+            f"SETTING: is_cache={is_cache} cache_main={cache_main} "
+            f"cache_mid={cache_mid} cache_top={cache_top}")
+        for cur_input in inputs:
+            expected = compute_expected(cur_input)
+            print(f"EXECUTING TASK: {cur_input} with {expected}")
+            task_id = config.enqueue(
                 ns,
                 TaskValueContainer({
                     "value_0": str_to_tensor(cur_input[0]),
                     "value_1": str_to_tensor(cur_input[1]),
                     "value_2": str_to_tensor(cur_input[2]),
-                })),
-            expected,
-        )
-        for cur_input, expected in inputs
-    ]
-    for task_id, _ in tasks:
-        assert config.get_status(task_id) == TASK_STATUS_WAIT
-    try:
-        config.run()
-        for task_id, response, expected_result in wait_for_tasks(
-                config, tasks):
+                }))
+            cur_res: list[tuple[TaskId, ResponseObject, None]] = \
+                list(wait_for_tasks(config, [(task_id, None)]))
+            response: ResponseObject = cur_res[0][1]
             real_duration = time.monotonic() - time_start
             status = response["status"]
             task_ns = response["ns"]
@@ -387,7 +421,7 @@ def test_graph_cache(
             assert len(result["value"].shape) == 1
             assert retries == 0
             assert error is None
-            assert tensor_to_str(result["value"]) == expected_result
+            assert tensor_to_str(result["value"]) == expected
             assert config.get_status(task_id) == TASK_STATUS_DONE
             config.clear_task(task_id)
             assert config.get_namespace(task_id) is None
@@ -396,6 +430,6 @@ def test_graph_cache(
     finally:
         print("TEST TEARDOWN!")
         emng = config.get_executor_manager()
-        emng.release_all(timeout=1.0)
+        emng.release_all(timeout=0.1)
         if emng.any_active():
             raise ValueError("threads did not shut down in time")
