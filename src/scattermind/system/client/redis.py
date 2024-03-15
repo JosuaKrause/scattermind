@@ -254,12 +254,6 @@ class RedisClientPool(ClientPool):
             self.key("cache_id", task_id),
             "" if cache_id is None else cache_id.to_parseable())
 
-    def peek_cache_id(self, task_id: TaskId) -> CacheId | None:
-        res = self._redis.lrange(self.key("cache_id", task_id), -1, -1)
-        if not res or not res[0]:
-            return None
-        return CacheId.parse(res[0])
-
     def pop_cache_id(self, task_id: TaskId) -> CacheId | None:
         res = self._redis.rpop(self.key("cache_id", task_id))
         if not res:

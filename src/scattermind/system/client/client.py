@@ -257,19 +257,6 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
-    def peek_cache_id(self, task_id: TaskId) -> CacheId | None:
-        """
-        Retrieves the cache id at the top of the cache stack.
-
-        Args:
-            task_id (TaskId): The task id.
-
-        Returns:
-            CacheId | None: The cache id. If caching is disabled for the graph
-                or the graph is not pure this value will be None.
-        """
-        raise NotImplementedError()
-
     def pop_cache_id(self, task_id: TaskId) -> CacheId | None:
         """
         Retrieves and removes the cache id at the top of the cache stack.

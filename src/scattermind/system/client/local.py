@@ -147,12 +147,6 @@ class LocalClientPool(ClientPool):
                 self._cache_ids[task_id] = cache_ids
             cache_ids.append(cache_id)
 
-    def peek_cache_id(self, task_id: TaskId) -> CacheId | None:
-        try:
-            return self._cache_ids.get(task_id, [])[-1]
-        except IndexError:
-            return None
-
     def pop_cache_id(self, task_id: TaskId) -> CacheId | None:
         with self._lock:
             cache_ids = self._cache_ids.get(task_id)
