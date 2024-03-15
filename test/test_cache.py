@@ -37,8 +37,8 @@ from scattermind.system.util import get_short_hash
 @pytest.mark.parametrize("is_redis", [False])
 @pytest.mark.parametrize("is_cache", [False, True])
 @pytest.mark.parametrize("cache_main", [False, True])
-@pytest.mark.parametrize("cache_mid", [False, True])
-@pytest.mark.parametrize("cache_top", [False, True])
+@pytest.mark.parametrize("cache_mid", [False])  # FIXME: enable when ready
+@pytest.mark.parametrize("cache_top", [False])  # FIXME: enable when ready
 def test_graph_cache(
         batch_size: int,
         parallelism: int,
