@@ -203,6 +203,7 @@ class ThreadExecutorManager(ExecutorManager):
             try:
                 while True:
                     conn_error = 0
+                    general_error = 0
                     try:
                         executor_count, listener_count = reclaim_all_once()
                         if executor_count or listener_count:
@@ -219,6 +220,13 @@ class ThreadExecutorManager(ExecutorManager):
                         if conn_error > 10:
                             logger.log_error("error.executor", "connection")
                         time.sleep(60)
+                    except Exception:  # pylint: disable=broad-exception-caught
+                        general_error += 1
+                        if general_error > 10:
+                            raise
+                        logger.log_error(
+                            "error.executor", "uncaught_executor")
+                        time.sleep(10)
                     reclaim_sleep = self._reclaim_sleep
                     if reclaim_sleep > 0.0:
                         time.sleep(reclaim_sleep)
