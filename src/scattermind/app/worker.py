@@ -16,6 +16,7 @@ import json
 import os
 from typing import cast
 
+from scattermind.app.healthcheck import maybe_start_healthcheck
 from scattermind.system.base import ExecutorId
 from scattermind.system.config.config import Config
 from scattermind.system.config.loader import ConfigJSON, load_config
@@ -40,6 +41,8 @@ def worker_start(
     with open(config_file, "rb") as fin:
         config_obj = cast(ConfigJSON, json.load(fin))
     config: Config = load_config(ExecutorId.create, config_obj)
+
+    maybe_start_healthcheck(config)
 
     def load_graph(graph_file: str) -> None:
         with open(graph_file, "rb") as fin:

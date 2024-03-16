@@ -55,6 +55,7 @@ class Config(ScattermindAPI):
         self._store: DataStore | None = None
         self._queue_pool: QueuePool | None = None
         self._roa: ReadonlyAccess | None = None
+        self._healthcheck: tuple[str, str, int] | None = None
 
     def set_logger(self, logger: EventStream) -> None:
         """
@@ -347,6 +348,22 @@ class Config(ScattermindAPI):
             GraphCache: The graph cache.
         """
         return self.get_queue_pool().get_graph_cache()
+
+    def set_healthcheck(self, addr_in: str, addr_out: str, port: int) -> None:
+        """
+        Sets the address at which a healthcheck is exposed.
+
+        Args:
+            addr_in (str): The address to listen to the healthcheck
+                (e.g., "worker").
+            addr_out (str): The address to expose the healthcheck to
+                (e.g., "0.0.0.0").
+            port (int): The port.
+        """
+        self._healthcheck = (addr_in, addr_out, port)
+
+    def get_healthcheck(self) -> tuple[str, str, int] | None:
+        return self._healthcheck
 
     def load_graph(self, graph_def: FullGraphDefJSON) -> GNamespace:
         graph = json_to_graph(self.get_queue_pool(), graph_def)

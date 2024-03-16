@@ -296,3 +296,13 @@ class ScattermindAPI:
             Iterable[QueueCounts]: The information about each queue.
         """
         raise NotImplementedError()
+
+    def get_healthcheck(self) -> tuple[str, str, int] | None:
+        """
+        Gets the address at which a healthcheck is exposed.
+
+        Returns:
+            tuple[str, str, int] | None: The in address, out address, port
+                tuple. If None, no healthcheck is available.
+        """
+        raise NotImplementedError()

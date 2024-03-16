@@ -33,6 +33,10 @@ EXECUTORS: dict[ExecutorId, 'ThreadExecutorManager'] = {}
 """All registered executors."""
 ACTIVE: dict[ExecutorId, bool] = {}
 """Indicates which executors are active."""
+ALIVE: set[ExecutorId] = set()
+"""The set of executors that are alive. This number is not reliable for
+accounting for unexpectedly terminated executors. Use listener count for this.
+"""
 
 
 class ThreadExecutorManager(ExecutorManager):
@@ -104,6 +108,8 @@ class ThreadExecutorManager(ExecutorManager):
                         "action": "start",
                     })
                 try:
+                    with LOCK:
+                        ALIVE.add(self.get_own_id())
                     conn_count = 0
                     while not self.is_done() and thread is self._thread:
                         work = self._work
@@ -130,6 +136,7 @@ class ThreadExecutorManager(ExecutorManager):
                             "action": "stop",
                         })
                     with LOCK:
+                        ALIVE.discard(self.get_own_id())
                         ACTIVE[self.get_own_id()] = False
                         self._thread = None
                         if running:
@@ -254,3 +261,6 @@ class ThreadExecutorManager(ExecutorManager):
     @staticmethod
     def allow_parallel() -> bool:
         return True
+
+    def active_count(self) -> int:
+        return len(ALIVE)

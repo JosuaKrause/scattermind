@@ -476,3 +476,15 @@ class ExecutorManager(Module):
             bool: True, if local parallelism is supported.
         """
         raise NotImplementedError()
+
+    def active_count(self) -> int:
+        """
+        The number of active executors provided by this manager in this
+        instance. If executors are remote or in other processes they are not
+        counted. Note, that unlike `is_active` this function does not attempt
+        to retrieve the information if it is not locally available.
+
+        Returns:
+            int: The number of active executors.
+        """
+        raise NotImplementedError()

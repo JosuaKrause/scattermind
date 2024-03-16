@@ -78,3 +78,6 @@ class SingleExecutorManager(ExecutorManager):
     @staticmethod
     def allow_parallel() -> bool:
         return False
+
+    def active_count(self) -> int:
+        return 1 if self._is_active else 0

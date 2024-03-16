@@ -13,7 +13,7 @@
 # limitations under the License.
 """Loads a configuration from a JSON file."""
 from collections.abc import Callable
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from scattermind.system.base import ExecutorId, once_test_executors
 from scattermind.system.cache.loader import GraphCacheModule, load_graph_cache
@@ -43,6 +43,14 @@ from scattermind.system.readonly.loader import (
 from scattermind.system.redis_util import get_test_config
 
 
+HealthCheck = TypedDict('HealthCheck', {
+    "address_in": str,
+    "address_out": str,
+    "port": int,
+})
+"""Address at which a healthcheck is exposed."""
+
+
 StrategyModule = TypedDict('StrategyModule', {
     "node": NodeStrategyModule,
     "queue": QueueStrategyModule,
@@ -68,6 +76,7 @@ ConfigJSON = TypedDict('ConfigJSON', {
     "strategy": StrategyModule,
     "readonly_access": ReadonlyAccessModule,
     "logger": LoggerDef,
+    "healthcheck": NotRequired[HealthCheck],
 })
 """The configuration JSON."""
 
@@ -103,6 +112,9 @@ def load_config(
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
     config.set_readonly_access(
         load_readonly_access(config_obj["readonly_access"]))
+    hc = config_obj["healthcheck"]
+    if hc is not None:
+        config.set_healthcheck(hc["address_in"], hc["address_out"], hc["port"])
     return config
 
 
@@ -132,6 +144,9 @@ def load_as_api(config_obj: ConfigJSON) -> Config:
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
     config.set_readonly_access(
         load_readonly_access(config_obj["readonly_access"]))
+    hc = config_obj["healthcheck"]
+    if hc is not None:
+        config.set_healthcheck(hc["address_in"], hc["address_out"], hc["port"])
     return config
 
 

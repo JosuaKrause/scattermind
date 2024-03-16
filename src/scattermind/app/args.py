@@ -13,8 +13,14 @@
 # limitations under the License.
 """Parses command line arguments of the scattermind CLI."""
 import argparse
+import json
+import sys
+from typing import cast
 
+from scattermind.api.loader import load_api
+from scattermind.app.healthcheck import perform_healthcheck
 from scattermind.app.worker import worker_start
+from scattermind.system.config.loader import ConfigJSON
 
 
 def parse_args_worker(parser: argparse.ArgumentParser) -> None:
@@ -77,6 +83,20 @@ def parse_args() -> argparse.Namespace:
     subparser_worker = subparser.add_parser("worker")
     subparser_worker.set_defaults(func=run_worker)
     parse_args_worker(subparser_worker)
+
+    def run_healthcheck(args: argparse.Namespace) -> None:
+        config_file = args.config
+        with open(config_file, "rb") as fin:
+            config_obj = cast(ConfigJSON, json.load(fin))
+        config = load_api(config_obj)
+        hc_count = perform_healthcheck(config)
+        if hc_count > 0:
+            return
+        print(f"healthceck has failed with {hc_count}")
+        sys.exit(1)
+
+    subparser_hc = subparser.add_parser("healthcheck")
+    subparser_hc.set_defaults(func=run_healthcheck)
 
     parser.add_argument(
         "--config",
