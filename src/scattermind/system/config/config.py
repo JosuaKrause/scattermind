@@ -338,7 +338,8 @@ class Config(ScattermindAPI):
         Args:
             graph_cache (GraphCache): The graph cache.
         """
-        self.get_queue_pool().set_graph_cache(graph_cache)
+        self.get_queue_pool().set_graph_cache(
+            self._update_locality(graph_cache))
 
     def get_graph_cache(self) -> GraphCache:
         """
