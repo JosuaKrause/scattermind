@@ -112,7 +112,7 @@ def load_config(
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
     config.set_readonly_access(
         load_readonly_access(config_obj["readonly_access"]))
-    hc = config_obj["healthcheck"]
+    hc = config_obj.get("healthcheck")
     if hc is not None:
         config.set_healthcheck(hc["address_in"], hc["address_out"], hc["port"])
     return config
@@ -144,7 +144,7 @@ def load_as_api(config_obj: ConfigJSON) -> Config:
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
     config.set_readonly_access(
         load_readonly_access(config_obj["readonly_access"]))
-    hc = config_obj["healthcheck"]
+    hc = config_obj.get("healthcheck")
     if hc is not None:
         config.set_healthcheck(hc["address_in"], hc["address_out"], hc["port"])
     return config
