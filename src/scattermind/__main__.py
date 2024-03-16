@@ -12,16 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Runs the scattermind application."""
-from scattermind.app.args import parse_args
+print("A")
 
 
 def run() -> None:
     """
     Parses the command line arguments and runs the corresponding app.
     """
+    # pylint: disable=import-outside-toplevel
+    from scattermind.app.args import parse_args
+
+    print("D")
     args = parse_args()
+    print("E")
     args.func(args)
 
 
 if __name__ == "__main__":
+    print("C")
     run()
