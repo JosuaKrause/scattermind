@@ -126,6 +126,7 @@ def load_as_api(config_obj: ConfigJSON) -> Config:
     config.set_data_store(load_store(config_obj["data_store"]))
     config.set_queue_pool(load_queue_pool(config_obj["queue_pool"]))
     config.set_client_pool(load_client_pool(config_obj["client_pool"]))
+    config.set_graph_cache(load_graph_cache(config_obj["graph_cache"]))
     strategy_obj = config_obj["strategy"]
     config.set_node_strategy(load_node_strategy(strategy_obj["node"]))
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
