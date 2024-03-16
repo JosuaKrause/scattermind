@@ -30,4 +30,4 @@ def run() -> None:
 
 if __name__ == "__main__":
     print("C")
-    run()
+    # run()
