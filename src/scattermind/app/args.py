@@ -17,7 +17,7 @@ import json
 import sys
 from typing import cast
 
-from scattermind.api.loader import load_api
+from scattermind.api.loader import get_version_info, load_api, VersionInfo
 from scattermind.app.healthcheck import perform_healthcheck
 from scattermind.app.worker import worker_start
 from scattermind.system.config.loader import ConfigJSON
@@ -46,13 +46,18 @@ def parse_args_worker(parser: argparse.ArgumentParser) -> None:
         help="bonus score for nodes with the same executor prefix")
 
 
-def display_welcome(args: argparse.Namespace, command: str) -> None:
+def display_welcome(
+        args: argparse.Namespace,
+        command: str,
+        version_info: VersionInfo | None) -> None:
     """
     Prints the welcome message if `--no-welcome` is unset.
 
     Args:
         args (argparse.Namespace): The arguments.
         command (str): The name of the command.
+        version_info (VersionInfo | None): The optional external version info
+            to display.
     """
     if args.no_welcome:
         return
@@ -61,6 +66,8 @@ def display_welcome(args: argparse.Namespace, command: str) -> None:
     print(
         f"Starting {scattermind.__name__}({scattermind.__version__}) "
         f"as {command}")
+    if version_info is not None:
+        print(f"{version_info[0]} ({version_info[1]}) on {version_info[2]}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -74,11 +81,13 @@ def parse_args() -> argparse.Namespace:
     subparser = parser.add_subparsers(title="Commands")
 
     def run_worker(args: argparse.Namespace) -> None:
-        display_welcome(args, "worker")
+        version_info = get_version_info(args.version_file)
+        display_welcome(args, "worker", version_info)
         worker_start(
             config_file=args.config,
             graph_def=args.graph,
-            device=args.device)
+            device=args.device,
+            version_info=version_info)
 
     subparser_worker = subparser.add_parser("worker")
     subparser_worker.set_defaults(func=run_worker)
@@ -102,6 +111,11 @@ def parse_args() -> argparse.Namespace:
         "--config",
         type=str,
         help="json config file")
+    parser.add_argument(
+        "--version-file",
+        type=str,
+        default=None,
+        help="provide a version file to display external version information")
     parser.add_argument(
         "--device",
         type=str,

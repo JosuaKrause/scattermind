@@ -21,6 +21,7 @@ from quick_server import QuickServerRequestHandler as QSRH
 from quick_server import ReqArgs
 
 from scattermind.api.api import ScattermindAPI
+from scattermind.api.loader import VersionInfo
 from scattermind.system.config.config import Config
 from scattermind.system.executor.executor import ExecutorManager
 from scattermind.system.util import get_time_str
@@ -30,13 +31,17 @@ InfoResponse = TypedDict('InfoResponse', {
     "version": str,
     "start_date": str,
     "executors": int,
+    "app_version": str | None,
+    "app_commit": str | None,
+    "deploy_date": str | None,
 })
 
 
 def init_healthcheck(
         addr: str,
         port: int,
-        executor_manager: ExecutorManager) -> tuple[QuickServer, str]:
+        executor_manager: ExecutorManager,
+        version_info: VersionInfo | None) -> tuple[QuickServer, str]:
     """
     Initializes the healthcheck API.
 
@@ -44,6 +49,7 @@ def init_healthcheck(
         addr (str): The address to serve.
         port (int): The port to serve.
         executor_manager (ExecutorManager): The executor manager.
+        version_info (VersionInfo | None): External version info.
 
     Returns:
         tuple[QuickServer, str]: The server and prefix tuple.
@@ -73,12 +79,22 @@ def init_healthcheck(
 
     server.set_common_invalid_paths(["/", "//"])
 
+    if version_info is None:
+        app_version = None
+        app_commit = None
+        deploy_date = None
+    else:
+        app_version, app_commit, deploy_date = version_info
+
     @server.json_get(f"{prefix}/info")
     def _get_info(_req: QSRH, _rargs: ReqArgs) -> InfoResponse:
         return {
             "version": version,
             "start_date": start_date,
             "executors": executor_manager.active_count(),
+            "app_version": app_version,
+            "app_commit": app_commit,
+            "deploy_date": deploy_date,
         }
 
     return server, prefix
@@ -108,18 +124,20 @@ def start_healthcheck(server: QuickServer, prefix: str) -> None:
     th.start()
 
 
-def maybe_start_healthcheck(config: Config) -> None:
+def maybe_start_healthcheck(
+        config: Config, version_info: VersionInfo | None) -> None:
     """
     Starts the healthcheck API if it was configured.
 
     Args:
         config (Config): The config.
+        version_info (VersionInfo | None): External version info.
     """
     hc = config.get_healthcheck()
     if hc is not None:
         _, addr, port = hc
         server, prefix = init_healthcheck(
-            addr, port, config.get_executor_manager())
+            addr, port, config.get_executor_manager(), version_info)
         start_healthcheck(server, prefix)
 
 

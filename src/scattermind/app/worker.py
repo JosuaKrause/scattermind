@@ -16,6 +16,7 @@ import json
 import os
 from typing import cast
 
+from scattermind.api.loader import VersionInfo
 from scattermind.app.healthcheck import maybe_start_healthcheck
 from scattermind.system.base import ExecutorId
 from scattermind.system.config.config import Config
@@ -25,7 +26,11 @@ from scattermind.system.torch_util import set_system_device
 
 
 def worker_start(
-        *, config_file: str, graph_def: str, device: str | None) -> None:
+        *,
+        config_file: str,
+        graph_def: str,
+        device: str | None,
+        version_info: VersionInfo | None) -> None:
     """
     Load configuration, graph, and start execution.
 
@@ -34,6 +39,7 @@ def worker_start(
         graph_def (str): The graph definition file or folder containing
             graph definition files.
         device (str): Overrides the system device if set.
+        version_info (VersionInfo | None): External version info.
     """
     if device is not None:
         set_system_device(device)
@@ -42,7 +48,7 @@ def worker_start(
         config_obj = cast(ConfigJSON, json.load(fin))
     config: Config = load_config(ExecutorId.create, config_obj)
 
-    maybe_start_healthcheck(config)
+    maybe_start_healthcheck(config, version_info)
 
     def load_graph(graph_file: str) -> None:
         with open(graph_file, "rb") as fin:
