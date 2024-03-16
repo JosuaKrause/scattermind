@@ -14,6 +14,7 @@
 """A thread based executor that keeps running even if no tasks are available.
 """
 import random
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -122,18 +123,19 @@ class ThreadExecutorManager(ExecutorManager):
                             time.sleep(60)
                     running = False
                 finally:
-                    with LOCK:
-                        ACTIVE[self.get_own_id()] = False
-                        self._thread = None
-                        if running:
-                            logger.log_error(
-                                "error.executor", "uncaught_executor")
                     logger.log_event(
                         "tally.executor.stop",
                         {
                             "name": "executor",
                             "action": "stop",
                         })
+                    with LOCK:
+                        ACTIVE[self.get_own_id()] = False
+                        self._thread = None
+                        if running:
+                            logger.log_error(
+                                "error.executor", "uncaught_executor")
+                            sys.exit(1)
 
         if self._thread is not None:
             return
