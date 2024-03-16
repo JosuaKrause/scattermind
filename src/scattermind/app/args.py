@@ -101,7 +101,7 @@ def parse_args() -> argparse.Namespace:
         hc_count = perform_healthcheck(config)
         if hc_count > 0:
             return
-        print(f"healthceck has failed with {hc_count}")
+        print(f"healthcheck has failed with {hc_count}")
         sys.exit(1)
 
     subparser_hc = subparser.add_parser("healthcheck")
