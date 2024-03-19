@@ -461,8 +461,8 @@ class Config(ScattermindAPI):
             queue = queue_pool.get_queue(qid)
             listerners = queue_pool.get_queue_listeners(qid)
             queue_length = queue.get_queue_length()
-            if listerners <= 0 and queue_length <= 0:
-                continue
+            # if listerners <= 0 and queue_length <= 0:
+            #     continue
             qual_name = queue.get_consumer_node().get_qualified_name(
                 queue_pool)
             yield {
