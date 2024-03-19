@@ -266,6 +266,7 @@ class RedisQueuePool(QueuePool):
                 if remove:
                     to_remove.add(executor_id_str)
             if to_remove:
+                print(f"removed {len(to_remove)} listeners: {to_remove}")
                 self._redis.srem(cur_loads, *to_remove)
                 total += len(to_remove)
         return total
