@@ -66,6 +66,14 @@ def init_healthcheck(
 
     prefix = "/api"
 
+    server.suppress_noise = False
+
+    def report_slow_requests(
+            method_str: str, path: str, duration: float) -> None:
+        print(f"slow request {method_str} {path} ({duration}s)")
+
+    server.report_slow_requests = report_slow_requests
+
     server_timeout = 10 * 60
     server.timeout = server_timeout
     server.socket.settimeout(server_timeout)

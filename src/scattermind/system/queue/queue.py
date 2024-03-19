@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Provides the queue and queue pool."""
+import traceback
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
 
@@ -883,20 +884,36 @@ class QueuePool(Module):
                 candidate_node = process_node(candidate_node, node)
                 good_node = candidate_node
             except Exception:  # pylint: disable=broad-except
+                print(
+                    f"candidate={candidate_node.get_qualified_name(self)} "
+                    f"other={node.get_qualified_name(self)} "
+                    f"exception in strategy {traceback.format_exc()}")
                 if good_node is not None:
                     try:
                         process_node(good_node, node)
                     except Exception:  # pylint: disable=broad-except
+                        print(
+                            "bad node "
+                            f"{node.get_qualified_name(self)} "
+                            f"{traceback.format_exc()}")
                         # FIXME: log exception
                         # NOTE: node is faulty
                         return (node, node == current_node)
                     try:
                         process_node(good_node, candidate_node)
                     except Exception:  # pylint: disable=broad-except
+                        print(
+                            "bad node "
+                            f"{candidate_node.get_qualified_name(self)} "
+                            f"{traceback.format_exc()}")
                         # FIXME: log exception
                         # NOTE: candidate_node is faulty
-                        return (candidate_node, node == current_node)
+                        return (candidate_node, candidate_node == current_node)
         if current_node is None or good_node is None:
+            print(
+                f"candidate={candidate_node.get_qualified_name(self)} "
+                f"current is best ({current_node is None}) "
+                f"or no good node ({good_node is None})")
             return (candidate_node, True)
         own_queue = self.get_queue(current_node.get_input_queue())
 
@@ -965,13 +982,21 @@ class QueuePool(Module):
             if want_to_switch_to(candidate_node):
                 return (candidate_node, candidate_node != current_node)
         except Exception:  # pylint: disable=broad-except
+            print(
+                f"candidate={candidate_node.get_qualified_name(self)} "
+                f"current={current_node.get_qualified_name(self)} "
+                f"error trying to switch {traceback.format_exc()}")
             # FIXME: log exception
             try:
                 want_to_switch_to(good_node)
                 return (candidate_node, candidate_node != current_node)
             except Exception:  # pylint: disable=broad-except
+                print(
+                    f"current={current_node.get_qualified_name(self)} "
+                    "candidate is bad "
+                    f"{candidate_node.get_qualified_name(self)} "
+                    f"{traceback.format_exc()}")
                 # FIXME: log exception
-                pass
         return (current_node, False)
 
     def enqueue_task(
