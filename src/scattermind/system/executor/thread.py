@@ -159,6 +159,7 @@ class ThreadExecutorManager(ExecutorManager):
 
     @staticmethod
     def locality() -> Locality:
+        # FIXME create redis executor and make this one L_LOCAL
         return L_EITHER
 
     def get_all_executors(self) -> list[Executor]:
