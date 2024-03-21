@@ -58,7 +58,7 @@ fi
 
 ${PYTHON} -m pip install --progress-bar off --upgrade pip
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.txt
-${PYTHON} -m pip uninstall redipy  # FIXME temporary
+${PYTHON} -m pip uninstall -y redipy  # FIXME temporary
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.dev.txt
 
 if [ ! -z "${PYTORCH}" ]; then
