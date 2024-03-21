@@ -11,6 +11,7 @@ pylint
 pytest
 pytest-cov
 quick-server
+redipy
 requests
 torch
 types-requests
