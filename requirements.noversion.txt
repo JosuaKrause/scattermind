@@ -1,6 +1,7 @@
 flake8
 flake8-commas
 flake8-isort
+git+https://github.com/JosuaKrause/redipy.git@jk-features
 isort
 mypy
 numpy
@@ -10,7 +11,6 @@ pylint
 pytest
 pytest-cov
 quick-server
-redipy
 requests
 torch
 types-requests

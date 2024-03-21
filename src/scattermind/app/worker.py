@@ -69,4 +69,4 @@ def worker_start(
             load_graph(fname)
     else:
         load_graph(graph_def)
-    return config.run()
+    return config.run(force_no_block=False)

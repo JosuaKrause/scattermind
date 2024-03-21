@@ -112,7 +112,7 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
     ]
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
-    config.run()
+    config.run(force_no_block=False)  # NOTE: we only use single here
     has_error = batch_size >= 3 if len(base) < 2 else batch_size >= 2
     is_variable = (batch_size, len(base)) in (
         (2, 2),

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Configurations connect modules together to make scattermind work."""
+import threading
 from collections.abc import Iterable
 from typing import cast, TypeVar
 
@@ -407,9 +408,13 @@ class Config(ScattermindAPI):
         cpool = self.get_client_pool()
         cpool.clear_task(task_id)
 
-    def run(self) -> int | None:
+    def run(self, *, force_no_block: bool) -> int | None:
         """
         Run the executor given by this configuration.
+
+        Args:
+            force_no_block (bool): If set, forces the function to become
+                non-blocking.
 
         Returns:
             int | None: If the call is blocking (i.e., the work is done inside
@@ -431,7 +436,15 @@ class Config(ScattermindAPI):
         def work(emng: ExecutorManager) -> bool:
             return emng.execute_batch(logger, queue_pool, store, roa)
 
-        return executor_manager.execute(logger, work)
+        def do_execute() -> int | None:
+            return executor_manager.execute(logger, work)
+
+        if not force_no_block:
+            return do_execute()
+
+        th = threading.Thread(target=do_execute, daemon=False)
+        th.start()
+        return None
 
     def namespaces(self) -> set[GNamespace]:
         return set(self._graphs.keys())
@@ -466,8 +479,8 @@ class Config(ScattermindAPI):
             queue = queue_pool.get_queue(qid)
             listerners = queue_pool.get_queue_listeners(qid)
             queue_length = queue.get_queue_length()
-            # if listerners <= 0 and queue_length <= 0:
-            #     continue
+            if listerners <= 0 and queue_length <= 0:
+                continue
             qual_name = queue.get_consumer_node().get_qualified_name(
                 queue_pool)
             yield {

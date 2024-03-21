@@ -1,6 +1,6 @@
+git+https://github.com/JosuaKrause/redipy.git@jk-features
 mypy>=1.5.1
 numpy>=1.25.2
 quick-server>=0.9.0
-git+https://github.com/JosuaKrause/redipy.git@jk-features
 requests>=2.31.0
 torch>=2.0.0

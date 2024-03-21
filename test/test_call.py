@@ -218,7 +218,7 @@ def test_simple_call(
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
     try:
-        config.run()
+        config.run(force_no_block=True)
         for task_id, response, expected_result in wait_for_tasks(
                 config, tasks):
             response_ok(response, no_warn=True)

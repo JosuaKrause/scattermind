@@ -389,7 +389,7 @@ def test_graph_cache(
         return val
 
     try:
-        config.run()
+        config.run(force_no_block=True)
         print(
             f"SETTING: is_cache={is_cache} cache_main={cache_main} "
             f"cache_mid={cache_mid} cache_top={cache_top}")

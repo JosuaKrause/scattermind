@@ -21,7 +21,7 @@ from collections.abc import Callable
 
 import redis as redis_lib
 
-from scattermind.system.base import ExecutorId, L_LOCAL, Locality
+from scattermind.system.base import ExecutorId, L_EITHER, Locality
 from scattermind.system.executor.executor import Executor, ExecutorManager
 from scattermind.system.logger.context import add_context
 from scattermind.system.logger.log import EventStream
@@ -159,7 +159,7 @@ class ThreadExecutorManager(ExecutorManager):
 
     @staticmethod
     def locality() -> Locality:
-        return L_LOCAL
+        return L_EITHER  # FIXME: figure out a way to clearly define it here
 
     def get_all_executors(self) -> list[Executor]:
         with LOCK:

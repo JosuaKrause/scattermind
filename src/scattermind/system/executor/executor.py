@@ -432,7 +432,7 @@ class ExecutorManager(Module):
         Starts the reclaim loop in the background. At least one reclaim loop
         should be active at any time for non-local workers. The implementation
         must loop indefinitely but can have a long period (i.e., wait time
-        between runs).
+        between runs). This method must return after starting the reclaimer.
 
         Args:
             logger (EventStream): The logger.
