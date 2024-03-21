@@ -407,9 +407,14 @@ class Config(ScattermindAPI):
         cpool = self.get_client_pool()
         cpool.clear_task(task_id)
 
-    def run(self) -> None:
+    def run(self) -> int | None:
         """
         Run the executor given by this configuration.
+
+        Returns:
+            int | None: If the call is blocking (i.e., the work is done inside
+                this function call) the exit code is returned as int. Otherwise
+                the function returns None.
         """
         executor_manager = self.get_executor_manager()
         queue_pool = self.get_queue_pool()
@@ -426,7 +431,7 @@ class Config(ScattermindAPI):
         def work(emng: ExecutorManager) -> bool:
             return emng.execute_batch(logger, queue_pool, store, roa)
 
-        executor_manager.execute(logger, work)
+        return executor_manager.execute(logger, work)
 
     def namespaces(self) -> set[GNamespace]:
         return set(self._graphs.keys())

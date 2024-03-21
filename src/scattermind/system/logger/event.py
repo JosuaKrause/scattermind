@@ -95,7 +95,14 @@ QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
 
 ExecutorEvent = TypedDict('ExecutorEvent', {
     "name": Literal["executor"],
-    "action": Literal["start", "stop", "reclaim"],
+    "action": Literal[
+        "start",
+        "stop",
+        "reclaim",
+        "reclaim_start",
+        "reclaim_stop",
+        "heartbeat_start",
+        "heartbeat_stop"],
     "executors": NotRequired[int],
     "listeners": NotRequired[int],
 })

@@ -21,7 +21,7 @@ from collections.abc import Callable
 
 import redis as redis_lib
 
-from scattermind.system.base import ExecutorId, L_EITHER, Locality
+from scattermind.system.base import ExecutorId, L_LOCAL, Locality
 from scattermind.system.executor.executor import Executor, ExecutorManager
 from scattermind.system.logger.context import add_context
 from scattermind.system.logger.log import EventStream
@@ -159,8 +159,7 @@ class ThreadExecutorManager(ExecutorManager):
 
     @staticmethod
     def locality() -> Locality:
-        # FIXME create redis executor and make this one L_LOCAL
-        return L_EITHER
+        return L_LOCAL
 
     def get_all_executors(self) -> list[Executor]:
         with LOCK:
@@ -199,43 +198,63 @@ class ThreadExecutorManager(ExecutorManager):
             self,
             logger: EventStream,
             reclaim_all_once: Callable[[], tuple[int, int]]) -> None:
+        conn_error = 0
+        general_error = 0
+
+        def reclaim() -> None:
+            nonlocal conn_error
+            nonlocal general_error
+
+            try:
+                executor_count, listener_count = reclaim_all_once()
+                if executor_count or listener_count:
+                    logger.log_event(
+                        "tally.executor.reclaim",
+                        {
+                            "name": "executor",
+                            "action": "reclaim",
+                            "executors": executor_count,
+                            "listeners": listener_count,
+                        })
+                conn_error = 0
+                general_error = 0
+            except (ConnectionError, redis_lib.ConnectionError):
+                conn_error += 1
+                if conn_error > 10:
+                    logger.log_error(
+                        "error.executor", "connection")
+                time.sleep(60)
+            except Exception:  # pylint: disable=broad-exception-caught
+                general_error += 1
+                if general_error > 10:
+                    raise
+                logger.log_error("error.executor", "uncaught_executor")
+                time.sleep(10)
+            reclaim_sleep = self._reclaim_sleep
+            if reclaim_sleep > 0.0:
+                time.sleep(reclaim_sleep)
 
         def run() -> None:
-            try:
-                while True:
-                    conn_error = 0
-                    general_error = 0
-                    try:
-                        executor_count, listener_count = reclaim_all_once()
-                        if executor_count or listener_count:
-                            logger.log_event(
-                                "tally.executor.reclaim",
-                                {
-                                    "name": "executor",
-                                    "action": "reclaim",
-                                    "executors": executor_count,
-                                    "listeners": listener_count,
-                                })
-                    except (ConnectionError, redis_lib.ConnectionError):
-                        conn_error += 1
-                        if conn_error > 10:
-                            logger.log_error("error.executor", "connection")
-                        time.sleep(60)
-                    except Exception:  # pylint: disable=broad-exception-caught
-                        general_error += 1
-                        if general_error > 10:
-                            raise
-                        logger.log_error(
-                            "error.executor", "uncaught_executor")
-                        time.sleep(10)
-                    reclaim_sleep = self._reclaim_sleep
-                    if reclaim_sleep > 0.0:
-                        time.sleep(reclaim_sleep)
-            finally:
-                with LOCK:
-                    self._reclaim = None
-                    logger.log_error(
-                        "error.executor", "uncaught_executor")
+            with add_context({"executor": self.get_own_id()}):
+                try:
+                    logger.log_event(
+                        "tally.executor.start",
+                        {
+                            "name": "executor",
+                            "action": "reclaim_start",
+                        })
+                    while True:
+                        reclaim()
+                finally:
+                    logger.log_event(
+                        "tally.executor.stop",
+                        {
+                            "name": "executor",
+                            "action": "reclaim_stop",
+                        })
+                    with LOCK:
+                        self._reclaim = None
+                        logger.log_error("error.executor", "uncaught_executor")
 
         if self._reclaim is not None:
             return
@@ -248,16 +267,15 @@ class ThreadExecutorManager(ExecutorManager):
             self._reclaim = thread
             thread.start()
 
-    def execute(
+    def execute(  # pylint: disable=useless-return
             self,
             logger: EventStream,
-            work: Callable[[ExecutorManager], bool]) -> None:
+            work: Callable[[ExecutorManager], bool]) -> int | None:
         if self._work is not work or self._logger is not logger:
             self._work = work
             self._logger = logger
             self._maybe_start()
             # NOTE: propagate the work to all other thread executors
-            # this is only needed / possible for local executors
             with LOCK:
                 executors = list(EXECUTORS.values())
             for exe in executors:
@@ -265,7 +283,9 @@ class ThreadExecutorManager(ExecutorManager):
                 same_work = exe.get_work() is work
                 same_logger = self.get_logger() is logger
                 if (not same_work or not same_logger) and is_active:
-                    exe.execute(logger, work)
+                    if exe.execute(logger, work) is not None:
+                        raise RuntimeError("this should not happen!")
+        return None
 
     @staticmethod
     def allow_parallel() -> bool:

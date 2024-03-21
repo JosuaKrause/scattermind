@@ -447,7 +447,7 @@ class ExecutorManager(Module):
     def execute(
             self,
             logger: EventStream,
-            work: Callable[['ExecutorManager'], bool]) -> None:
+            work: Callable[['ExecutorManager'], bool]) -> int | None:
         """
         At its core, this function calls `work` repeatedly until `work` returns
         True. The function might also do bookkeeping and setting the "active"
@@ -461,6 +461,13 @@ class ExecutorManager(Module):
             logger (EventStream): The logger.
             work (Callable[[ExecutorManager], bool]): The work. Call this
                 function until it returns True (i.e., work is done).
+
+        Returns:
+            int | None: If this call is blocking (i.e., work is directly done
+                inside the function call) then the function returns an integer
+                exit code. If it is non-blocking (i.e., calling this function
+                starts the execution somewhere else) the the function returns
+                None.
         """
         raise NotImplementedError()
 

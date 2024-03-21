@@ -193,7 +193,7 @@ class RedisQueuePool(QueuePool):
         n_then.add(res.set_at(ix, elem[0]))
         a_then, _ = n_then.if_(check_assertions)
         asserts = RedisVar(Strs(assert_key_base, ":", elem[0]))
-        a_then.add(aqid.assign(asserts.get()))
+        a_then.add(aqid.assign(asserts.get_value()))
         a_then.add(asserts.delete())
         e_then, _ = a_then.if_(aqid.ne_(qid))
         e_then.add(is_error.assign(True))

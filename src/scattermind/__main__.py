@@ -19,10 +19,18 @@ def run() -> None:
     Parses the command line arguments and runs the corresponding app.
     """
     # pylint: disable=import-outside-toplevel
+    import argparse
+    import sys
+    from collections.abc import Callable
+
     from scattermind.app.args import parse_args
 
     args = parse_args()
-    args.func(args)
+    func: Callable[[argparse.Namespace], int | None] = args.func
+    ret = func(args)
+    if ret is None:
+        return
+    sys.exit(ret)
 
 
 if __name__ == "__main__":

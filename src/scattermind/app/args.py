@@ -14,7 +14,6 @@
 """Parses command line arguments of the scattermind CLI."""
 import argparse
 import json
-import sys
 from typing import cast
 
 from scattermind.api.loader import get_version_info, load_api, VersionInfo
@@ -80,10 +79,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a scattermind command.")
     subparser = parser.add_subparsers(title="Commands")
 
-    def run_worker(args: argparse.Namespace) -> None:
+    def run_worker(args: argparse.Namespace) -> int | None:
         version_info = get_version_info(args.version_file)
         display_welcome(args, "worker", version_info)
-        worker_start(
+        return worker_start(
             config_file=args.config,
             graph_def=args.graph,
             device=args.device,
@@ -93,16 +92,16 @@ def parse_args() -> argparse.Namespace:
     subparser_worker.set_defaults(func=run_worker)
     parse_args_worker(subparser_worker)
 
-    def run_healthcheck(args: argparse.Namespace) -> None:
+    def run_healthcheck(args: argparse.Namespace) -> int | None:
         config_file = args.config
         with open(config_file, "rb") as fin:
             config_obj = cast(ConfigJSON, json.load(fin))
         config = load_api(config_obj)
         hc_count = perform_healthcheck(config)
         if hc_count > 0:
-            return
+            return 0
         print(f"healthcheck has failed with {hc_count}")
-        sys.exit(1)
+        return 1
 
     subparser_hc = subparser.add_parser("healthcheck")
     subparser_hc.set_defaults(func=run_healthcheck)

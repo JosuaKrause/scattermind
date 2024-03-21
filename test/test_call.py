@@ -32,7 +32,7 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 
 
 @pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])
-@pytest.mark.parametrize("parallelism", [0, 1, 2, 3])
+@pytest.mark.parametrize("parallelism", [0, 1, 2, 3, -1])
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_simple_call(
         batch_size: int, parallelism: int, is_redis: bool) -> None:

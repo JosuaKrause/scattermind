@@ -165,7 +165,8 @@ def load_test(
         max_store_size (int, optional): The maximum payload data store size
             for local stores. Defaults to 1024*1024.
         parallelism (int, optional): Whether use multiple executor managers
-            via threads. Defaults to 0.
+            via threads. If 0 a single executor is used. If -1 the redis
+            executor is used. Defaults to 0.
         batch_size (int, optional): The batch size defining the number of
             tasks that get computed together. Defaults to 5.
         no_cache (bool, optional): Whether to use no caching. Defaults to True.
@@ -186,11 +187,22 @@ def load_test(
             "sleep_on_idle": 0.01,
             "reclaim_sleep": 60.0,
         }
-    else:
+    elif parallelism == -1:
+        executor_manager = {
+            "name": "redis",
+            "batch_size": batch_size,
+            "sleep_on_idle": 0.01,
+            "reclaim_sleep": 60.0,
+            "heartbeat_time": 1.0,
+            "cfg": get_test_config(),
+        }
+    elif parallelism == 0:
         executor_manager = {
             "name": "single",
             "batch_size": batch_size,
         }
+    else:
+        raise ValueError(f"invalid parallelism: {parallelism}")
     if is_redis:
         client_pool = {
             "name": "redis",

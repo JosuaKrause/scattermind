@@ -32,7 +32,7 @@ from scattermind.system.torch_util import str_to_tensor, tensor_to_str
 from scattermind.system.util import get_short_hash
 
 
-@pytest.mark.parametrize("parallelism", [1, 2, 4])
+@pytest.mark.parametrize("parallelism", [1, 2, 4, -1])
 @pytest.mark.parametrize("is_redis", [False, True])
 @pytest.mark.parametrize("is_cache", [False, True])
 @pytest.mark.parametrize("cache_main", [False, True])

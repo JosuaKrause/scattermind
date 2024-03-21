@@ -30,7 +30,7 @@ def worker_start(
         config_file: str,
         graph_def: str,
         device: str | None,
-        version_info: VersionInfo | None) -> None:
+        version_info: VersionInfo | None) -> int | None:
     """
     Load configuration, graph, and start execution.
 
@@ -40,6 +40,10 @@ def worker_start(
             graph definition files.
         device (str): Overrides the system device if set.
         version_info (VersionInfo | None): External version info.
+
+    Returns:
+        int | None: If the result is not None, then the integer should be used
+            as exit code.
     """
     if device is not None:
         set_system_device(device)
@@ -65,4 +69,4 @@ def worker_start(
             load_graph(fname)
     else:
         load_graph(graph_def)
-    config.run()
+    return config.run()
