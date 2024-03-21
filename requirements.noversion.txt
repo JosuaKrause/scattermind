@@ -1,7 +1,6 @@
 flake8
 flake8-commas
 flake8-isort
-git+https://github.com/JosuaKrause/redipy.git@jk-features
 isort
 mypy
 numpy

@@ -58,8 +58,22 @@ fi
 
 ${PYTHON} -m pip install --progress-bar off --upgrade pip
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.txt
-${PYTHON} -m pip uninstall -y redipy  # FIXME temporary
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.dev.txt
+
+# FIXME temporary redipy branch
+USE_REDIPY_DEV="${USE_REDIPY_DEV:-1}"
+
+if [ ! -z "${USE_REDIPY_DEV}" ]; then
+    REDIPY_PATH="../redipy"
+    REDIPY_BRANCH="jk-features"
+    REDIPY_URL="git+https://github.com/JosuaKrause/redipy.git"
+    ${PYTHON} -m pip uninstall -y redipy
+    if [ -d "${REDIPY_PATH}" ]; then
+        ${PYTHON} -m pip install --upgrade -e "${REDIPY_PATH}"
+    else
+        ${PYTHON} -m pip install --upgrade "${REDIPY_URL}@${REDIPY_BRANCH}"
+    fi
+fi
 
 if [ ! -z "${PYTORCH}" ]; then
     ${PYTHON} -c "${PY_TORCH_VERIFY}"

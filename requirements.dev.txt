@@ -1,7 +1,6 @@
 flake8-commas>=2.1.0
 flake8-isort>=6.1.1
 flake8>=5.0.4
-git+https://github.com/JosuaKrause/redipy.git@jk-features
 isort==5.13.2
 pre-commit>=3.4.0
 pycodestyle>=2.9.1

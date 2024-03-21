@@ -35,7 +35,7 @@
 
 [tool.setuptools.dynamic]
     dependencies = {file = ["requirements.txt"]}
-    optional-dependencies.test = { file = ["requirements.dev.txt"] }
+    optional-dependencies.test = {file = ["requirements.dev.txt"]}
 
 [tool.isort]
     extend_skip = [".json", ".md"]
