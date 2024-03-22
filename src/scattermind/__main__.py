@@ -25,8 +25,9 @@ def run() -> None:
 
     from scattermind.app.args import parse_args
 
-    args, func, is_boot = parse_args()
+    is_boot = "--boot" in sys.argv
     try:
+        args, func = parse_args()
         execute = func(args)
     except Exception:  # pylint: disable=broad-except
         if is_boot:

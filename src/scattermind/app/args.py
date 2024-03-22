@@ -72,18 +72,15 @@ def display_welcome(
 
 def parse_args() -> tuple[
         argparse.Namespace,
-        Callable[[argparse.Namespace], Callable[[], int | None]],
-        bool]:
+        Callable[[argparse.Namespace], Callable[[], int | None]]]:
     """
     Parse command line arguments for the scattermind CLI.
 
     Returns:
         tuple[
                 argparse.Namespace,
-                Callable[[argparse.Namespace], Callable[[], int | None]],
-                bool]: A tuple of the parsed arguments, the execute function
-            to run, and whether we are booting up (if we are booting we loop
-            on error to avoid restart loops).
+                Callable[[argparse.Namespace], Callable[[], int | None]]]: A
+            tuple of the parsed arguments and the execute function to run.
     """
     parser = argparse.ArgumentParser(description="Run a scattermind command.")
     subparser = parser.add_subparsers(title="Commands")
@@ -141,7 +138,9 @@ def parse_args() -> tuple[
     parser.add_argument(
         "--boot",
         action="store_true",
-        help="if booting, do not exit on load error")
+        help=(
+            "if booting, do not exit on load error. "
+            "this prevents crash restart loops"))
 
     args = parser.parse_args()
-    return args, args.func, args.boot
+    return args, args.func
