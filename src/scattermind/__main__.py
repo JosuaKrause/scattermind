@@ -25,20 +25,33 @@ def run() -> None:
 
     from scattermind.app.args import parse_args
 
+    def handle_error(*, loop: bool) -> None:
+        if loop:
+            print("Error on boot!")
+        else:
+            print("Fatal error!")
+        print(traceback.format_exc())
+        sys.stderr.flush()
+        sys.stdout.flush()
+        time.sleep(10)
+        while loop:
+            time.sleep(60)
+
     is_boot = "--boot" in sys.argv
+    start_time = time.monotonic()
     try:
         args, func = parse_args()
         execute = func(args)
-    except Exception:  # pylint: disable=broad-except
+    except BaseException:  # pylint: disable=broad-except
         if is_boot:
-            print("Error on boot!")
-            print(traceback.format_exc())
-            sys.stderr.flush()
-            sys.stdout.flush()
-            while True:
-                time.sleep(60)
+            handle_error(loop=True)
         raise
-    ret = execute()
+    try:
+        ret = execute()
+    except BaseException:  # pylint: disable=broad-except
+        if is_boot:
+            handle_error(loop=time.monotonic() - start_time < 60.0)
+        raise
     if ret is None:
         return
     sys.exit(ret)
