@@ -108,6 +108,10 @@ def init_healthcheck(
     return server, prefix
 
 
+HEALTHCHECK_SERVER: QuickServer | None = None
+"""The healthcheck server."""
+
+
 def start_healthcheck(server: QuickServer, prefix: str) -> None:
     """
     Starts the healthcheck API server.
@@ -116,6 +120,9 @@ def start_healthcheck(server: QuickServer, prefix: str) -> None:
         server (QuickServer): The server.
         prefix (str): The URL prefix.
     """
+    global HEALTHCHECK_SERVER  # pylint: disable=global-statement
+
+    HEALTHCHECK_SERVER = server
 
     def start() -> None:
         addr, port = server.server_address
@@ -132,6 +139,16 @@ def start_healthcheck(server: QuickServer, prefix: str) -> None:
     th.start()
 
 
+def stop_healthcheck() -> None:
+    """Stops the healthcheck if it was running."""
+    global HEALTHCHECK_SERVER  # pylint: disable=global-statement
+
+    server = HEALTHCHECK_SERVER
+    HEALTHCHECK_SERVER = None
+    if server is not None:
+        server.done = True
+
+
 def maybe_start_healthcheck(
         config: Config, version_info: VersionInfo | None) -> None:
     """
@@ -142,11 +159,12 @@ def maybe_start_healthcheck(
         version_info (VersionInfo | None): External version info.
     """
     hc = config.get_healthcheck()
-    if hc is not None:
-        _, addr, port = hc
-        server, prefix = init_healthcheck(
-            addr, port, config.get_executor_manager(), version_info)
-        start_healthcheck(server, prefix)
+    if hc is None:
+        return
+    _, addr, port = hc
+    server, prefix = init_healthcheck(
+        addr, port, config.get_executor_manager(), version_info)
+    start_healthcheck(server, prefix)
 
 
 def perform_healthcheck(config: ScattermindAPI) -> int:

@@ -24,6 +24,7 @@ def run() -> None:
     import traceback
 
     from scattermind.app.args import parse_args
+    from scattermind.app.healthcheck import stop_healthcheck
 
     def handle_error(*, loop: bool) -> None:
         if loop:
@@ -34,6 +35,7 @@ def run() -> None:
         sys.stderr.flush()
         sys.stdout.flush()
         time.sleep(10)
+        stop_healthcheck()
         while loop:
             time.sleep(60)
 
