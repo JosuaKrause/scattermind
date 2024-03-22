@@ -14,6 +14,7 @@
 """Parses command line arguments of the scattermind CLI."""
 import argparse
 import json
+from collections.abc import Callable
 from typing import cast
 
 from scattermind.api.loader import get_version_info, load_api, VersionInfo
@@ -69,39 +70,52 @@ def display_welcome(
         print(f"{version_info[0]} ({version_info[1]}) on {version_info[2]}")
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args() -> tuple[
+        argparse.Namespace,
+        Callable[[argparse.Namespace], Callable[[], int | None]],
+        bool]:
     """
     Parse command line arguments for the scattermind CLI.
 
     Returns:
-        argparse.Namespace: The arguments.
+        tuple[
+                argparse.Namespace,
+                Callable[[argparse.Namespace], Callable[[], int | None]],
+                bool]: A tuple of the parsed arguments, the execute function
+            to run, and whether we are booting up (if we are booting we loop
+            on error to avoid restart loops).
     """
     parser = argparse.ArgumentParser(description="Run a scattermind command.")
     subparser = parser.add_subparsers(title="Commands")
 
-    def run_worker(args: argparse.Namespace) -> int | None:
+    def run_worker(args: argparse.Namespace) -> Callable[[], int | None]:
         version_info = get_version_info(args.version_file)
         display_welcome(args, "worker", version_info)
-        return worker_start(
+        execute = worker_start(
             config_file=args.config,
             graph_def=args.graph,
             device=args.device,
             version_info=version_info)
+        return execute
 
     subparser_worker = subparser.add_parser("worker")
     subparser_worker.set_defaults(func=run_worker)
     parse_args_worker(subparser_worker)
 
-    def run_healthcheck(args: argparse.Namespace) -> int | None:
-        config_file = args.config
+    def run_healthcheck(args: argparse.Namespace) -> Callable[[], int | None]:
+        config_file: str = args.config
         with open(config_file, "rb") as fin:
             config_obj = cast(ConfigJSON, json.load(fin))
         config = load_api(config_obj)
-        hc_count = perform_healthcheck(config)
-        if hc_count > 0:
-            return 0
-        print(f"healthcheck has failed with {hc_count}")
-        return 1
+
+        def execute() -> int | None:
+            hc_count = perform_healthcheck(config)
+            if hc_count > 0:
+                return 0
+            print(f"healthcheck has failed with {hc_count}")
+            return 1
+
+        return execute
 
     subparser_hc = subparser.add_parser("healthcheck")
     subparser_hc.set_defaults(func=run_healthcheck)
@@ -124,5 +138,10 @@ def parse_args() -> argparse.Namespace:
         "--no-welcome",
         action="store_true",
         help="suppresses the welcome message")
+    parser.add_argument(
+        "--boot",
+        action="store_true",
+        help="if booting, do not exit on load error")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    return args, args.func, args.boot

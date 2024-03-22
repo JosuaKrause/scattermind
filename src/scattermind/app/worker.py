@@ -14,6 +14,7 @@
 """A scattermind worker process."""
 import json
 import os
+from collections.abc import Callable
 from typing import cast
 
 from scattermind.api.loader import VersionInfo
@@ -30,7 +31,7 @@ def worker_start(
         config_file: str,
         graph_def: str,
         device: str | None,
-        version_info: VersionInfo | None) -> int | None:
+        version_info: VersionInfo | None) -> Callable[[], int | None]:
     """
     Load configuration, graph, and start execution.
 
@@ -42,7 +43,8 @@ def worker_start(
         version_info (VersionInfo | None): External version info.
 
     Returns:
-        int | None: If the result is not None, then the integer should be used
+        Callable[[], int | None]: The function to execute the actual work.
+            If its result is not None, then the integer should be used
             as exit code.
     """
     if device is not None:
@@ -69,4 +71,4 @@ def worker_start(
             load_graph(fname)
     else:
         load_graph(graph_def)
-    return config.run(force_no_block=False)
+    return lambda: config.run(force_no_block=False)

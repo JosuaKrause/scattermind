@@ -19,15 +19,23 @@ def run() -> None:
     Parses the command line arguments and runs the corresponding app.
     """
     # pylint: disable=import-outside-toplevel
-    import argparse
     import sys
-    from collections.abc import Callable
+    import time
+    import traceback
 
     from scattermind.app.args import parse_args
 
-    args = parse_args()
-    func: Callable[[argparse.Namespace], int | None] = args.func
-    ret = func(args)
+    args, func, is_boot = parse_args()
+    try:
+        execute = func(args)
+    except Exception:  # pylint: disable=broad-except
+        if is_boot:
+            print("Error on boot!")
+            print(traceback.format_exc())
+            while True:
+                time.sleep(60)
+        raise
+    ret = execute()
     if ret is None:
         return
     sys.exit(ret)
