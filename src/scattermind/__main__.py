@@ -34,6 +34,7 @@ def run() -> None:
         if is_boot:
             print("Error on boot!")
             print(traceback.format_exc())
+            sys.stderr.flush()
             sys.stdout.flush()
             while True:
                 time.sleep(60)

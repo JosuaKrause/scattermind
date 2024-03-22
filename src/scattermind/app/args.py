@@ -14,6 +14,7 @@
 """Parses command line arguments of the scattermind CLI."""
 import argparse
 import json
+import sys
 from collections.abc import Callable
 from typing import cast
 
@@ -66,6 +67,7 @@ def display_welcome(
     print(
         f"Starting {scattermind.__name__}({scattermind.__version__}) "
         f"as {command}")
+    print(f"python version: {sys.version}")
     if version_info is not None:
         print(f"{version_info[0]} ({version_info[1]}) on {version_info[2]}")
 
