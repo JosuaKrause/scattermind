@@ -898,7 +898,10 @@ class QueuePool(Module):
                             f"{traceback.format_exc()}")
                         # FIXME: log exception
                         # NOTE: node is faulty
-                        return (node, node == current_node)
+                        return (
+                            node,
+                            current_node is None or node == current_node,
+                        )
                     try:
                         process_node(good_node, candidate_node)
                     except Exception:  # pylint: disable=broad-except
@@ -908,7 +911,11 @@ class QueuePool(Module):
                             f"{traceback.format_exc()}")
                         # FIXME: log exception
                         # NOTE: candidate_node is faulty
-                        return (candidate_node, candidate_node == current_node)
+                        return (
+                            candidate_node,
+                            (current_node is None
+                                or candidate_node == current_node),
+                        )
         if current_node is None or good_node is None:
             print(
                 f"candidate={candidate_node.get_qualified_name(self)} "
