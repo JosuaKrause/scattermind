@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Runs the scattermind application."""
+print("hi")
 
 
 def run() -> None:
@@ -33,6 +34,7 @@ def run() -> None:
         if is_boot:
             print("Error on boot!")
             print(traceback.format_exc())
+            sys.stdout.flush()
             while True:
                 time.sleep(60)
         raise
