@@ -14,8 +14,6 @@
 """A scattermind worker process."""
 import json
 import os
-import sys
-import time
 from collections.abc import Callable
 from typing import cast
 
@@ -57,12 +55,6 @@ def worker_start(
     config: Config = load_config(ExecutorId.create, config_obj)
 
     maybe_start_healthcheck(config, version_info)
-
-    # FIXME: testing healthcheck
-    sys.stderr.flush()
-    sys.stdout.flush()
-    while True:
-        time.sleep(60.0)
 
     def load_graph(graph_file: str) -> None:
         with open(graph_file, "rb") as fin:
