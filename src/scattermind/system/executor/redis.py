@@ -175,6 +175,7 @@ class RedisExecutorManager(ExecutorManager):
                         logger.log_error("error.executor", "uncaught_executor")
 
         if self._heartbeat is not None:
+            print("could not start heartbeat. heartbeat already running")
             return
         heartbeat = threading.Thread(
             target=run,
@@ -217,50 +218,66 @@ class RedisExecutorManager(ExecutorManager):
             reclaim_all_once: Callable[[], tuple[int, int]]) -> None:
         own_id = self.get_own_id()
 
-        def run() -> None:
-            running = True
-            try:
-                conn_error = 0
-                general_error = 0
-                while reclaim is self._reclaim:
-                    try:
-                        executor_count, listener_count = reclaim_all_once()
-                        if executor_count or listener_count:
-                            logger.log_event(
-                                "tally.executor.reclaim",
-                                {
-                                    "name": "executor",
-                                    "action": "reclaim",
-                                    "executors": executor_count,
-                                    "listeners": listener_count,
-                                })
-                        conn_error = 0
-                        general_error = 0
-                    except (ConnectionError, redis_lib.ConnectionError):
-                        conn_error += 1
-                        if conn_error > 10:
-                            logger.log_error("error.executor", "connection")
-                        time.sleep(60)
-                    except Exception:  # pylint: disable=broad-exception-caught
-                        general_error += 1
-                        if general_error > 10:
-                            raise
-                        logger.log_error(
-                            "error.executor", "uncaught_executor")
-                        time.sleep(10)
-                    if not self.is_active(own_id):
-                        break
-                    reclaim_sleep = self._reclaim_sleep
-                    if reclaim_sleep > 0.0:
-                        time.sleep(reclaim_sleep)
-                running = False
-            finally:
-                self._reclaim = None
-                if running:
+        def do_reclaim() -> None:
+            conn_error = 0
+            general_error = 0
+            while reclaim is self._reclaim:
+                try:
+                    executor_count, listener_count = reclaim_all_once()
+                    if executor_count > 0 or listener_count > 0:
+                        logger.log_event(
+                            "tally.executor.reclaim",
+                            {
+                                "name": "executor",
+                                "action": "reclaim",
+                                "executors": executor_count,
+                                "listeners": listener_count,
+                            })
+                    conn_error = 0
+                    general_error = 0
+                except (ConnectionError, redis_lib.ConnectionError):
+                    conn_error += 1
+                    if conn_error > 10:
+                        logger.log_error("error.executor", "connection")
+                    time.sleep(60)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    general_error += 1
                     logger.log_error(
                         "error.executor", "uncaught_executor")
+                    if general_error > 10:
+                        raise
+                    time.sleep(10)
+                if not self.is_active(own_id):
+                    break
+                reclaim_sleep = self._reclaim_sleep
+                if reclaim_sleep > 0.0:
+                    time.sleep(reclaim_sleep)
+
+        def run() -> None:
+            with add_context({"executor": self.get_own_id()}):
+                running = True
+                try:
+                    logger.log_event(
+                        "tally.executor.start",
+                        {
+                            "name": "executor",
+                            "action": "reclaim_start",
+                        })
+                    do_reclaim()
+                    running = False
+                finally:
+                    logger.log_event(
+                        "tally.executor.stop",
+                        {
+                            "name": "executor",
+                            "action": "reclaim_stop",
+                        })
+                    self._reclaim = None
+                    if running:
+                        logger.log_error("error.executor", "uncaught_executor")
 
         if self._reclaim is not None:
+            print("could not start reclaimer. reclaimer already running")
             return
         reclaim = threading.Thread(
             target=run,

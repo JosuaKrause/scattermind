@@ -54,6 +54,10 @@ def run() -> None:
         if is_boot:
             handle_error(loop=time.monotonic() - start_time < 60.0)
         raise
+    sys.stderr.flush()
+    sys.stdout.flush()
+    if is_boot:
+        time.sleep(10.0)
     if ret is None:
         return
     sys.exit(ret)
