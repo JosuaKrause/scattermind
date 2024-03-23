@@ -142,13 +142,13 @@ class RedisQueuePool(QueuePool):
 
         Args:
             qid (QueueId | None): The queue id or None to obtain the prefix
-                only.
+                pattern only.
 
         Returns:
             str: The full key. The type of the key is a set.
         """
         return cls.key(
-            "loads", "" if qid is None else f"{qid.to_parseable()}")
+            "loads", "*" if qid is None else f"{qid.to_parseable()}")
 
     def push_task_id(self, qid: QueueId, task_id: TaskId) -> None:
         # FIXME something better than two connections
