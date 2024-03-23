@@ -254,10 +254,10 @@ def test_ghost(
             assert status == TASK_STATUS_READY
             assert result is not None
             assert list(result["value"].shape) == shape
-            assert task_duration <= real_duration
-            assert task_ns == ns
             np.testing.assert_allclose(as_numpy(
                 result["value"]), expected_result)
+            assert task_duration <= real_duration
+            assert task_ns == ns
             assert config.get_status(task_id) == TASK_STATUS_DONE
             config.clear_task(task_id)
             assert config.get_namespace(task_id) is None

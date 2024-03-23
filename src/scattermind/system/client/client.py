@@ -43,7 +43,7 @@ DT = TypeVar('DT', bound=DataId)
 """The `DataId` subclass understood by a given `DataStore` implementation."""
 
 
-TASK_MAX_RETRIES = 5
+TASK_MAX_RETRIES = 10
 """The maximum number the same task can be repeated for executed before giving
 up and setting the error and updating the state to error."""
 
