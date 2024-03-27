@@ -115,7 +115,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        make install PYTHON=python
+        make install PYTHON=python USE_REDIPY_DEV=
 
     - name: Run test on Node ${{ matrix.ci_node_index }}
       run: |

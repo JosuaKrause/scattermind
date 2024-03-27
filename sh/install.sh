@@ -60,12 +60,10 @@ ${PYTHON} -m pip install --progress-bar off --upgrade pip
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.txt
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.dev.txt
 
-# FIXME temporary redipy branch
-USE_REDIPY_DEV="${USE_REDIPY_DEV:-1}"
-
 if [ ! -z "${USE_REDIPY_DEV}" ]; then
     REDIPY_PATH="../redipy"
-    REDIPY_BRANCH="jk-features"
+    # change this branch when using a development branch for redipy
+    REDIPY_BRANCH="main"
     REDIPY_URL="git+https://github.com/JosuaKrause/redipy.git"
     ${PYTHON} -m pip uninstall -y redipy
     if [ -d "${REDIPY_PATH}" ]; then
