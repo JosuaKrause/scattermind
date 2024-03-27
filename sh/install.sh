@@ -60,10 +60,12 @@ ${PYTHON} -m pip install --progress-bar off --upgrade pip
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.txt
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.dev.txt
 
-if [ ! -z "${USE_REDIPY_DEV}" ]; then
+# change this branch when using a development branch for redipy
+# change to main to deactivate
+REDIPY_BRANCH="main"
+
+if [ "${REDIPY_BRANCH}" != "main" ] && [ ! -z "${USE_REDIPY_DEV}" ]; then
     REDIPY_PATH="../redipy"
-    # change this branch when using a development branch for redipy
-    REDIPY_BRANCH="main"
     REDIPY_URL="git+https://github.com/JosuaKrause/redipy.git"
     ${PYTHON} -m pip uninstall -y redipy
     if [ -d "${REDIPY_PATH}" ]; then
