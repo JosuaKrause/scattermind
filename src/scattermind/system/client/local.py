@@ -55,6 +55,7 @@ class LocalClientPool(ClientPool):
         self._cache_ids: dict[TaskId, list[CacheId | None]] = {}
         self._stack_data: dict[TaskId, list[DataContainer]] = {}
         self._stack_frame: dict[TaskId, list[TaskFrame]] = {}
+        self._defer_task: dict[TaskId, TaskId] = {}
         self._results: dict[TaskId, TaskValueContainer | None] = {}
         self._error: dict[TaskId, ErrorInfo] = {}
         self._lock = threading.RLock()
@@ -117,6 +118,12 @@ class LocalClientPool(ClientPool):
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         return self._status.get(task_id, TASK_STATUS_UNKNOWN)
+
+    def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
+        self._defer_task[task_id] = other_task
+
+    def get_deferred_task(self, task_id: TaskId) -> TaskId | None:
+        return self._defer_task.get(task_id)
 
     def set_final_output(
             self, task_id: TaskId, final_output: TaskValueContainer) -> None:
@@ -243,6 +250,7 @@ class LocalClientPool(ClientPool):
             self._cache_ids[task_id] = []
             self._stack_data[task_id] = [{}]
             self._stack_frame[task_id] = []
+            self._defer_task.pop(task_id, None)
             print(f"{ctx_fmt()} clear progress {task_id}")
 
     def clear_task(self, task_id: TaskId) -> None:
@@ -259,5 +267,6 @@ class LocalClientPool(ClientPool):
             self._cache_ids.pop(task_id, None)
             self._stack_data.pop(task_id, None)
             self._stack_frame.pop(task_id, None)
+            self._defer_task.pop(task_id, None)
             self._error.pop(task_id, None)
             print(f"{ctx_fmt()} clear {task_id}")

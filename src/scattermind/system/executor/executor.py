@@ -286,7 +286,7 @@ class ExecutorManager(Module):
             for task_id, error in maybe_requeue.items():
                 with add_context({"task": task_id}):
                     queue_pool.maybe_requeue_task_id(
-                        logger, store, task_id, error)
+                        logger, store, task_id, error_info=error)
             queue.unclaim_tasks(own_id)
             return True
 
@@ -351,7 +351,7 @@ class ExecutorManager(Module):
                             logger,
                             store,
                             reclaim_id,
-                            {
+                            error_info={
                                 "ctx": get_ctx(),
                                 "message": "executor is unresponsive",
                                 "code": "defunc_executor",

@@ -28,6 +28,7 @@ TaskStatus = Literal[
     "busy",
     "ready",
     "done",
+    "deferred",
     "error",
     "unknown",
 ]
@@ -44,6 +45,8 @@ TASK_STATUS_READY: TaskStatus = "ready"
 """The results of the task are ready to be read."""
 TASK_STATUS_DONE: TaskStatus = "done"
 """The results have been read and the task can be cleaned up."""
+TASK_STATUS_DEFER: TaskStatus = "deferred"
+"""The task is computed by a different task via caching."""
 TASK_STATUS_ERROR: TaskStatus = "error"
 """An error occured while executing the task."""
 TASK_STATUS_UNKNOWN: TaskStatus = "unknown"

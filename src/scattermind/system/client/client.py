@@ -82,9 +82,10 @@ class ClientPool(Module):
         Returns:
             ResponseObject: The task summary.
         """
+        status = self.get_status(task_id)
         return {
             "ns": self.get_namespace(task_id),
-            "status": self.get_status(task_id),
+            "status": status,
             "duration": self.get_duration(task_id),
             "retries": self.get_retries(task_id),
             "result":
@@ -176,13 +177,36 @@ class ClientPool(Module):
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         """
-        Retrieves the status of the given task.
+        Retrieves the status of the given task. Note, calling this method is
+        required before being able to access results.
 
         Args:
             task_id (TaskId): The task id.
 
         Returns:
             TaskStatus: The status.
+        """
+        raise NotImplementedError()
+
+    def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
+        """
+        Defers the execution of the task to the other task.
+
+        Args:
+            task_id (TaskId): The task waiting.
+            other_task (TaskId): The task executing.
+        """
+        raise NotImplementedError()
+
+    def get_deferred_task(self, task_id: TaskId) -> TaskId | None:
+        """
+        Retrieves the task that this task is deferred to if any.
+
+        Args:
+            task_id (TaskId): The task waiting.
+
+        Returns:
+            TaskId | None: The task executing or None.
         """
         raise NotImplementedError()
 
@@ -206,7 +230,9 @@ class ClientPool(Module):
             task_id: TaskId,
             output_format: DataFormat) -> 'TaskValueContainer | None':
         """
-        Retrieves the final output of the graph.
+        Retrieves the final output of the graph. `get_status` must be called
+        before this method in order to ensure that the result has been properly
+        set.
 
         Args:
             task_id (TaskId): The task id.
