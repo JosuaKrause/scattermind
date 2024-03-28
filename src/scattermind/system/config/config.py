@@ -37,6 +37,10 @@ from scattermind.system.readonly.writer import RoAWriter
 from scattermind.system.response import (
     ResponseObject,
     TASK_STATUS_DEFER,
+    TASK_STATUS_DONE,
+    TASK_STATUS_ERROR,
+    TASK_STATUS_READY,
+    TASK_STATUS_UNKNOWN,
     TaskStatus,
 )
 from scattermind.system.torch_util import DTypeName
@@ -388,6 +392,15 @@ class Config(ScattermindAPI):
         cpool = self.get_client_pool()
         res = cpool.get_status(task_id)
         if res == TASK_STATUS_DEFER:
+            defer_id = cpool.get_deferred_task(task_id)
+            if defer_id is not None:
+                defer_status = cpool.get_status(defer_id)
+                if defer_status not in (
+                        TASK_STATUS_READY,
+                        TASK_STATUS_DONE,
+                        TASK_STATUS_ERROR,
+                        TASK_STATUS_UNKNOWN):
+                    return defer_status
             logger = self.get_logger()
             store = self.get_data_store()
             queue_pool = self.get_queue_pool()
