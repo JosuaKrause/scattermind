@@ -29,7 +29,7 @@ class SingleExecutorManager(ExecutorManager):
 
     @staticmethod
     def locality() -> Locality:
-        return L_EITHER
+        return L_EITHER  # FIXME: figure out a way to clearly define it here
 
     def get_all_executors(self) -> list[Executor]:
         return [self.as_executor()]
@@ -49,9 +49,10 @@ class SingleExecutorManager(ExecutorManager):
     def execute(
             self,
             logger: EventStream,
-            work: Callable[[ExecutorManager], bool]) -> None:
+            work: Callable[[ExecutorManager], bool]) -> int | None:
         with add_context({"executor": self.get_own_id()}):
             running = True
+            error = False
             logger.log_event(
                 "tally.executor.start",
                 {
@@ -64,17 +65,25 @@ class SingleExecutorManager(ExecutorManager):
                 while not done:
                     done = not work(self)
                 running = False
+            except Exception:  # pylint: disable=broad-except
+                logger.log_error("error.executor", "uncaught_executor")
+                running = False
+                error = True
             finally:
                 self._is_active = False
-                if running:
-                    logger.log_error("error.executor", "uncaught_executor")
                 logger.log_event(
                     "tally.executor.stop",
                     {
                         "name": "executor",
                         "action": "stop",
                     })
+                if running:
+                    logger.log_error("error.executor", "uncaught_executor")
+            return 1 if running or error else 0
 
     @staticmethod
     def allow_parallel() -> bool:
         return False
+
+    def active_count(self) -> int:
+        return 1 if self._is_active else 0

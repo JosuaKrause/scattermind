@@ -82,6 +82,7 @@ GraphDefJSON = TypedDict('GraphDefJSON', {
     "vmap": ValueMapJSON,
     "nodes": list[NodeDefJSON],
     "is_block": NotRequired[bool],
+    "cache": NotRequired[bool],
 })
 """
 Graph definition. `name` and `description` are for information purposes only.
@@ -93,6 +94,8 @@ the outputs of the graph to locations in the stack frame. `nodes` is a list of
 all nodes of the graph. `is_block` specifies that the whole graph should be
 computed in one go instead pushing tasks to queues and picking them up for
 computation. If a graph is a block, only the input queue of the graph is used.
+If cache is True the inputs of the graph get cached. If the graph is not pure
+an exception is raised.
 """
 
 FullGraphDefJSON = TypedDict('FullGraphDefJSON', {
@@ -153,6 +156,8 @@ def graph_to_json(graph: Graph, queue_pool: QueuePool) -> FullGraphDefJSON:
                 wname: qual.to_parseable()
                 for wname, qual in vmap.items()
             },
+            "is_block": False,  # FIXME: implement block
+            "cache": queue_pool.is_cached_graph(graph_id),
         }
         graphs.append(gdef)
     return {
@@ -183,6 +188,7 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
     else:
         ns = GNamespace(ns_val)
     graph = Graph(ns)
+    graph_caching: list[tuple[GraphId, bool]] = []
     for gobj in def_obj["graphs"]:
         gname = QualifiedGraphName(ns, GName(gobj["name"]))
         graph_id_str = gobj.get("graph_id")
@@ -190,6 +196,7 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
             graph_id = GraphId.parse(graph_id_str)
         else:
             graph_id = GraphId.create(gname)
+        graph_caching.append((graph_id, gobj.get("cache", False)))
         queue_pool.add_graph(graph_id, gname, gobj.get("description", ""))
         node_ids: dict[NName, NodeId] = {}
         for node_obj in gobj["nodes"]:
@@ -257,4 +264,6 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
         entry_id = queue_pool.get_graph_id(
             QualifiedGraphName(ns, GName(def_obj["entry"])))
     queue_pool.set_entry_graph(ns, entry_id)
+    for graph_id, is_caching in graph_caching:
+        graph.set_caching(queue_pool, graph_id, is_caching=is_caching)
     return graph

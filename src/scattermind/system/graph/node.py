@@ -271,7 +271,10 @@ class Node:
             if not self._loads:
                 self.do_unload()
 
-    def is_pure(self, queue_pool: QueuePool) -> bool:
+    def is_pure(
+            self,
+            queue_pool: QueuePool,
+            pure_cache: dict[GraphId, bool]) -> bool:
         """
         Whether the computation of the node is "pure", i.e., whether the result
         of the node is deterministic and *only* depends on its inputs (and
@@ -282,15 +285,20 @@ class Node:
 
         Args:
             queue_pool (QueuePool): The queue pool.
+            pure_cache (dict[GraphId, bool]): Cache purity results on a graph
+                level.
 
         Returns:
             bool: True if the node returns the same result for same inputs
                 given the settings are the same.
         """
-        # FIXME actually implement a way of caching node outputs
-        return self.do_is_pure(self._graph, queue_pool)
+        return self.do_is_pure(self._graph, queue_pool, pure_cache)
 
-    def do_is_pure(self, graph: 'Graph', queue_pool: QueuePool) -> bool:
+    def do_is_pure(
+            self,
+            graph: 'Graph',
+            queue_pool: QueuePool,
+            pure_cache: dict[GraphId, bool]) -> bool:
         """
         Whether the computation of the node is "pure", i.e., whether the result
         of the node is deterministic and *only* depends on its inputs (and
@@ -302,6 +310,8 @@ class Node:
         Args:
             graph (Graph): The node's graph.
             queue_pool (QueuePool): The queue pool.
+            pure_cache (dict[GraphId, bool]): Cache purity results on a graph
+                level.
 
         Returns:
             bool: True if the node returns the same result for same inputs

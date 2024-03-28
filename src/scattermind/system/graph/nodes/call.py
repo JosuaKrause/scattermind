@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Call a subgraph for execution and present its results as the node's."""
-from scattermind.system.base import QueueId
+from scattermind.system.base import GraphId, QueueId
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.node import Node
@@ -28,8 +28,15 @@ class Call(Node):
     Call a subgraph for execution. The node arguments are the inputs to the
     subgraph and the output of the node is the output of the subgraph.
     """
-    def do_is_pure(self, graph: Graph, queue_pool: QueuePool) -> bool:
-        return graph.is_pure(queue_pool, graph.get_graph_of(self.get_id()))
+    def do_is_pure(
+            self,
+            graph: Graph,
+            queue_pool: QueuePool,
+            pure_cache: dict[GraphId, bool]) -> bool:
+        return graph.is_pure(
+            queue_pool,
+            graph.get_graph_of(self.get_id()),
+            pure_cache=pure_cache)
 
     def get_input_format(self) -> DataFormatJSON:
         return self.get_arg("args").get("format")

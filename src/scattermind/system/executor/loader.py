@@ -15,6 +15,8 @@
 from collections.abc import Callable
 from typing import Literal, TypedDict
 
+from redipy import RedisConfig
+
 from scattermind.system.base import ExecutorId
 from scattermind.system.executor.executor import ExecutorManager
 from scattermind.system.plugins import load_plugin
@@ -35,11 +37,21 @@ ThreadExecutorManagerModule = TypedDict('ThreadExecutorManagerModule', {
 """A thread executor that continues executing until the process is terminated
 or all executors are released. `parallelism` defines the number of worker
 threads."""
+RedisExecutorManagerModule = TypedDict('RedisExecutorManagerModule', {
+    "name": Literal["redis"],
+    "batch_size": int,
+    "sleep_on_idle": float,
+    "reclaim_sleep": float,
+    "heartbeat_time": float,
+    "cfg": RedisConfig,
+})
+"""A redis based executor. Ideal for distributed workers."""
 
 
 ExecutorManagerModule = (
     SingleExecutorManagerModule
     | ThreadExecutorManagerModule
+    | RedisExecutorManagerModule
 )
 """Executor manager configuration."""
 
@@ -73,6 +85,18 @@ def _load_executor_manager(
                 sleep_on_idle=module["sleep_on_idle"],
                 reclaim_sleep=module["reclaim_sleep"]),
             ThreadExecutorManager.allow_parallel(),
+        )
+    if module["name"] == "redis":
+        from scattermind.system.executor.redis import RedisExecutorManager
+        return (
+            lambda: RedisExecutorManager(
+                exec_gen(),
+                batch_size=module["batch_size"],
+                sleep_on_idle=module["sleep_on_idle"],
+                reclaim_sleep=module["reclaim_sleep"],
+                heartbeat_time=module["heartbeat_time"],
+                cfg=module["cfg"]),
+            RedisExecutorManager.allow_parallel(),
         )
     raise ValueError(f"unknown executor manager: {module['name']}")
 

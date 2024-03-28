@@ -20,6 +20,7 @@ from redipy.api import PipelineAPI
 from redipy.graph.expr import JSONType
 
 from scattermind.system.base import (
+    CacheId,
     DataId,
     GraphId,
     L_REMOTE,
@@ -27,7 +28,7 @@ from scattermind.system.base import (
     QueueId,
     TaskId,
 )
-from scattermind.system.client.client import ClientPool
+from scattermind.system.client.client import ClientPool, TaskFrame
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.error import (
     ErrorInfo,
@@ -67,6 +68,7 @@ KeyName = Literal[
     "duration",  # float
     "weight",  # float
     "byte_size",  # int
+    "cache_id",  # list cache_id str
     "stack_data",  # list obj str
     "stack_frame",  # list obj str
     "result",  # TVC str
@@ -163,18 +165,24 @@ class RedisClientPool(ClientPool):
             self.set_value(pipe, "start_time", task_id, get_time_str())
             self.set_value(pipe, "weight", task_id, f"{1.0}")
             self.set_value(pipe, "byte_size", task_id, f"{0}")
-            # NOTE: no need to set stack_frame yet
+            # NOTE: no need to set stack_frame or cache_id yet
         return task_id
+
+    def get_original_input(
+            self,
+            task_id: TaskId,
+            input_format: DataFormat) -> TaskValueContainer:
+        value = self.get_value("values", task_id)
+        if value is None:
+            raise ValueError(f"unknown task {task_id}")
+        return redis_to_tvc(value, input_format)
 
     def init_data(
             self,
             store: DataStore,
             task_id: TaskId,
-            input_format: DataFormat) -> None:
-        value = self.get_value("values", task_id)
-        if value is None:
-            raise ValueError(f"unknown task {task_id}")
-        original_input = redis_to_tvc(value, input_format)
+            input_format: DataFormat,
+            original_input: TaskValueContainer) -> None:
         byte_size = original_input.byte_size(input_format)
         stack_data: DataContainer = {}  # TODO: directly place instead
         original_input.place_data(None, store, input_format, stack_data)
@@ -241,6 +249,17 @@ class RedisClientPool(ClientPool):
             return None
         return from_error_json(redis_to_robj(res))
 
+    def push_cache_id(self, task_id: TaskId, cache_id: CacheId | None) -> None:
+        self._redis.rpush(
+            self.key("cache_id", task_id),
+            "" if cache_id is None else cache_id.to_parseable())
+
+    def pop_cache_id(self, task_id: TaskId) -> CacheId | None:
+        res = self._redis.rpop(self.key("cache_id", task_id))
+        if not res:
+            return None
+        return CacheId.parse(res)
+
     def inc_retries(self, task_id: TaskId) -> int:
         return int(self._redis.incrby(self.key("retries", task_id), 1))
 
@@ -250,11 +269,8 @@ class RedisClientPool(ClientPool):
             return 0
         return int(res)
 
-    def get_task_start(self, task_id: TaskId) -> str:
-        res = self.get_value("start_time", task_id)
-        if res is None:
-            raise ValueError(f"no start time set for {task_id}")
-        return res
+    def get_task_start(self, task_id: TaskId) -> str | None:
+        return self.get_value("start_time", task_id)
 
     def set_duration_value(self, task_id: TaskId, seconds: float) -> None:
         with self._redis.pipeline() as pipe:
@@ -273,7 +289,7 @@ class RedisClientPool(ClientPool):
             *,
             weight: float,
             byte_size: int,
-            push_frame: tuple[NName, GraphId, QueueId] | None) -> GNamespace:
+            push_frame: TaskFrame | None) -> GNamespace:
         # FIXME proper operation grouping
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "weight", task_id, f"{weight}")
@@ -300,7 +316,7 @@ class RedisClientPool(ClientPool):
             self,
             task_id: TaskId,
             data_id_type: type[DataId],
-            ) -> tuple[tuple[NName, GraphId, QueueId] | None, DataContainer]:
+            ) -> tuple[TaskFrame | None, DataContainer]:
         # FIXME proper operation grouping
         stack_data_key = self.key("stack_data", task_id)
         res = {
@@ -353,6 +369,7 @@ class RedisClientPool(ClientPool):
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "weight", task_id, "1.0")
             self.set_value(pipe, "byte_size", task_id, "0")
+            self.delete(pipe, "cache_id", task_id)
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
 
@@ -367,6 +384,7 @@ class RedisClientPool(ClientPool):
             self.delete(pipe, "duration", task_id)
             self.delete(pipe, "weight", task_id)
             self.delete(pipe, "byte_size", task_id)
+            self.delete(pipe, "cache_id", task_id)
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
             self.delete(pipe, "error", task_id)

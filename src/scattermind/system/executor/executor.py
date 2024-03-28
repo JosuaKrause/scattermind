@@ -200,9 +200,6 @@ class ExecutorManager(Module):
                 return False
             state = ComputeState(queue_pool, store, node, tasks)
             eqids = []
-            for qid, (weight, byte_size) in node.expected_meta(state).items():
-                queue_pool.expect_task_weight(weight, byte_size, qid, own_id)
-                eqids.append(qid)
             e_msg: str | None = None
             r_msg: str | None = None
             e_code: ErrorCode | None = None
@@ -214,6 +211,12 @@ class ExecutorManager(Module):
             success = False
             maybe_requeue: dict[TaskId, ErrorInfo] = {}
             try:
+                with logger.log_output("output.node", "prepare"):
+                    for qid, meta_info in node.expected_meta(state).items():
+                        weight, byte_size = meta_info
+                        queue_pool.expect_task_weight(
+                            weight, byte_size, qid, own_id)
+                        eqids.append(qid)
                 with logger.log_output("output.node", "execute"):
                     node.execute_tasks(state)
                 success = True
@@ -429,7 +432,7 @@ class ExecutorManager(Module):
         Starts the reclaim loop in the background. At least one reclaim loop
         should be active at any time for non-local workers. The implementation
         must loop indefinitely but can have a long period (i.e., wait time
-        between runs).
+        between runs). This method must return after starting the reclaimer.
 
         Args:
             logger (EventStream): The logger.
@@ -444,7 +447,7 @@ class ExecutorManager(Module):
     def execute(
             self,
             logger: EventStream,
-            work: Callable[['ExecutorManager'], bool]) -> None:
+            work: Callable[['ExecutorManager'], bool]) -> int | None:
         """
         At its core, this function calls `work` repeatedly until `work` returns
         True. The function might also do bookkeeping and setting the "active"
@@ -458,6 +461,13 @@ class ExecutorManager(Module):
             logger (EventStream): The logger.
             work (Callable[[ExecutorManager], bool]): The work. Call this
                 function until it returns True (i.e., work is done).
+
+        Returns:
+            int | None: If this call is blocking (i.e., work is directly done
+                inside the function call) then the function returns an integer
+                exit code. If it is non-blocking (i.e., calling this function
+                starts the execution somewhere else) the the function returns
+                None.
         """
         raise NotImplementedError()
 
@@ -471,5 +481,17 @@ class ExecutorManager(Module):
 
         Returns:
             bool: True, if local parallelism is supported.
+        """
+        raise NotImplementedError()
+
+    def active_count(self) -> int:
+        """
+        The number of active executors provided by this manager in this
+        instance. If executors are remote or in other processes they are not
+        counted. Note, that unlike `is_active` this function does not attempt
+        to retrieve the information if it is not locally available.
+
+        Returns:
+            int: The number of active executors.
         """
         raise NotImplementedError()

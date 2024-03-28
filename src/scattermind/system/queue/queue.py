@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Provides the queue and queue pool."""
+import traceback
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
 
 from scattermind.system.base import (
+    CacheId,
     ExecutorId,
     GraphId,
     Module,
     QueueId,
     TaskId,
 )
+from scattermind.system.cache.cache import GraphCache
 from scattermind.system.client.client import ClientPool, ComputeTask
 from scattermind.system.info import DataFormat
 from scattermind.system.logger.context import ctx_fmt, get_ctx
@@ -270,6 +273,7 @@ class QueuePool(Module):
         self._graph_ids: dict[QualifiedGraphName, GraphId] = {}
         self._graph_names: dict[GraphId, QualifiedGraphName] = {}
         self._graph_descs: dict[GraphId, str] = {}
+        self._graph_caching: set[GraphId] = set()
         self._input_nodes: dict[GraphId, 'Node'] = {}
         self._input_formats: dict[GraphId, DataFormat] = {}
         self._output_formats: dict[GraphId, DataFormat] = {}
@@ -278,6 +282,7 @@ class QueuePool(Module):
         self._input_queues: dict[QueueId, 'Node'] = {}
         self._node_strategy: NodeStrategy | None = None
         self._queue_strategy: QueueStrategy | None = None
+        self._graph_cache: GraphCache | None = None
 
     def set_client_pool(self, client_pool: ClientPool) -> None:
         """
@@ -379,6 +384,38 @@ class QueuePool(Module):
         self._graph_ids[gname] = graph_id
         self._graph_names[graph_id] = gname
         self._graph_descs[graph_id] = desc
+
+    def set_caching(
+            self,
+            graph_id: GraphId,
+            *,
+            is_caching: bool) -> None:
+        """
+        Sets whether to cache the inputs to the graph. Ensure the graph is pure
+        before setting the value.
+
+        Args:
+            graph_id (GraphId): The graph id.
+            is_caching (bool): Whether to cache the inputs of the graph. The
+                graph must be pure.
+        """
+        if not is_caching:
+            self._graph_caching.discard(graph_id)
+            return
+
+        self._graph_caching.add(graph_id)
+
+    def is_cached_graph(self, graph_id: GraphId) -> bool:
+        """
+        Whether the given graph input should be cached.
+
+        Args:
+            graph_id (GraphId): The graph id.
+
+        Returns:
+            bool: True, if the graph input should be cached.
+        """
+        return graph_id in self._graph_caching
 
     def get_graph_id(self, gname: QualifiedGraphName) -> GraphId:
         """
@@ -605,6 +642,29 @@ class QueuePool(Module):
             raise ValueError("queue strategy not set!")
         return self._queue_strategy
 
+    def get_graph_cache(self) -> GraphCache:
+        """
+        Gets the cache for graph inputs.
+
+        Raises:
+            ValueError: If the cache has not been set.
+
+        Returns:
+            GraphCache: The graph cache.
+        """
+        if self._graph_cache is None:
+            raise ValueError("graph cache not set!")
+        return self._graph_cache
+
+    def set_graph_cache(self, graph_cache: GraphCache) -> None:
+        """
+        Sets the cache for graph inputs.
+
+        Args:
+            graph_cache (GraphCache): The graph cache.
+        """
+        self._graph_cache = graph_cache
+
     def get_all_nodes(self) -> Iterable['Node']:
         """
         Get all nodes registered in the queue pool.
@@ -816,11 +876,51 @@ class QueuePool(Module):
                 })
             return left_node if pick_node == PICK_LEFT else right_node
 
+        good_node: 'Node | None' = None
         for node in self.get_all_nodes():
             if node == current_node:
                 continue
-            candidate_node = process_node(candidate_node, node)
-        if current_node is None:
+            try:
+                candidate_node = process_node(candidate_node, node)
+                good_node = candidate_node
+            except Exception:  # pylint: disable=broad-except
+                print(
+                    f"candidate={candidate_node.get_qualified_name(self)} "
+                    f"other={node.get_qualified_name(self)} "
+                    f"exception in strategy {traceback.format_exc()}")
+                if good_node is not None:
+                    try:
+                        process_node(good_node, node)
+                    except Exception:  # pylint: disable=broad-except
+                        print(
+                            "bad node "
+                            f"{node.get_qualified_name(self)} "
+                            f"{traceback.format_exc()}")
+                        # FIXME: log exception
+                        # NOTE: node is faulty
+                        return (
+                            node,
+                            current_node is None or node == current_node,
+                        )
+                    try:
+                        process_node(good_node, candidate_node)
+                    except Exception:  # pylint: disable=broad-except
+                        print(
+                            "bad node "
+                            f"{candidate_node.get_qualified_name(self)} "
+                            f"{traceback.format_exc()}")
+                        # FIXME: log exception
+                        # NOTE: candidate_node is faulty
+                        return (
+                            candidate_node,
+                            (current_node is None
+                                or candidate_node == current_node),
+                        )
+        if current_node is None or good_node is None:
+            print(
+                f"candidate={candidate_node.get_qualified_name(self)} "
+                f"current is best ({current_node is None}) "
+                f"or no good node ({good_node is None})")
             return (candidate_node, True)
         own_queue = self.get_queue(current_node.get_input_queue())
 
@@ -845,30 +945,31 @@ class QueuePool(Module):
         def own_loaded() -> int:
             return own_queue.get_listener_count()
 
-        other_queue = self.get_queue(candidate_node.get_input_queue())
+        def want_to_switch_to(candidate_node: 'Node') -> bool:
+            other_queue = self.get_queue(candidate_node.get_input_queue())
 
-        def other_queue_length() -> int:
-            return other_queue.get_queue_length()
+            def other_queue_length() -> int:
+                return other_queue.get_queue_length()
 
-        def other_weight() -> float:
-            return other_queue.total_weight()
+            def other_weight() -> float:
+                return other_queue.total_weight()
 
-        def other_pressure() -> float:
-            return other_queue.total_backpressure()
+            def other_pressure() -> float:
+                return other_queue.total_backpressure()
 
-        def other_expected_pressure() -> float:
-            return other_queue.total_expected_pressure()
+            def other_expected_pressure() -> float:
+                return other_queue.total_expected_pressure()
 
-        def other_cost_to_load() -> float:
-            return candidate_node.get_load_cost()
+            def other_cost_to_load() -> float:
+                return candidate_node.get_load_cost()
 
-        def other_claimants() -> int:
-            return other_queue.claimant_count()
+            def other_claimants() -> int:
+                return other_queue.claimant_count()
 
-        def other_loaded() -> int:
-            return other_queue.get_listener_count()
+            def other_loaded() -> int:
+                return other_queue.get_listener_count()
 
-        if strategy.want_to_switch(
+            return strategy.want_to_switch(
                 own_queue_length=own_queue_length,
                 own_weight=own_weight,
                 own_pressure=own_pressure,
@@ -882,8 +983,27 @@ class QueuePool(Module):
                 other_expected_pressure=other_expected_pressure,
                 other_cost_to_load=other_cost_to_load,
                 other_claimants=other_claimants,
-                other_loaded=other_loaded):
-            return (candidate_node, candidate_node != current_node)
+                other_loaded=other_loaded)
+
+        try:
+            if want_to_switch_to(candidate_node):
+                return (candidate_node, candidate_node != current_node)
+        except Exception:  # pylint: disable=broad-except
+            print(
+                f"candidate={candidate_node.get_qualified_name(self)} "
+                f"current={current_node.get_qualified_name(self)} "
+                f"error trying to switch {traceback.format_exc()}")
+            # FIXME: log exception
+            try:
+                want_to_switch_to(good_node)
+                return (candidate_node, candidate_node != current_node)
+            except Exception:  # pylint: disable=broad-except
+                print(
+                    f"current={current_node.get_qualified_name(self)} "
+                    "candidate is bad "
+                    f"{candidate_node.get_qualified_name(self)} "
+                    f"{traceback.format_exc()}")
+                # FIXME: log exception
         return (current_node, False)
 
     def enqueue_task(
@@ -904,7 +1024,9 @@ class QueuePool(Module):
         """
         cpool = self.get_client_pool()
         task_id = cpool.create_task(ns, original_input)
-        self._enqueue_task_id(cpool, store, task_id)
+        if not self._enqueue_task_id(cpool, store, task_id):
+            raise AssertionError(
+                f"newly created task is a ghost task? {task_id}")
         return task_id
 
     def maybe_requeue_task_id(
@@ -940,7 +1062,15 @@ class QueuePool(Module):
                     raise AssertionError(
                         f"{ctx_fmt()} {task_id} already waiting at {mqid}")
             cpool.clear_progress(task_id)
-            self._enqueue_task_id(cpool, store, task_id)
+            if not self._enqueue_task_id(cpool, store, task_id):
+                logger.log_event(
+                    "error.task",
+                    {
+                        "name": "ghost",
+                        "message": "Cleaned up ghost task.",
+                        "task": task_id,
+                    },
+                    adjust_ctx=adj_ctx)
 
     def handle_task_result(
             self,
@@ -957,6 +1087,7 @@ class QueuePool(Module):
                 but has not committed and pushed the task to a new queue if
                 any.
         """
+        graph_cache = self.get_graph_cache()
         cpool = self.get_client_pool()
         data_id_type = store.data_id_type()
         task_id = task.get_task_id()
@@ -990,6 +1121,9 @@ class QueuePool(Module):
                 tvc_out = TaskValueContainer.extract_data(
                     store, output_format, ret_data, final_vmap)
                 if tvc_out is not None:
+                    cache_id = cpool.pop_cache_id(task_id)
+                    if cache_id is not None:
+                        graph_cache.put_cached_output(cache_id, tvc_out)
                     cpool.set_final_output(task_id, tvc_out)
                     cpool.set_duration(task_id)
                     cpool.set_bulk_status([task_id], TASK_STATUS_READY)
@@ -1031,7 +1165,7 @@ class QueuePool(Module):
             self,
             cpool: ClientPool,
             store: DataStore,
-            task_id: TaskId) -> None:
+            task_id: TaskId) -> bool:
         """
         Raw enqueueing a task to the overall input.
 
@@ -1039,16 +1173,42 @@ class QueuePool(Module):
             cpool (ClientPool): The client pool.
             store (DataStore): The data store for storing the payload data.
             task_id (TaskId): The task id.
+
+        Returns:
+            bool: Whether the task was enqueued. Ghost tasks can get created
+                when a task is removed while it is still in a queue. This will
+                cause an error to be thrown which ultimately leads to an
+                attempt to enqueue the task again. If that happens we will
+                properly remove the task and return False here.
         """
         ns = cpool.get_namespace(task_id)
-        assert ns is not None
+        if ns is None:  # NOTE: ghost task
+            cpool.clear_task(task_id)
+            return False
         entry_graph_id = self.get_entry_graph(ns)
         input_format = self.get_input_format(entry_graph_id)
-        cpool.init_data(store, task_id, input_format)
+        original_input = cpool.get_original_input(task_id, input_format)
+        graph_cache = self.get_graph_cache()
+        cache_id: CacheId | None = None
+        if self.is_cached_graph(entry_graph_id):
+            cache_id = graph_cache.get_cache_id(
+                entry_graph_id, input_format, original_input)
+            output_format = self.get_output_format(entry_graph_id)
+            result = graph_cache.get_cached_output(cache_id, output_format)
+            if result is not None:
+                print(f"CACHE HIT {cache_id}")  # TODO: add logging
+                cpool.set_final_output(task_id, result)
+                cpool.set_duration(task_id)
+                cpool.set_bulk_status([task_id], TASK_STATUS_READY)
+                return True
+            print(f"CACHE MISS {cache_id}")  # TODO: add logging
+        cpool.push_cache_id(task_id, cache_id)
+        cpool.init_data(store, task_id, input_format, original_input)
         node = self.get_input_node(entry_graph_id)
         qid = node.get_input_queue()
         cpool.set_bulk_status([task_id], TASK_STATUS_WAIT)
         self.push_task_id(qid, task_id)
+        return True
 
     def get_compute_task(
             self,

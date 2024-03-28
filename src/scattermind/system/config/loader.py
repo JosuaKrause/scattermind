@@ -13,9 +13,10 @@
 # limitations under the License.
 """Loads a configuration from a JSON file."""
 from collections.abc import Callable
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from scattermind.system.base import ExecutorId, once_test_executors
+from scattermind.system.cache.loader import GraphCacheModule, load_graph_cache
 from scattermind.system.client.loader import ClientPoolModule, load_client_pool
 from scattermind.system.config.config import Config
 from scattermind.system.executor.loader import (
@@ -42,6 +43,14 @@ from scattermind.system.readonly.loader import (
 from scattermind.system.redis_util import get_test_config
 
 
+HealthCheck = TypedDict('HealthCheck', {
+    "address_in": str,
+    "address_out": str,
+    "port": int,
+})
+"""Address at which a healthcheck is exposed."""
+
+
 StrategyModule = TypedDict('StrategyModule', {
     "node": NodeStrategyModule,
     "queue": QueueStrategyModule,
@@ -63,9 +72,11 @@ ConfigJSON = TypedDict('ConfigJSON', {
     "data_store": DataStoreModule,
     "executor_manager": ExecutorManagerModule,
     "queue_pool": QueuePoolModule,
+    "graph_cache": GraphCacheModule,
     "strategy": StrategyModule,
     "readonly_access": ReadonlyAccessModule,
     "logger": LoggerDef,
+    "healthcheck": NotRequired[HealthCheck],
 })
 """The configuration JSON."""
 
@@ -95,11 +106,15 @@ def load_config(
         load_executor_manager(exec_gen, config_obj["executor_manager"]))
     config.set_queue_pool(load_queue_pool(config_obj["queue_pool"]))
     config.set_client_pool(load_client_pool(config_obj["client_pool"]))
+    config.set_graph_cache(load_graph_cache(config_obj["graph_cache"]))
     strategy_obj = config_obj["strategy"]
     config.set_node_strategy(load_node_strategy(strategy_obj["node"]))
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
     config.set_readonly_access(
         load_readonly_access(config_obj["readonly_access"]))
+    hc = config_obj.get("healthcheck")
+    if hc is not None:
+        config.set_healthcheck(hc["address_in"], hc["address_out"], hc["port"])
     return config
 
 
@@ -123,11 +138,15 @@ def load_as_api(config_obj: ConfigJSON) -> Config:
     config.set_data_store(load_store(config_obj["data_store"]))
     config.set_queue_pool(load_queue_pool(config_obj["queue_pool"]))
     config.set_client_pool(load_client_pool(config_obj["client_pool"]))
+    config.set_graph_cache(load_graph_cache(config_obj["graph_cache"]))
     strategy_obj = config_obj["strategy"]
     config.set_node_strategy(load_node_strategy(strategy_obj["node"]))
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
     config.set_readonly_access(
         load_readonly_access(config_obj["readonly_access"]))
+    hc = config_obj.get("healthcheck")
+    if hc is not None:
+        config.set_healthcheck(hc["address_in"], hc["address_out"], hc["port"])
     return config
 
 
@@ -136,7 +155,8 @@ def load_test(
         is_redis: bool,
         max_store_size: int = 1024 * 1024,
         parallelism: int = 0,
-        batch_size: int = 5) -> Config:
+        batch_size: int = 5,
+        no_cache: bool = True) -> Config:
     """
     Load a configuration for unit tests.
 
@@ -145,9 +165,11 @@ def load_test(
         max_store_size (int, optional): The maximum payload data store size
             for local stores. Defaults to 1024*1024.
         parallelism (int, optional): Whether use multiple executor managers
-            via threads. Defaults to 0.
+            via threads. If 0 a single executor is used. If -1 the redis
+            executor is used. Defaults to 0.
         batch_size (int, optional): The batch size defining the number of
             tasks that get computed together. Defaults to 5.
+        no_cache (bool, optional): Whether to use no caching. Defaults to True.
 
     Returns:
         Config: The configuration.
@@ -156,19 +178,31 @@ def load_test(
     client_pool: ClientPoolModule
     data_store: DataStoreModule
     queue_pool: QueuePoolModule
+    graph_cache: GraphCacheModule
     if parallelism > 0:
         executor_manager = {
             "name": "thread",
             "batch_size": batch_size,
             "parallelism": parallelism,
-            "sleep_on_idle": 0.1,
+            "sleep_on_idle": 0.01,
             "reclaim_sleep": 60.0,
         }
-    else:
+    elif parallelism == -1:
+        executor_manager = {
+            "name": "redis",
+            "batch_size": batch_size,
+            "sleep_on_idle": 0.01,
+            "reclaim_sleep": 60.0,
+            "heartbeat_time": 1.0,
+            "cfg": get_test_config(),
+        }
+    elif parallelism == 0:
         executor_manager = {
             "name": "single",
             "batch_size": batch_size,
         }
+    else:
+        raise ValueError(f"invalid parallelism: {parallelism}")
     if is_redis:
         client_pool = {
             "name": "redis",
@@ -196,11 +230,21 @@ def load_test(
             "name": "local",
             "check_assertions": True,
         }
+    if no_cache:
+        graph_cache = {
+            "name": "nocache",
+        }
+    else:
+        graph_cache = {
+            "name": "redis",
+            "cfg": get_test_config(),
+        }
     test_config: ConfigJSON = {
         "client_pool": client_pool,
         "data_store": data_store,
         "executor_manager": executor_manager,
         "queue_pool": queue_pool,
+        "graph_cache": graph_cache,
         "strategy": {
             "node": {
                 "name": "simple",

@@ -181,17 +181,20 @@ def time_diff(from_time: datetime, to_time: datetime) -> float:
     return (to_time - from_time).total_seconds()
 
 
-def seconds_since(time_str: str) -> float:
+def seconds_since(time_str: str | None) -> float:
     """
     Computes the number of seconds since the given ISO formatted time string.
 
     Args:
-        time_str (str): The ISO formatted time string.
+        time_str (str | None): The ISO formatted time string.
+            If None, 0 is returned.
 
     Returns:
         float: The number of seconds since the time string. Can be negative
             if the specified time is in the future.
     """
+    if time_str is None:
+        return 0.0
     return time_diff(parse_time_str(time_str), now())
 
 

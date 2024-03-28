@@ -11,10 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Load a constant tensor."""
-import torch
-
-from scattermind.system.base import GraphId, NodeId
+"""Concatenate two strings."""
+from scattermind.system.base import GraphId
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.node import Node
@@ -22,14 +20,11 @@ from scattermind.system.info import DataFormatJSON
 from scattermind.system.payload.values import ComputeState
 from scattermind.system.queue.queue import QueuePool
 from scattermind.system.readonly.access import ReadonlyAccess
+from scattermind.system.torch_util import str_to_tensor, tensor_to_str
 
 
-class LoadConstant(Node):
-    """Load a constant tensor."""
-    def __init__(self, kind: str, graph: Graph, node_id: NodeId) -> None:
-        super().__init__(kind, graph, node_id)
-        self._constant: torch.Tensor | None = None
-
+class StrConcat(Node):
+    """Concatenate two strings."""
     def do_is_pure(
             self,
             graph: Graph,
@@ -38,13 +33,15 @@ class LoadConstant(Node):
         return True
 
     def get_input_format(self) -> DataFormatJSON:
-        return {}
+        return {
+            "left": ("uint8", [None]),
+            "right": ("uint8", [None]),
+        }
 
     def get_output_format(self) -> dict[str, DataFormatJSON]:
-        data_info = self.get_arg("ret").get("info")
         return {
             "out": {
-                "value": data_info.to_json(),
+                "value": ("uint8", [None]),
             },
         }
 
@@ -52,16 +49,13 @@ class LoadConstant(Node):
         return 1.0
 
     def get_load_cost(self) -> float:
-        _, _, length = self.get_arg("data").get("data")
-        return length
+        return 1.0
 
     def do_load(self, roa: ReadonlyAccess) -> None:
-        data = self.get_arg("data").get("data")
-        data_info = self.get_arg("ret").get("info")
-        self._constant = roa.load_tensor(data, data_info)
+        pass
 
     def do_unload(self) -> None:
-        self._constant = None
+        pass
 
     def expected_output_meta(
             self, state: ComputeState) -> dict[str, tuple[float, int]]:
@@ -71,14 +65,25 @@ class LoadConstant(Node):
         }
 
     def execute_tasks(self, state: ComputeState) -> None:
-        assert self._constant is not None
-        tasks = list(state.get_inputs_tasks())
-        state.push_results(
-            "out",
-            tasks,
-            {
-                "value": state.create_uniform(torch.vstack([
-                    torch.unsqueeze(self._constant, 0)
-                    for _ in tasks
-                ])),
-            })
+        delimiter = self.get_arg("delimiter").get("str")
+        inputs = state.get_values()
+        lefts: list[str] = [
+            tensor_to_str(left)
+            for left in inputs.get_data("left").iter_values()
+        ]
+        rights: list[str] = [
+            tensor_to_str(right)
+            for right in inputs.get_data("right").iter_values()
+        ]
+
+        outs: list[str] = [
+            f"{left}{delimiter}{right}"
+            for left, right in zip(lefts, rights)
+        ]
+        for task, out in zip(inputs.get_current_tasks(), outs):
+            state.push_results(
+                "out",
+                [task],
+                {
+                    "value": state.create_single(str_to_tensor(out)),
+                })

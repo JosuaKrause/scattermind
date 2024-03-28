@@ -158,31 +158,40 @@ def maybe_redis_to_bytes(text: str | None) -> bytes | None:
     return redis_to_bytes(text)
 
 
-def tensor_to_redis(value: torch.Tensor) -> str:
+def tensor_to_redis(value: torch.Tensor, *, compress: bool = True) -> str:
     """
     Convert a tensor into a string that can be saved on redis.
 
     Args:
         value (torch.Tensor): The tensor.
+        compress (bool, optional): Whether to compress the output. Defaults to
+            True.
 
     Returns:
         str: The string.
     """
-    return bytes_to_redis(serialize_tensor(value))
+    return bytes_to_redis(serialize_tensor(value, compress=compress))
 
 
-def redis_to_tensor(text: str, dtype: DTypeName) -> torch.Tensor:
+def redis_to_tensor(
+        text: str,
+        dtype: DTypeName,
+        *,
+        is_compressed: bool = True) -> torch.Tensor:
     """
     Convert a previously encoded redis value back into a tensor.
 
     Args:
         text (str): The redis value.
         dtype (DTypeName): The expected dtype.
+        is_compressed (bool, optional): Whether the bytes are compressed.
+            Defaults to True.
 
     Returns:
         torch.Tensor: The tensor.
     """
-    return deserialize_tensor(redis_to_bytes(text), dtype)
+    return deserialize_tensor(
+        redis_to_bytes(text), dtype, is_compressed=is_compressed)
 
 
 def robj_to_redis(obj: Mapping) -> str:
@@ -396,7 +405,7 @@ class RStack:
         rframe = RedisHash(Strs(
             ctx.add_key("frame"),
             ":",
-            ToIntStr(rsize.get(default=0))))
+            ToIntStr(rsize.get_value(default=0))))
         field = ctx.add_arg("field")
         value = ctx.add_arg("value")
         ctx.add(rframe.hset({
@@ -411,7 +420,7 @@ class RStack:
         rframe = RedisHash(Strs(
             ctx.add_key("frame"),
             ":",
-            ToIntStr(rsize.get(default=0))))
+            ToIntStr(rsize.get_value(default=0))))
         field = ctx.add_arg("field")
         ctx.set_return_value(rframe.hget(field))
         return self._rt.register_script(ctx)
@@ -419,12 +428,12 @@ class RStack:
     def _pop_frame_script(self) -> ExecFunction:
         ctx = FnContext()
         rsize = RedisVar(ctx.add_key("size"))
-        rframe = RedisHash(
-            Strs(ctx.add_key("frame"), ":", ToIntStr(rsize.get(default=0))))
+        rframe = RedisHash(Strs(
+            ctx.add_key("frame"), ":", ToIntStr(rsize.get_value(default=0))))
         lcl = ctx.add_local(rframe.hgetall())
         ctx.add(rframe.delete())
 
-        b_then, b_else = ctx.if_(ToNum(rsize.get(default=0)).gt_(0))
+        b_then, b_else = ctx.if_(ToNum(rsize.get_value(default=0)).gt_(0))
         b_then.add(rsize.incrby(-1))
         b_else.add(rsize.delete())
 
@@ -436,7 +445,7 @@ class RStack:
         rsize = RedisVar(ctx.add_key("size"))
         base = ctx.add_local(ctx.add_key("frame"))
         field = ctx.add_arg("field")
-        pos = ctx.add_local(ToNum(rsize.get(default=0)))
+        pos = ctx.add_local(ToNum(rsize.get_value(default=0)))
         res = ctx.add_local(None)
         cur = ctx.add_local(None)
         rframe = RedisHash(cur)

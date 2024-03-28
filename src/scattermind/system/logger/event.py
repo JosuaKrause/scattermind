@@ -41,6 +41,13 @@ RetryEvent = TypedDict('RetryEvent', {
 an error that triggered the retry."""
 
 
+GhostTaskEvent = TypedDict('GhostTaskEvent', {
+    "name": Literal["ghost"],
+    "message": str,
+    "task": TaskId,
+})
+
+
 WarningEvent = TypedDict('WarningEvent', {
     "name": Literal["warning"],
     "message": str,
@@ -88,7 +95,14 @@ QueueMeasureEvent = TypedDict('QueueMeasureEvent', {
 
 ExecutorEvent = TypedDict('ExecutorEvent', {
     "name": Literal["executor"],
-    "action": Literal["start", "stop", "reclaim"],
+    "action": Literal[
+        "start",
+        "stop",
+        "reclaim",
+        "reclaim_start",
+        "reclaim_stop",
+        "heartbeat_start",
+        "heartbeat_stop"],
     "executors": NotRequired[int],
     "listeners": NotRequired[int],
 })
@@ -99,6 +113,7 @@ might not always be fired."""
 AnyEvent = (
     ErrorEvent
     | RetryEvent
+    | GhostTaskEvent
     | WarningEvent
     | TaskEvent
     | NodeEvent

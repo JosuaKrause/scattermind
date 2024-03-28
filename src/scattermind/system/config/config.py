@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Configurations connect modules together to make scattermind work."""
+import threading
+from collections.abc import Iterable
 from typing import cast, TypeVar
 
-from scattermind.api.api import ScattermindAPI
+from scattermind.api.api import QueueCounts, ScattermindAPI
 from scattermind.system.base import L_EITHER, Locality, Module, TaskId
+from scattermind.system.cache.cache import GraphCache
 from scattermind.system.client.client import ClientPool
 from scattermind.system.executor.executor import ExecutorManager
 from scattermind.system.graph.graph import Graph
@@ -32,6 +35,7 @@ from scattermind.system.queue.queue import (
 from scattermind.system.readonly.access import ReadonlyAccess
 from scattermind.system.readonly.writer import RoAWriter
 from scattermind.system.response import ResponseObject, TaskStatus
+from scattermind.system.torch_util import DTypeName
 
 
 ModuleT = TypeVar('ModuleT', bound=Module)
@@ -52,6 +56,7 @@ class Config(ScattermindAPI):
         self._store: DataStore | None = None
         self._queue_pool: QueuePool | None = None
         self._roa: ReadonlyAccess | None = None
+        self._healthcheck: tuple[str, str, int] | None = None
 
     def set_logger(self, logger: EventStream) -> None:
         """
@@ -327,6 +332,41 @@ class Config(ScattermindAPI):
         """
         return self.get_queue_pool().get_queue_strategy()
 
+    def set_graph_cache(self, graph_cache: GraphCache) -> None:
+        """
+        Sets the cache for graph inputs.
+
+        Args:
+            graph_cache (GraphCache): The graph cache.
+        """
+        self.get_queue_pool().set_graph_cache(
+            self._update_locality(graph_cache))
+
+    def get_graph_cache(self) -> GraphCache:
+        """
+        Get the cache for graph inputs.
+
+        Returns:
+            GraphCache: The graph cache.
+        """
+        return self.get_queue_pool().get_graph_cache()
+
+    def set_healthcheck(self, addr_in: str, addr_out: str, port: int) -> None:
+        """
+        Sets the address at which a healthcheck is exposed.
+
+        Args:
+            addr_in (str): The address to listen to the healthcheck
+                (e.g., "worker").
+            addr_out (str): The address to expose the healthcheck to
+                (e.g., "0.0.0.0").
+            port (int): The port.
+        """
+        self._healthcheck = (addr_in, addr_out, port)
+
+    def get_healthcheck(self) -> tuple[str, str, int] | None:
+        return self._healthcheck
+
     def load_graph(self, graph_def: FullGraphDefJSON) -> GNamespace:
         graph = json_to_graph(self.get_queue_pool(), graph_def)
         return self.add_graph(graph)
@@ -368,9 +408,18 @@ class Config(ScattermindAPI):
         cpool = self.get_client_pool()
         cpool.clear_task(task_id)
 
-    def run(self) -> None:
+    def run(self, *, force_no_block: bool) -> int | None:
         """
         Run the executor given by this configuration.
+
+        Args:
+            force_no_block (bool): If set, forces the function to become
+                non-blocking.
+
+        Returns:
+            int | None: If the call is blocking (i.e., the work is done inside
+                this function call) the exit code is returned as int. Otherwise
+                the function returns None.
         """
         executor_manager = self.get_executor_manager()
         queue_pool = self.get_queue_pool()
@@ -387,7 +436,15 @@ class Config(ScattermindAPI):
         def work(emng: ExecutorManager) -> bool:
             return emng.execute_batch(logger, queue_pool, store, roa)
 
-        executor_manager.execute(logger, work)
+        def do_execute() -> int | None:
+            return executor_manager.execute(logger, work)
+
+        if not force_no_block:
+            return do_execute()
+
+        th = threading.Thread(target=do_execute, daemon=False)
+        th.start()
+        return None
 
     def namespaces(self) -> set[GNamespace]:
         return set(self._graphs.keys())
@@ -406,3 +463,29 @@ class Config(ScattermindAPI):
         queue_pool = self.get_queue_pool()
         output = queue_pool.get_output_format(queue_pool.get_entry_graph(ns))
         return set(output.keys())
+
+    def output_format(
+            self,
+            ns: GNamespace,
+            output_name: str) -> tuple[DTypeName, list[int | None]]:
+        queue_pool = self.get_queue_pool()
+        output = queue_pool.get_output_format(queue_pool.get_entry_graph(ns))
+        output_fmt = output[output_name]
+        return output_fmt.dtype(), output_fmt.shape()
+
+    def get_queue_stats(self) -> Iterable[QueueCounts]:
+        queue_pool = self.get_queue_pool()
+        for qid in queue_pool.get_all_queues():
+            queue = queue_pool.get_queue(qid)
+            listerners = queue_pool.get_queue_listeners(qid)
+            queue_length = queue.get_queue_length()
+            if listerners <= 0 and queue_length <= 0:
+                continue
+            qual_name = queue.get_consumer_node().get_qualified_name(
+                queue_pool)
+            yield {
+                "id": qid,
+                "name": qual_name,
+                "queue_length": queue_length,
+                "listeners": listerners,
+            }

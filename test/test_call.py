@@ -32,7 +32,7 @@ from scattermind.system.torch_util import as_numpy, create_tensor
 
 
 @pytest.mark.parametrize("batch_size", [1, 5, 11, 20, 50])
-@pytest.mark.parametrize("parallelism", [0, 1, 2, 3])
+@pytest.mark.parametrize("parallelism", [0, 1, 2, 3, -1])
 @pytest.mark.parametrize("is_redis", [False, True])
 def test_simple_call(
         batch_size: int, parallelism: int, is_redis: bool) -> None:
@@ -218,7 +218,7 @@ def test_simple_call(
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
     try:
-        config.run()
+        config.run(force_no_block=True)
         for task_id, response, expected_result in wait_for_tasks(
                 config, tasks):
             response_ok(response, no_warn=True)
@@ -245,6 +245,6 @@ def test_simple_call(
             assert config.get_result(task_id) is None
     finally:
         emng = config.get_executor_manager()
-        emng.release_all(timeout=1.0)
+        emng.release_all(timeout=0.1)
         if emng.any_active():
             raise ValueError("threads did not shut down in time")
