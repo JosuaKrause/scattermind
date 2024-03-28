@@ -32,6 +32,7 @@ from scattermind.system.torch_util import str_to_tensor, tensor_to_str
 from scattermind.system.util import get_short_hash
 
 
+@pytest.mark.parametrize("batch_size", [1, 3, 6, 7, 13, 14, 20])
 @pytest.mark.parametrize("parallelism", [1, 2, 4, -1])
 @pytest.mark.parametrize("is_redis", [False, True])
 @pytest.mark.parametrize("is_cache", [False, True])
@@ -39,6 +40,7 @@ from scattermind.system.util import get_short_hash
 @pytest.mark.parametrize("cache_mid", [False])  # FIXME: enable when ready
 @pytest.mark.parametrize("cache_top", [False])  # FIXME: enable when ready
 def test_graph_cache(
+        batch_size: int,
         parallelism: int,
         is_redis: bool,
         is_cache: bool,
@@ -49,6 +51,7 @@ def test_graph_cache(
     Test for graph caching.
 
     Args:
+        batch_size (int): The batch size.
         parallelism (int): The parallelism. Cannot use single executor since
             it terminates upon completion.
         is_redis (bool): Whether to use redis.
@@ -57,13 +60,14 @@ def test_graph_cache(
         cache_mid (bool): Whether to cache the mid graph.
         cache_top (bool): Whether to cache the top graph.
     """
-    # NOTE: batch_size can only be one to guarantee caching comes into effect
     set_debug_output_length(7)
     config = load_test(
+        batch_size=batch_size,
         parallelism=parallelism,
         is_redis=is_redis,
         no_cache=not is_cache)
     desc = (
+        f"batch_size={batch_size};"
         f"parallelism={parallelism};"
         f"is_redis={is_redis};"
         f"is_cache={is_cache}")

@@ -14,7 +14,7 @@
 """Defines the caching interface for caching graph input and outputs."""
 import hashlib
 
-from scattermind.system.base import CacheId, GraphId, Module
+from scattermind.system.base import CacheId, GraphId, Module, TaskId
 from scattermind.system.info import DataFormat
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.redis_util import tensor_to_redis
@@ -64,10 +64,21 @@ class GraphCache(Module):
         """
         raise NotImplementedError()
 
+    def put_progress(self, cache_id: CacheId, task_id: TaskId) -> None:
+        """
+        Indicates that the given cache id is currently being computed by the
+        given task id.
+
+        Args:
+            cache_id (CacheId): The cache id.
+            task_id (TaskId): The task id.
+        """
+        raise NotImplementedError()
+
     def get_cached_output(
             self,
             cache_id: CacheId,
-            output_format: DataFormat) -> TaskValueContainer | None:
+            output_format: DataFormat) -> TaskValueContainer | TaskId | None:
         """
         Retrieves the cached data.
 
@@ -76,6 +87,8 @@ class GraphCache(Module):
             output_format (DataFormat): The expected output format.
 
         Returns:
-            TaskValueContainer | None: The data if it is available.
+            TaskValueContainer | TaskId | None: The data if it is available.
+                It can also be the task id that is currently computing the
+                task.
         """
         raise NotImplementedError()

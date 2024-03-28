@@ -47,6 +47,7 @@ from scattermind.system.queue.strategy.strategy import (
 )
 from scattermind.system.response import (
     TASK_STATUS_BUSY,
+    TASK_STATUS_DEFER,
     TASK_STATUS_ERROR,
     TASK_STATUS_READY,
     TASK_STATUS_WAIT,
@@ -1034,7 +1035,8 @@ class QueuePool(Module):
             logger: EventStream,
             store: DataStore,
             task_id: TaskId,
-            error_info: ErrorInfo) -> None:
+            *,
+            error_info: ErrorInfo | None) -> None:
         """
         Enqueue a previously created task again to the overall input queue.
 
@@ -1042,16 +1044,21 @@ class QueuePool(Module):
             logger (EventStream): The logger.
             store (DataStore): The data store for storing the payload data.
             task_id (TaskId): The existing task id.
-            error_info (ErrorInfo): The error that triggered the requeue.
+            error_info (ErrorInfo | None): The error that triggered the
+                requeue. This can be None for deferred tasks.
 
         Raises:
             AssertionError: If the task is already / still in a queue.
         """
         cpool = self.get_client_pool()
-        cpool.set_error(task_id, error_info)
-        new_retries = cpool.inc_retries(task_id)
-        adj_ctx, retry_event = to_retry_event(error_info, new_retries)
-        logger.log_event("error.task", retry_event, adjust_ctx=adj_ctx)
+        if error_info is not None:
+            cpool.set_error(task_id, error_info)
+            new_retries = cpool.inc_retries(task_id)
+            adj_ctx, retry_event = to_retry_event(error_info, new_retries)
+            logger.log_event("error.task", retry_event, adjust_ctx=adj_ctx)
+        else:
+            # NOTE: we don't increase retries for deferred tasks
+            new_retries = 0
         if new_retries >= ClientPool.get_max_retries():
             cpool.set_duration(task_id)
             cpool.set_bulk_status([task_id], TASK_STATUS_ERROR)
@@ -1069,8 +1076,7 @@ class QueuePool(Module):
                         "name": "ghost",
                         "message": "Cleaned up ghost task.",
                         "task": task_id,
-                    },
-                    adjust_ctx=adj_ctx)
+                    })
 
     def handle_task_result(
             self,
@@ -1132,7 +1138,7 @@ class QueuePool(Module):
                         logger,
                         store,
                         task_id,
-                        {
+                        error_info={
                             "ctx": get_ctx(),
                             "message": "result got purged from memory",
                             "code": "memory_purge",
@@ -1196,10 +1202,17 @@ class QueuePool(Module):
             output_format = self.get_output_format(entry_graph_id)
             result = graph_cache.get_cached_output(cache_id, output_format)
             if result is not None:
-                print(f"CACHE HIT {cache_id}")  # TODO: add logging
-                cpool.set_final_output(task_id, result)
-                cpool.set_duration(task_id)
-                cpool.set_bulk_status([task_id], TASK_STATUS_READY)
+                if isinstance(result, TaskValueContainer):
+                    tvc: TaskValueContainer = result
+                    print(f"CACHE HIT {cache_id}")  # TODO: add logging
+                    cpool.set_final_output(task_id, tvc)
+                    cpool.set_duration(task_id)
+                    cpool.set_bulk_status([task_id], TASK_STATUS_READY)
+                    return True
+                print(f"CACHE DEFER {cache_id}")  # TODO: add logging
+                other_task_id: TaskId = result
+                cpool.defer_task(task_id, other_task_id)
+                cpool.set_bulk_status([task_id], TASK_STATUS_DEFER)
                 return True
             print(f"CACHE MISS {cache_id}")  # TODO: add logging
         cpool.push_cache_id(task_id, cache_id)

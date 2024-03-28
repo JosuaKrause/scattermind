@@ -14,7 +14,7 @@
 """A caching layer implemented in redis."""
 from redipy import Redis, RedisConfig
 
-from scattermind.system.base import CacheId, L_EITHER, Locality
+from scattermind.system.base import CacheId, L_EITHER, Locality, TaskId
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.info import DataFormat
 from scattermind.system.payload.values import TaskValueContainer
@@ -50,11 +50,16 @@ class RedisCache(GraphCache):
             output_data: TaskValueContainer) -> None:
         self._redis.set_value(self.key(cache_id), tvc_to_redis(output_data))
 
+    def put_progress(self, cache_id: CacheId, task_id: TaskId) -> None:
+        self._redis.set_value(self.key(cache_id), task_id.to_parseable())
+
     def get_cached_output(
             self,
             cache_id: CacheId,
-            output_format: DataFormat) -> TaskValueContainer | None:
+            output_format: DataFormat) -> TaskValueContainer | TaskId | None:
         res = self._redis.get_value(self.key(cache_id))
         if res is None:
             return None
+        if res and res[0] == TaskId.prefix():
+            return TaskId.parse(res)
         return redis_to_tvc(res, output_format)

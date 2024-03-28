@@ -71,6 +71,7 @@ KeyName = Literal[
     "cache_id",  # list cache_id str
     "stack_data",  # list obj str
     "stack_frame",  # list obj str
+    "defer",  # TaskId
     "result",  # TVC str
     "error",  # ErrorJSON str
 ]
@@ -216,6 +217,16 @@ class RedisClientPool(ClientPool):
         if res is None:
             res = TASK_STATUS_UNKNOWN
         return to_status(res)
+
+    def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "defer", task_id, other_task.to_parseable())
+
+    def get_deferred_task(self, task_id: TaskId) -> TaskId | None:
+        res = self.get_value("defer", task_id)
+        if res is None:
+            return None
+        return TaskId.parse(res)
 
     def set_final_output(
             self, task_id: TaskId, final_output: TaskValueContainer) -> None:
@@ -372,6 +383,7 @@ class RedisClientPool(ClientPool):
             self.delete(pipe, "cache_id", task_id)
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
+            self.delete(pipe, "defer", task_id)
 
     def clear_task(self, task_id: TaskId) -> None:
         with self._redis.pipeline() as pipe:
@@ -387,4 +399,5 @@ class RedisClientPool(ClientPool):
             self.delete(pipe, "cache_id", task_id)
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
+            self.delete(pipe, "defer", task_id)
             self.delete(pipe, "error", task_id)
