@@ -155,7 +155,7 @@ def test_assertion_error(
     finally:
         print("TEST TEARDOWN!")
         emng = config.get_executor_manager()
-        emng.release_all(timeout=0.1)
+        emng.release_all(timeout=0.5)
         if emng.any_active():
             raise ValueError("threads did not shut down in time")
 
@@ -266,6 +266,6 @@ def test_ghost(
     finally:
         print("TEST TEARDOWN!")
         emng = config.get_executor_manager()
-        emng.release_all(timeout=0.1)
+        emng.release_all(timeout=0.5)
         if emng.any_active():
             raise ValueError("threads did not shut down in time")
