@@ -58,12 +58,21 @@ class Executor:
 
     def is_active(self) -> bool:
         """
-        Whether the exxecutor is currently active.
+        Whether the executor is currently active.
 
         Returns:
             bool: True if the executor is active.
         """
         return self._emng.is_active(self._executor_id)
+
+    def is_fully_terminated(self) -> bool:
+        """
+        Whether the executor has been completely shut down.
+
+        Returns:
+            bool: True if the executor has been completely shut down.
+        """
+        return self._emng.is_fully_terminated(self._executor_id)
 
     def release(self) -> None:
         """
@@ -385,10 +394,13 @@ class ExecutorManager(Module):
         Whether there are any registered active executors.
 
         Returns:
-            bool: True if there is at least one active executor.
+            bool: True if there is at least one active executor that has not
+                been fully terminated.
         """
         for executor in self.get_all_executors():
             if executor.is_active():
+                return True
+            if not executor.is_fully_terminated():
                 return True
         return False
 
@@ -410,6 +422,18 @@ class ExecutorManager(Module):
 
         Returns:
             bool: True, if the executor is active.
+        """
+        raise NotImplementedError()
+
+    def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
+        """
+        Whether the executor has been completely shut down.
+
+        Args:
+            executor_id (ExecutorId): The executor id.
+
+        Returns:
+            bool: True if the executor has been completely shut down.
         """
         raise NotImplementedError()
 

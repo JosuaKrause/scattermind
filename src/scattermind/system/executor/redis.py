@@ -199,6 +199,9 @@ class RedisExecutorManager(ExecutorManager):
     def is_active(self, executor_id: ExecutorId) -> bool:
         return self._get_state(executor_id) is not None
 
+    def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
+        return self._get_state(executor_id) is None
+
     def release_executor(self, executor_id: ExecutorId) -> None:
         self._set_state(executor_id, ES_EXIT, if_exists=True)
 

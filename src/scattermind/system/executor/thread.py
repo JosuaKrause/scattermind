@@ -169,6 +169,11 @@ class ThreadExecutorManager(ExecutorManager):
         with LOCK:
             return ACTIVE.get(executor_id, False)
 
+    def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
+        with LOCK:
+            return executor_id not in ALIVE and not ACTIVE.get(
+                executor_id, False)
+
     def release_executor(self, executor_id: ExecutorId) -> None:
         with LOCK:
             executor = EXECUTORS[executor_id]

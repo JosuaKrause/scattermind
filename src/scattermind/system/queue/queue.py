@@ -1128,11 +1128,16 @@ class QueuePool(Module):
                     store, output_format, ret_data, final_vmap)
                 if tvc_out is not None:
                     cache_id = cpool.pop_cache_id(task_id)
-                    if cache_id is not None:
-                        graph_cache.put_cached_output(cache_id, tvc_out)
                     cpool.set_final_output(task_id, tvc_out)
                     cpool.set_duration(task_id)
                     cpool.set_bulk_status([task_id], TASK_STATUS_READY)
+                    if cache_id is not None:
+                        graph_cache.put_cached_output(
+                            logger,
+                            store,
+                            self,
+                            cache_id=cache_id,
+                            output_data=tvc_out)
                 else:
                     self.maybe_requeue_task_id(
                         logger,
@@ -1213,8 +1218,10 @@ class QueuePool(Module):
                 other_task_id: TaskId = result
                 cpool.defer_task(task_id, other_task_id)
                 cpool.set_bulk_status([task_id], TASK_STATUS_DEFER)
+                graph_cache.add_listener(cache_id, task_id)
                 return True
             print(f"CACHE MISS {cache_id}")  # TODO: add logging
+            graph_cache.put_progress(cache_id, task_id)
         cpool.push_cache_id(task_id, cache_id)
         cpool.init_data(store, task_id, input_format, original_input)
         node = self.get_input_node(entry_graph_id)

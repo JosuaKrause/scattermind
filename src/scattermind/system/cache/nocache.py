@@ -15,7 +15,10 @@
 from scattermind.system.base import CacheId, L_EITHER, Locality, TaskId
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.info import DataFormat
+from scattermind.system.logger.log import EventStream
+from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.queue.queue import QueuePool
 
 
 class NoCache(GraphCache):
@@ -26,11 +29,18 @@ class NoCache(GraphCache):
 
     def put_cached_output(
             self,
+            logger: EventStream,
+            store: DataStore,
+            queue_pool: QueuePool,
+            *,
             cache_id: CacheId,
             output_data: TaskValueContainer) -> None:
         pass
 
     def put_progress(self, cache_id: CacheId, task_id: TaskId) -> None:
+        pass
+
+    def add_listener(self, cache_id: CacheId, listener_id: TaskId) -> None:
         pass
 
     def get_cached_output(

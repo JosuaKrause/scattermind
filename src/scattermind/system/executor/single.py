@@ -37,6 +37,9 @@ class SingleExecutorManager(ExecutorManager):
     def is_active(self, executor_id: ExecutorId) -> bool:
         return self._is_active
 
+    def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
+        return not self._is_active
+
     def release_executor(self, executor_id: ExecutorId) -> None:
         pass
 

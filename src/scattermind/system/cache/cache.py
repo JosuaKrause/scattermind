@@ -16,7 +16,10 @@ import hashlib
 
 from scattermind.system.base import CacheId, GraphId, Module, TaskId
 from scattermind.system.info import DataFormat
+from scattermind.system.logger.log import EventStream
+from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.queue.queue import QueuePool
 from scattermind.system.redis_util import tensor_to_redis
 
 
@@ -53,12 +56,20 @@ class GraphCache(Module):
 
     def put_cached_output(
             self,
+            logger: EventStream,
+            store: DataStore,
+            queue_pool: QueuePool,
+            *,
             cache_id: CacheId,
             output_data: TaskValueContainer) -> None:
         """
-        Caches the given result.
+        Caches the given result. It also notifies all listeners for the given
+        task.
 
         Args:
+            logger (EventStream): The logger.
+            store (DataStore): The data store for storing the payload data.
+            queue_pool (QueuePool): The queue pool.
             cache_id (CacheId): The cache id.
             output_data (TaskValueContainer): The data.
         """
@@ -72,6 +83,19 @@ class GraphCache(Module):
         Args:
             cache_id (CacheId): The cache id.
             task_id (TaskId): The task id.
+        """
+        raise NotImplementedError()
+
+    def add_listener(self, cache_id: CacheId, listener_id: TaskId) -> None:
+        """
+        Add a listener for the given cache id. The listener will get notified
+        when the cache gets a result. If the cache id has not an associated
+        progress task no listener will be added and all still existing
+        listeners must be removed.
+
+        Args:
+            cache_id (CacheId): The cache id.
+            listener_id (TaskId): The listening task.
         """
         raise NotImplementedError()
 
