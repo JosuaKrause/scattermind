@@ -370,7 +370,11 @@ class ExecutorManager(Module):
                             })
         executor.release()
 
-    def release_all(self, *, timeout: float | None = None) -> None:
+    def release_all(
+            self,
+            *,
+            timeout: float | None = None,
+            max_sleep: float = 0.1) -> None:
         """
         Release all executors. This usually results in halting all execution.
 
@@ -378,6 +382,8 @@ class ExecutorManager(Module):
             timeout (float | None, optional): Wait until all executors are
                 inactive or the number of seconds runs out. If None the
                 function returns immediately in any case. Defaults to None.
+            max_sleep (float, optional): The maximal sleep allowed in seconds.
+                Defaults to 0.1 seconds.
         """
         for executor in self.get_all_executors():
             executor.release()
@@ -387,7 +393,9 @@ class ExecutorManager(Module):
         while time.monotonic() - start_time < timeout:
             if not self.any_active():
                 return
-            sleep_time = timeout - (time.monotonic() - start_time)
+            sleep_time = min(
+                max_sleep,
+                timeout - (time.monotonic() - start_time))
             if sleep_time > 0.0:
                 time.sleep(sleep_time)
 
