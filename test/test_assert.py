@@ -107,7 +107,7 @@ def test_assertion_error(
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
     try:
-        config.run(force_no_block=True)
+        config.run(force_no_block=True, no_reclaim=True)
         for task_id, response, expected_result in wait_for_tasks(
                 config, tasks):
             real_duration = time.monotonic() - time_start
@@ -237,7 +237,8 @@ def test_ghost(
         assert config.get_result(task_id) is None
         bad_tasks.add(task_id)
     try:
-        config.run(force_no_block=False)  # NOTE: we only use single here
+        # NOTE: we only use single here
+        config.run(force_no_block=False, no_reclaim=True)
         for task_id, response, expected_result in wait_for_tasks(
                 config, tasks):
             if task_id in bad_tasks:

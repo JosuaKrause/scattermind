@@ -71,4 +71,4 @@ def worker_start(
             load_graph(fname)
     else:
         load_graph(graph_def)
-    return lambda: config.run(force_no_block=False)
+    return lambda: config.run(force_no_block=False, no_reclaim=False)

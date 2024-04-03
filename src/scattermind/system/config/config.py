@@ -433,13 +433,15 @@ class Config(ScattermindAPI):
         cpool = self.get_client_pool()
         cpool.clear_task(task_id)
 
-    def run(self, *, force_no_block: bool) -> int | None:
+    def run(self, *, force_no_block: bool, no_reclaim: bool) -> int | None:
         """
         Run the executor given by this configuration.
 
         Args:
             force_no_block (bool): If set, forces the function to become
                 non-blocking.
+            no_reclaim (bool): If set, the reclaimer will not be executed.
+                This is only recommended for tests.
 
         Returns:
             int | None: If the call is blocking (i.e., the work is done inside
@@ -456,7 +458,8 @@ class Config(ScattermindAPI):
             return executor_manager.reclaim_inactive_tasks(
                 logger, queue_pool, store)
 
-        executor_manager.start_reclaimer(logger, reclaim_all_once)
+        if not no_reclaim:
+            executor_manager.start_reclaimer(logger, reclaim_all_once)
 
         def work(emng: ExecutorManager) -> bool:
             return emng.execute_batch(logger, queue_pool, store, roa)

@@ -327,7 +327,9 @@ class ExecutorManager(Module):
             executor_count += 1
 
         def is_active(executor_id: ExecutorId) -> bool:
-            return self.is_active(executor_id)
+            return (
+                self.is_active(executor_id)
+                and not self.is_fully_terminated(executor_id))
 
         listener_count = queue_pool.clean_listeners(is_active)
         return executor_count, listener_count
