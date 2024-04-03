@@ -104,6 +104,21 @@ def as_int_list(arr: list[int]) -> list[int]:
     return [int(elem) for elem in arr]
 
 
+def as_str_list(arr: list[str]) -> list[str]:
+    """
+    Converts all elements of the given list to strings. This is useful for
+    processing outside data where we cannot trust that the items in the list
+    are actually strings.
+
+    Args:
+        arr (list[str]): The list to convert.
+
+    Returns:
+        list[str]: The converted list.
+    """
+    return [f"{elem}" for elem in arr]
+
+
 def as_shape(arr: Sequence[int | None]) -> list[int | None]:
     """
     Converts a sequence into a variable shape. The shape is a list of integers
