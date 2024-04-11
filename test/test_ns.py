@@ -43,7 +43,7 @@ def test_ns(batch_size: int, is_redis: bool) -> None:
         "graphs": [
             {
                 "name": "main",
-                "description": f"batch_size={batch_size}",
+                "description": f"{batch_size=}",
                 "input": "node",
                 "input_format": {
                     "value": ("float", [1]),
@@ -80,7 +80,7 @@ def test_ns(batch_size: int, is_redis: bool) -> None:
         "graphs": [
             {
                 "name": "main",
-                "description": f"batch_size={batch_size}",
+                "description": f"{batch_size=}",
                 "input": "node",
                 "input_format": {
                     "value": ("float", [1]),

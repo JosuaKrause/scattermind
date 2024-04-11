@@ -54,8 +54,7 @@ def test_assertion_error(
         "graphs": [
             {
                 "name": "main",
-                "description":
-                    f"batch_size={batch_size};parallelism={parallelism}",
+                "description": f"{batch_size=};{parallelism=}",
                 "input": "node_0",
                 "input_format": {
                     "value": ("bool", [1]),

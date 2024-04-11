@@ -129,7 +129,7 @@ def test_cop_chain(
         "graphs": [
             {
                 "name": "copchain",
-                "description": f"batch_size={batch_size},base={base}",
+                "description": f"{batch_size=},{base=}",
                 "input": "node_0",
                 "input_format": {
                     "value": ("float", shape),
