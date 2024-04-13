@@ -243,6 +243,8 @@ class RedisExecutorManager(ExecutorManager):
                     if conn_error > 10:
                         logger.log_error("error.executor", "connection")
                     time.sleep(60)
+                except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                    raise
                 except Exception:  # pylint: disable=broad-exception-caught
                     general_error += 1
                     logger.log_error(
@@ -328,6 +330,8 @@ class RedisExecutorManager(ExecutorManager):
                             logger.log_error("error.executor", "connection")
                         time.sleep(60)
                 running = False
+            except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                raise
             except Exception:  # pylint: disable=broad-except
                 logger.log_error("error.executor", "uncaught_executor")
                 error = True

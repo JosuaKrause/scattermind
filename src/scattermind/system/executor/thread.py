@@ -229,6 +229,8 @@ class ThreadExecutorManager(ExecutorManager):
                     logger.log_error(
                         "error.executor", "connection")
                 time.sleep(60)
+            except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                raise
             except Exception:  # pylint: disable=broad-exception-caught
                 general_error += 1
                 if general_error > 10:

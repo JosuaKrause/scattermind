@@ -879,11 +879,14 @@ class QueuePool(Module):
 
         good_node: 'Node | None' = None
         for node in self.get_all_nodes():
+            # pylint: disable=try-except-raise
             if node == current_node:
                 continue
             try:
                 candidate_node = process_node(candidate_node, node)
                 good_node = candidate_node
+            except KeyboardInterrupt:
+                raise
             except Exception:  # pylint: disable=broad-except
                 print(
                     f"candidate={candidate_node.get_qualified_name(self)} "
@@ -892,6 +895,8 @@ class QueuePool(Module):
                 if good_node is not None:
                     try:
                         process_node(good_node, node)
+                    except KeyboardInterrupt:
+                        raise
                     except Exception:  # pylint: disable=broad-except
                         print(
                             "bad node "
@@ -905,6 +910,8 @@ class QueuePool(Module):
                         )
                     try:
                         process_node(good_node, candidate_node)
+                    except KeyboardInterrupt:
+                        raise
                     except Exception:  # pylint: disable=broad-except
                         print(
                             "bad node "
@@ -989,6 +996,8 @@ class QueuePool(Module):
         try:
             if want_to_switch_to(candidate_node):
                 return (candidate_node, candidate_node != current_node)
+        except KeyboardInterrupt:  # pylint: disable=try-except-raise
+            raise
         except Exception:  # pylint: disable=broad-except
             print(
                 f"candidate={candidate_node.get_qualified_name(self)} "
@@ -998,6 +1007,8 @@ class QueuePool(Module):
             try:
                 want_to_switch_to(good_node)
                 return (candidate_node, candidate_node != current_node)
+            except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                raise
             except Exception:  # pylint: disable=broad-except
                 print(
                     f"current={current_node.get_qualified_name(self)} "

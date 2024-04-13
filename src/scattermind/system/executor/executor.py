@@ -241,6 +241,8 @@ class ExecutorManager(Module):
                     for line in traceback.format_exception(nttc)
                 ]
                 r_pctx = get_preexc_ctx()
+            except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                raise
             except Exception as exc:  # pylint: disable=broad-except
                 e_msg = f"{exc}"
                 e_code = "general_exception"

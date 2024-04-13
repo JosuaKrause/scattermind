@@ -68,6 +68,8 @@ class SingleExecutorManager(ExecutorManager):
                 while not done:
                     done = not work(self)
                 running = False
+            except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                raise
             except Exception:  # pylint: disable=broad-except
                 logger.log_error("error.executor", "uncaught_executor")
                 running = False
