@@ -224,6 +224,8 @@ class RedisExecutorManager(ExecutorManager):
         def do_reclaim() -> None:
             conn_error = 0
             general_error = 0
+            # NOTE: on startup we wait for old executors to disappear first
+            time.sleep(10.0 + max(0.0, self._heartbeat_time * 2.0))
             while reclaim is self._reclaim:
                 try:
                     executor_count, listener_count = reclaim_all_once()
