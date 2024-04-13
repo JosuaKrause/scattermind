@@ -76,8 +76,9 @@ class RedisCache(GraphCache):
                 logger, store, task_id, error_info=None)
 
     def put_progress(self, cache_id: CacheId, task_id: TaskId) -> None:
-        self._redis.set_value(
-            self.key(DATA_PREFIX, cache_id), task_id.to_parseable())
+        pass  # FIXME does not work correctly
+        # self._redis.set_value(
+        #     self.key(DATA_PREFIX, cache_id), task_id.to_parseable())
 
     def add_listener(self, cache_id: CacheId, listener_id: TaskId) -> None:
         listeners_key = self.key(LISTENERS_PREFIX, cache_id)

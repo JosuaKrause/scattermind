@@ -393,7 +393,7 @@ class Config(ScattermindAPI):
         res = cpool.get_status(task_id)
         if res == TASK_STATUS_DEFER:
             defer_id = cpool.get_deferred_task(task_id)
-            if defer_id is not None:
+            if defer_id is not None and defer_id != task_id:
                 defer_status = cpool.get_status(defer_id)
                 if defer_status not in (
                         TASK_STATUS_READY,
