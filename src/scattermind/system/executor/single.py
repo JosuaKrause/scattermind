@@ -52,6 +52,8 @@ class SingleExecutorManager(ExecutorManager):
     def execute(
             self,
             logger: EventStream,
+            *,
+            wait_for_task: Callable[[float], None],
             work: Callable[[ExecutorManager], bool]) -> int | None:
         with add_context({"executor": self.get_own_id()}):
             running = True

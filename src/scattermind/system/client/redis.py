@@ -218,6 +218,26 @@ class RedisClientPool(ClientPool):
             res = TASK_STATUS_UNKNOWN
         return to_status(res)
 
+    def notify_queues(self) -> None:
+        redis_raw = self._redis.get_redis_runtime()
+        with redis_raw.get_connection() as conn:
+            conn.publish(redis_raw.get_pubsub_key("pqueues"), "queues")
+
+    def wait_for_queues(self, timeout: float) -> None:
+        redis_raw = self._redis.get_redis_runtime()
+        with redis_raw.get_connection() as conn:
+            with conn.pubsub() as psub:
+                psub.subscribe(redis_raw.get_pubsub_key("pqueues"))
+                try:
+                    msg = psub.get_message(
+                        ignore_subscribe_messages=True,
+                        timeout=timeout)
+                    if msg is not None:
+                        while psub.get_message() is not None:  # flushing queue
+                            pass
+                finally:
+                    psub.unsubscribe()
+
     def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "defer", task_id, other_task.to_parseable())

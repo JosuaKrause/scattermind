@@ -449,6 +449,7 @@ class Config(ScattermindAPI):
                 the function returns None.
         """
         executor_manager = self.get_executor_manager()
+        cpool = self.get_client_pool()
         queue_pool = self.get_queue_pool()
         store = self.get_data_store()
         roa = self.get_readonly_access()
@@ -461,11 +462,17 @@ class Config(ScattermindAPI):
         if not no_reclaim:
             executor_manager.start_reclaimer(logger, reclaim_all_once)
 
+        def wait_for_task(timeout: float) -> None:
+            cpool.wait_for_queues(timeout)
+
         def work(emng: ExecutorManager) -> bool:
             return emng.execute_batch(logger, queue_pool, store, roa)
 
         def do_execute() -> int | None:
-            return executor_manager.execute(logger, work)
+            return executor_manager.execute(
+                logger,
+                wait_for_task=wait_for_task,
+                work=work)
 
         if not force_no_block:
             return do_execute()

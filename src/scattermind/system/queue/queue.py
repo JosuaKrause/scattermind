@@ -1170,6 +1170,7 @@ class QueuePool(Module):
         if not is_final:
             out_queue = self.get_queue(qid)
             out_queue.push_task_id(task_id)
+            cpool.notify_queues()
 
     def get_task_status(self, task_id: TaskId) -> TaskStatus:
         """
@@ -1239,6 +1240,7 @@ class QueuePool(Module):
         qid = node.get_input_queue()
         cpool.set_bulk_status([task_id], TASK_STATUS_WAIT)
         self.push_task_id(qid, task_id)
+        cpool.notify_queues()
         return True
 
     def get_compute_task(

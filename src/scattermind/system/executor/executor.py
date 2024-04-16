@@ -483,6 +483,8 @@ class ExecutorManager(Module):
     def execute(
             self,
             logger: EventStream,
+            *,
+            wait_for_task: Callable[[float], None],
             work: Callable[['ExecutorManager'], bool]) -> int | None:
         """
         At its core, this function calls `work` repeatedly until `work` returns
@@ -495,6 +497,8 @@ class ExecutorManager(Module):
 
         Args:
             logger (EventStream): The logger.
+            wait_for_task (Callable[[float], None]): Waits until a task is
+                available or timeout in seconds is reached.
             work (Callable[[ExecutorManager], bool]): The work. Call this
                 function until it returns True (i.e., work is done).
 

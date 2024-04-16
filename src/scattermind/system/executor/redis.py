@@ -295,6 +295,8 @@ class RedisExecutorManager(ExecutorManager):
     def execute(
             self,
             logger: EventStream,
+            *,
+            wait_for_task: Callable[[float], None],
             work: Callable[[ExecutorManager], bool]) -> int | None:
         self._logger = logger
         own_id = self.get_own_id()
@@ -324,7 +326,7 @@ class RedisExecutorManager(ExecutorManager):
                         0.0, max(sleep_on_idle, 0.0))
                     try:
                         if not work(self) and sleep_on_idle > 0.0:
-                            time.sleep(sleep_on_idle)
+                            wait_for_task(sleep_on_idle)
                         conn_count = 0
                     except (ConnectionError, redis_lib.ConnectionError):
                         conn_count += 1

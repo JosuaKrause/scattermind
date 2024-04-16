@@ -59,6 +59,7 @@ class LocalClientPool(ClientPool):
         self._results: dict[TaskId, TaskValueContainer | None] = {}
         self._error: dict[TaskId, ErrorInfo] = {}
         self._lock = threading.RLock()
+        self._wait = threading.Condition()
 
     @staticmethod
     def locality() -> Locality:
@@ -118,6 +119,16 @@ class LocalClientPool(ClientPool):
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         return self._status.get(task_id, TASK_STATUS_UNKNOWN)
+
+    def notify_queues(self) -> None:
+        wait = self._wait
+        with wait:
+            wait.notify_all()
+
+    def wait_for_queues(self, timeout: float) -> None:
+        wait = self._wait
+        with wait:
+            wait.wait(timeout)
 
     def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
         self._defer_task[task_id] = other_task

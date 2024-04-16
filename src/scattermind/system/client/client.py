@@ -188,6 +188,21 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
+    def notify_queues(self) -> None:
+        """
+        Notifies waiting executors that new tasks are available on some queue.
+        """
+        raise NotImplementedError()
+
+    def wait_for_queues(self, timeout: float) -> None:
+        """
+        Let's an executor wait until new tasks are available on some queue.
+
+        Args:
+            timeout (float): The timeout in seconds.
+        """
+        raise NotImplementedError()
+
     def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
         """
         Defers the execution of the task to the other task.
