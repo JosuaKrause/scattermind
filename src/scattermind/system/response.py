@@ -59,6 +59,7 @@ TASK_COMPLETE: set[TaskStatus] = {
     TASK_STATUS_ERROR,
     TASK_STATUS_UNKNOWN,
 }
+"""The task has either finished, had an error, or is not known."""
 
 
 def to_status(text: str) -> TaskStatus:

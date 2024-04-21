@@ -31,7 +31,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        make install PYTHON=python
+        make install PYTHON=python USE_REDIPY_DEV=1
 
     - name: Lint Code (use uppercase TODO, XXX, FIXME, NOTE and explain nopep8)
       run: |
@@ -160,7 +160,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        make install PYTHON=python
+        make install PYTHON=python USE_REDIPY_DEV=1
 
     - name: Restore test-result Cache
       uses: actions/cache@v3

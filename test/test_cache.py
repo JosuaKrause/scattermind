@@ -32,8 +32,7 @@ from scattermind.system.torch_util import str_to_tensor, tensor_to_str
 from scattermind.system.util import get_short_hash
 
 
-# FIXME: reactivate batch_size once defer works
-@pytest.mark.parametrize("batch_size", [1])  # [1, 3, 6, 7, 13, 14, 20])
+@pytest.mark.parametrize("batch_size", [1, 3, 6, 7, 13, 14, 20])
 @pytest.mark.parametrize("parallelism", [1, 2, 4, -1])
 @pytest.mark.parametrize("is_redis", [False, True])
 @pytest.mark.parametrize("is_cache", [False, True])

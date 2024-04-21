@@ -401,9 +401,9 @@ class Config(ScattermindAPI):
             task_id = cpool.wait_for_task_notifications(
                 list(cur_ids), timeout=individual_timeout)
             elapsed = time.monotonic() - start_time
-            if timeout is not None and elapsed >= timeout:
-                break
             if task_id is None:
+                if timeout is not None and elapsed >= timeout:
+                    break
                 continue
             status = self.get_status(task_id)
             if status in TASK_COMPLETE:
@@ -423,6 +423,7 @@ class Config(ScattermindAPI):
                 defer_status = self.get_status(defer_id)
                 if defer_status not in TASK_COMPLETE:
                     return defer_status
+            cpool.clear_task(task_id)
             logger = self.get_logger()
             store = self.get_data_store()
             queue_pool = self.get_queue_pool()
