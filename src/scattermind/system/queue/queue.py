@@ -1074,7 +1074,7 @@ class QueuePool(Module):
             cpool.set_duration(task_id)
             cpool.set_bulk_status([task_id], TASK_STATUS_ERROR)
         else:
-            if cpool.get_status(task_id) == TASK_STATUS_WAIT:
+            if cpool.get_task_status(task_id) == TASK_STATUS_WAIT:
                 mqid = self.maybe_get_queue(task_id)
                 if mqid is not None:
                     raise AssertionError(
@@ -1149,6 +1149,7 @@ class QueuePool(Module):
                             self,
                             cache_id=cache_id,
                             output_data=tvc_out)
+                    cpool.notify_result(task_id)
                 else:
                     self.maybe_requeue_task_id(
                         logger,
@@ -1182,7 +1183,7 @@ class QueuePool(Module):
         Returns:
             TaskStatus: The status of the task.
         """
-        return self.get_client_pool().get_status(task_id)
+        return self.get_client_pool().get_task_status(task_id)
 
     def _enqueue_task_id(
             self,
@@ -1225,6 +1226,7 @@ class QueuePool(Module):
                     cpool.set_final_output(task_id, tvc)
                     cpool.set_duration(task_id)
                     cpool.set_bulk_status([task_id], TASK_STATUS_READY)
+                    cpool.notify_result(task_id)
                     return True
                 print(f"CACHE DEFER {cache_id}")  # TODO: add logging
                 other_task_id: TaskId = result

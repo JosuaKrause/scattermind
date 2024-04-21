@@ -46,6 +46,7 @@ from scattermind.system.redis_util import (
     tvc_to_redis,
 )
 from scattermind.system.response import (
+    TASK_COMPLETE,
     TASK_STATUS_DONE,
     TASK_STATUS_INIT,
     TASK_STATUS_UNKNOWN,
@@ -212,7 +213,7 @@ class RedisClientPool(ClientPool):
             return None
         return GNamespace(res)
 
-    def get_status(self, task_id: TaskId) -> TaskStatus:
+    def get_task_status(self, task_id: TaskId) -> TaskStatus:
         res = self.get_value("status", task_id)
         if res is None:
             res = TASK_STATUS_UNKNOWN
@@ -226,7 +227,29 @@ class RedisClientPool(ClientPool):
     def wait_for_queues(
             self, condition: Callable[[], bool], timeout: float) -> None:
         redis_raw = self._redis.get_redis_runtime()
-        redis_raw.wait_for("pqueues", condition, granularity=timeout)
+        redis_raw.wait_for("pqueues", condition, timeout)
+
+    def notify_result(self, task_id: TaskId) -> None:
+        # FIXME: make usage of task_id work
+        redis_raw = self._redis.get_redis_runtime()
+        with redis_raw.get_connection() as conn:
+            conn.publish(redis_raw.get_pubsub_key("presults"), "results")
+
+    def wait_for_task_notifications(
+            self,
+            tasks: list[TaskId],
+            *,
+            timeout: float) -> TaskId | None:
+        # FIXME: make usage of task_id work
+        redis_raw = self._redis.get_redis_runtime()
+
+        def condition() -> TaskId | None:
+            for task_id in tasks:
+                if self.get_task_status(task_id) in TASK_COMPLETE:
+                    return task_id
+            return None
+
+        return redis_raw.wait_for("pqueues", condition, timeout)
 
     def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
         with self._redis.pipeline() as pipe:

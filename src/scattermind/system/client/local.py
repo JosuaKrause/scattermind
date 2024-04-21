@@ -25,6 +25,7 @@ from scattermind.system.names import GNamespace, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import DataContainer, TaskValueContainer
 from scattermind.system.response import (
+    TASK_COMPLETE,
     TASK_STATUS_DONE,
     TASK_STATUS_INIT,
     TASK_STATUS_UNKNOWN,
@@ -59,7 +60,8 @@ class LocalClientPool(ClientPool):
         self._results: dict[TaskId, TaskValueContainer | None] = {}
         self._error: dict[TaskId, ErrorInfo] = {}
         self._lock = threading.RLock()
-        self._wait = threading.Condition()
+        self._wait_queues = threading.Condition()
+        self._wait_results = threading.Condition()
 
     @staticmethod
     def locality() -> Locality:
@@ -117,19 +119,42 @@ class LocalClientPool(ClientPool):
     def get_namespace(self, task_id: TaskId) -> GNamespace | None:
         return self._namespaces.get(task_id)
 
-    def get_status(self, task_id: TaskId) -> TaskStatus:
+    def get_task_status(self, task_id: TaskId) -> TaskStatus:
         return self._status.get(task_id, TASK_STATUS_UNKNOWN)
 
     def notify_queues(self) -> None:
-        wait = self._wait
-        with wait:
-            wait.notify_all()
+        wait_queues = self._wait_queues
+        with wait_queues:
+            wait_queues.notify_all()
 
     def wait_for_queues(
             self, condition: Callable[[], bool], timeout: float) -> None:
-        wait = self._wait
-        with wait:
-            wait.wait_for(condition, timeout)
+        wait_queues = self._wait_queues
+        with wait_queues:
+            wait_queues.wait_for(condition, timeout)
+
+    def notify_result(self, task_id: TaskId) -> None:
+        # FIXME: make usage of task_id work
+        wait_results = self._wait_results
+        with wait_results:
+            wait_results.notify_all()
+
+    def wait_for_task_notifications(
+            self,
+            tasks: list[TaskId],
+            *,
+            timeout: float) -> TaskId | None:
+        # FIXME: make usage of task_id work
+        wait_results = self._wait_results
+
+        def condition() -> TaskId | None:
+            for task_id in tasks:
+                if self.get_task_status(task_id) in TASK_COMPLETE:
+                    return task_id
+            return None
+
+        with wait_results:
+            return wait_results.wait_for(condition, timeout)
 
     def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
         self._defer_task[task_id] = other_task

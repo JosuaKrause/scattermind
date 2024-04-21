@@ -53,6 +53,14 @@ TASK_STATUS_UNKNOWN: TaskStatus = "unknown"
 """The status of the task is unknown. The task might not exist."""
 
 
+TASK_COMPLETE: set[TaskStatus] = {
+    TASK_STATUS_READY,
+    TASK_STATUS_DONE,
+    TASK_STATUS_ERROR,
+    TASK_STATUS_UNKNOWN,
+}
+
+
 def to_status(text: str) -> TaskStatus:
     """
     Converts a string into a task status.

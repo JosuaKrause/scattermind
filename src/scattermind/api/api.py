@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Provides functionality to send tasks and retrieve results."""
-import time
 from collections.abc import Iterable
 from typing import Any, TypedDict
 
@@ -23,13 +22,7 @@ from scattermind.system.base import QueueId, TaskId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
 from scattermind.system.names import GNamespace, QualifiedNodeName
 from scattermind.system.payload.values import TaskValueContainer
-from scattermind.system.response import (
-    ResponseObject,
-    TASK_STATUS_DONE,
-    TASK_STATUS_ERROR,
-    TASK_STATUS_READY,
-    TaskStatus,
-)
+from scattermind.system.response import ResponseObject, TaskStatus
 from scattermind.system.torch_util import (
     create_tensor,
     DTypeName,
@@ -89,7 +82,8 @@ class ScattermindAPI:
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         """
-        Get the status of the given task.
+        Get the status of the given task. Note, calling this method is
+        required before being able to access results.
 
         Args:
             task_id (TaskId): The task id.
@@ -174,7 +168,6 @@ class ScattermindAPI:
             self,
             task_ids: list[TaskId],
             *,
-            timeinc: float = 1.0,
             timeout: float | None = 10.0,
             ) -> Iterable[tuple[TaskId, ResponseObject]]:
         """
@@ -182,10 +175,9 @@ class ScattermindAPI:
 
         Args:
             task_ids (list[TaskId]): The tasks to wait for.
-            timeinc (float, optional): The increment of internal waiting
-                between checks. Defaults to 1.0.
             timeout (float | None, optional): The maximum time to wait for any
-                task to complete. If None, no timeout is enforced. Defaults to
+                task to complete. The timeout is reset after each successfully
+                returned task. If None, no timeout is enforced. Defaults to
                 10.0.
 
         Yields:
@@ -194,37 +186,7 @@ class ScattermindAPI:
                 will have an in-progress status). A tuple of task id and its
                 response.
         """
-        assert timeinc > 0.0
-        assert timeout is None or timeout > 0.0
-        cur_ids = list(task_ids)
-        already: set[TaskId] = set()
-        start_time = time.monotonic()
-        while cur_ids:
-            task_id = cur_ids.pop(0)
-            status = self.get_status(task_id)
-            if status in (
-                    TASK_STATUS_READY,
-                    TASK_STATUS_DONE,
-                    TASK_STATUS_ERROR):
-                yield (task_id, self.get_response(task_id))
-                start_time = time.monotonic()
-                continue
-            cur_ids.append(task_id)
-            if task_id not in already:
-                already.add(task_id)
-                continue
-            already.clear()
-            elapsed = time.monotonic() - start_time
-            if timeout is not None and elapsed >= timeout:
-                break
-            if timeout is not None and elapsed + timeinc > timeout:
-                wait_time = timeout - elapsed
-            else:
-                wait_time = timeinc
-            if wait_time > 0.0:
-                time.sleep(wait_time)
-        for task_id in cur_ids:  # FIXME write timeout test?
-            yield (task_id, self.get_response(task_id))
+        raise NotImplementedError()
 
     def namespaces(self) -> set[GNamespace]:
         """

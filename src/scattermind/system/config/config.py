@@ -13,6 +13,7 @@
 # limitations under the License.
 """Configurations connect modules together to make scattermind work."""
 import threading
+import time
 from collections.abc import Callable, Iterable
 from typing import cast, TypeVar
 
@@ -36,11 +37,8 @@ from scattermind.system.readonly.access import ReadonlyAccess
 from scattermind.system.readonly.writer import RoAWriter
 from scattermind.system.response import (
     ResponseObject,
+    TASK_COMPLETE,
     TASK_STATUS_DEFER,
-    TASK_STATUS_DONE,
-    TASK_STATUS_ERROR,
-    TASK_STATUS_READY,
-    TASK_STATUS_UNKNOWN,
     TaskStatus,
 )
 from scattermind.system.torch_util import DTypeName
@@ -388,25 +386,49 @@ class Config(ScattermindAPI):
         cpool = self.get_client_pool()
         return cpool.get_namespace(task_id)
 
-    def get_status(self, task_id: TaskId) -> TaskStatus:
+    def wait_for(
+            self,
+            task_ids: list[TaskId],
+            *,
+            timeout: float | None = 10.0,
+            ) -> Iterable[tuple[TaskId, ResponseObject]]:
+        assert timeout is None or timeout > 0.0
         cpool = self.get_client_pool()
-        res = cpool.get_status(task_id)
+        cur_ids: set[TaskId] = set(task_ids)
+        start_time = time.monotonic()
+        individual_timeout: float = 60.0 if timeout is None else timeout
+        while cur_ids:
+            task_id = cpool.wait_for_task_notifications(
+                list(cur_ids), timeout=individual_timeout)
+            elapsed = time.monotonic() - start_time
+            if timeout is not None and elapsed >= timeout:
+                break
+            if task_id is None:
+                continue
+            status = self.get_status(task_id)
+            if status in TASK_COMPLETE:
+                yield (task_id, self.get_response(task_id))
+                start_time = time.monotonic()
+                cur_ids.remove(task_id)
+        for task_id in cur_ids:  # FIXME write timeout test?
+            yield (task_id, self.get_response(task_id))
+
+    def get_status(self, task_id: TaskId) -> TaskStatus:
+        # FIXME: remove side-effects of this method
+        cpool = self.get_client_pool()
+        res = cpool.get_task_status(task_id)
         if res == TASK_STATUS_DEFER:
             defer_id = cpool.get_deferred_task(task_id)
             if defer_id is not None and defer_id != task_id:
-                defer_status = cpool.get_status(defer_id)
-                if defer_status not in (
-                        TASK_STATUS_READY,
-                        TASK_STATUS_DONE,
-                        TASK_STATUS_ERROR,
-                        TASK_STATUS_UNKNOWN):
+                defer_status = self.get_status(defer_id)
+                if defer_status not in TASK_COMPLETE:
                     return defer_status
             logger = self.get_logger()
             store = self.get_data_store()
             queue_pool = self.get_queue_pool()
             queue_pool.maybe_requeue_task_id(
                 logger, store, task_id, error_info=None)
-            res = cpool.get_status(task_id)
+            res = cpool.get_task_status(task_id)
         return res
 
     def get_result(self, task_id: TaskId) -> TaskValueContainer | None:

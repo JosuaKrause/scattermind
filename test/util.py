@@ -64,7 +64,6 @@ def wait_for_tasks(
         config: 'Config',
         tasks: list[tuple['TaskId', T]],
         *,
-        timeinc: float = 0.1,
         timeout: float = 5.0,
         ) -> Iterable[tuple['TaskId', 'ResponseObject', T]]:
     """
@@ -75,8 +74,6 @@ def wait_for_tasks(
     Args:
         config (Config): The configuration.
         tasks (list[tuple[TaskId, T]]): A list of tasks and expected results.
-        timeinc (float, optional): The increment of internal waiting
-            between checks. Defaults to 0.1.
         timeout (float, optional): The maximum time to wait for any task
             to complete. Defaults to 5.0.
 
@@ -91,8 +88,7 @@ def wait_for_tasks(
         expected[task_id] = expected_result
         task_ids.append(task_id)
     seen: set['TaskId'] = set()
-    for task_id, response in config.wait_for(
-            task_ids, timeinc=timeinc, timeout=timeout):
+    for task_id, response in config.wait_for(task_ids, timeout=timeout):
         expected_result = expected[task_id]
         yield task_id, response, expected_result
         seen.add(task_id)
