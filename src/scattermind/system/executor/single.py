@@ -37,6 +37,9 @@ class SingleExecutorManager(ExecutorManager):
     def is_active(self, executor_id: ExecutorId) -> bool:
         return self._is_active
 
+    def is_release_requested(self, executor_id: ExecutorId) -> bool:
+        return not self._is_active
+
     def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
         return not self._is_active
 
@@ -53,7 +56,7 @@ class SingleExecutorManager(ExecutorManager):
             self,
             logger: EventStream,
             *,
-            wait_for_task: Callable[[float], None],
+            wait_for_task: Callable[[Callable[[], bool], float], None],
             work: Callable[[ExecutorManager], bool]) -> int | None:
         with add_context({"executor": self.get_own_id()}):
             running = True

@@ -15,6 +15,7 @@
 import time
 import traceback
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from scattermind.system.base import ExecutorId, Module, TaskId
 from scattermind.system.graph.node import Node
@@ -30,6 +31,10 @@ from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import ComputeState, NoTasksToCompute
 from scattermind.system.queue.queue import QueuePool
 from scattermind.system.readonly.access import ReadonlyAccess
+
+
+if TYPE_CHECKING:
+    from scattermind.system.client.client import ClientPool
 
 
 class Executor:
@@ -74,11 +79,16 @@ class Executor:
         """
         return self._emng.is_fully_terminated(self._executor_id)
 
-    def release(self) -> None:
+    def release(self, client: 'ClientPool') -> None:
         """
         Releases the executor and removes it from the pool whenever possible.
+
+        Args:
+            client (ClientPool): The configuration associated with the executor
+                to cut short waiting for tasks.
         """
-        return self._emng.release_executor(self._executor_id)
+        self._emng.release_executor(self._executor_id)
+        client.notify_queues()
 
 
 class ExecutorManager(Module):
@@ -304,6 +314,7 @@ class ExecutorManager(Module):
     def reclaim_inactive_tasks(  # FIXME write test for dead executors
             self,
             logger: EventStream,
+            cpool: 'ClientPool',
             queue_pool: QueuePool,
             store: DataStore) -> tuple[int, int]:
         """
@@ -313,6 +324,7 @@ class ExecutorManager(Module):
 
         Args:
             logger (EventStream): The logger.
+            cpool (ClientPool): The client pool.
             queue_pool (QueuePool): The queue pool.
             store (DataStore): The payload data store.
 
@@ -325,7 +337,8 @@ class ExecutorManager(Module):
         for executor in self.get_all_executors():
             if executor.is_active():
                 continue
-            self.handle_inactive_executor(logger, queue_pool, store, executor)
+            self.handle_inactive_executor(
+                logger, cpool, queue_pool, store, executor)
             executor_count += 1
 
         def is_active(executor_id: ExecutorId) -> bool:
@@ -339,6 +352,7 @@ class ExecutorManager(Module):
     def handle_inactive_executor(
             self,
             logger: EventStream,
+            cpool: 'ClientPool',
             queue_pool: QueuePool,
             store: DataStore,
             executor: Executor) -> None:
@@ -348,6 +362,7 @@ class ExecutorManager(Module):
 
         Args:
             logger (EventStream): The logger.
+            cpool (ClientPool): The client pool.
             queue_pool (QueuePool): The queue pool.
             store (DataStore): The payload data store.
             executor (Executor): The unresponsive executor.
@@ -370,10 +385,11 @@ class ExecutorManager(Module):
                                 "code": "defunc_executor",
                                 "traceback": [],
                             })
-        executor.release()
+        executor.release(cpool)
 
     def release_all(
             self,
+            cpool: 'ClientPool',
             *,
             timeout: float | None = None,
             max_sleep: float = 0.1) -> None:
@@ -381,6 +397,7 @@ class ExecutorManager(Module):
         Release all executors. This usually results in halting all execution.
 
         Args:
+            cpool (ClientPool): The client pool.
             timeout (float | None, optional): Wait until all executors are
                 inactive or the number of seconds runs out. If None the
                 function returns immediately in any case. Defaults to None.
@@ -388,7 +405,7 @@ class ExecutorManager(Module):
                 Defaults to 0.1 seconds.
         """
         for executor in self.get_all_executors():
-            executor.release()
+            executor.release(cpool)
         if timeout is None:
             return
         start_time = time.monotonic()
@@ -437,6 +454,19 @@ class ExecutorManager(Module):
         """
         raise NotImplementedError()
 
+    def is_release_requested(self, executor_id: ExecutorId) -> bool:
+        """
+        Whether the executor has been requested to shut down or is not active.
+
+        Args:
+            executor_id (ExecutorId): The executor id.
+
+        Returns:
+            bool: True if the executor is requested to shut down or has already
+                shut down.
+        """
+        raise NotImplementedError()
+
     def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
         """
         Whether the executor has been completely shut down.
@@ -453,7 +483,10 @@ class ExecutorManager(Module):
         """
         Release an executor and let it stop processing tasks. This does not
         necessarily result in an immediate termination of the associated
-        compute resource.
+        compute resource. More specifically, this method does not shorten wait
+        for tasks or interrupt execution of tasks. If waiting for tasks should
+        be skipped in order to release the executor faster use the
+        corresponding `release` method from the `Executor` class.
 
         Args:
             executor_id (ExecutorId): The executor id to stop.
@@ -484,21 +517,23 @@ class ExecutorManager(Module):
             self,
             logger: EventStream,
             *,
-            wait_for_task: Callable[[float], None],
+            wait_for_task: Callable[[Callable[[], bool], float], None],
             work: Callable[['ExecutorManager'], bool]) -> int | None:
         """
         At its core, this function calls `work` repeatedly until `work` returns
         True. The function might also do bookkeeping and setting the "active"
         status of the own executor. That said, this function might also just
         kick off executing the `work` callback. Furthermore, an executor is
-        free to continue working even after `work` return True (ideally, add
-        a small timeout before continuing to not spinwait on tasks). For
-        stopping executors use the `release_executor` function.
+        free to continue working even after `work` return True (use
+        wait_for_task to idle in this case). For stopping executors use the
+        `release_executor` function.
 
         Args:
             logger (EventStream): The logger.
-            wait_for_task (Callable[[float], None]): Waits until a task is
-                available or timeout in seconds is reached.
+            wait_for_task (Callable[[Callable[[], bool], float], None]): Waits
+                until a task is available or timeout in seconds is reached.
+                The callback passed as argument returns whether a shutdown was
+                requested.
             work (Callable[[ExecutorManager], bool]): The work. Call this
                 function until it returns True (i.e., work is done).
 

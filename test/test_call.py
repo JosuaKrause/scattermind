@@ -245,6 +245,6 @@ def test_simple_call(
             assert config.get_result(task_id) is None
     finally:
         emng = config.get_executor_manager()
-        emng.release_all(timeout=0.5)
+        emng.release_all(config.get_client_pool(), timeout=0.5)
         if emng.any_active():
             raise ValueError("threads did not shut down in time")

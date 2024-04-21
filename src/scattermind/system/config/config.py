@@ -13,7 +13,7 @@
 # limitations under the License.
 """Configurations connect modules together to make scattermind work."""
 import threading
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import cast, TypeVar
 
 from scattermind.api.api import QueueCounts, ScattermindAPI
@@ -457,13 +457,21 @@ class Config(ScattermindAPI):
 
         def reclaim_all_once() -> tuple[int, int]:
             return executor_manager.reclaim_inactive_tasks(
-                logger, queue_pool, store)
+                logger, cpool, queue_pool, store)
 
         if not no_reclaim:
             executor_manager.start_reclaimer(logger, reclaim_all_once)
 
-        def wait_for_task(timeout: float) -> None:
-            cpool.wait_for_queues(self.has_any_tasks, timeout)
+        def wait_for_task(
+                is_release_requested: Callable[[], bool],
+                timeout: float) -> None:
+
+            def task_condition() -> bool:
+                if is_release_requested():
+                    return True
+                return self.has_any_tasks()
+
+            cpool.wait_for_queues(task_condition, timeout)
 
         def work(emng: ExecutorManager) -> bool:
             return emng.execute_batch(logger, queue_pool, store, roa)

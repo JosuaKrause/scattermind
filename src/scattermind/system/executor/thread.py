@@ -68,7 +68,8 @@ class ThreadExecutorManager(ExecutorManager):
         self._thread: threading.Thread | None = None
         self._reclaim: threading.Thread | None = None
         self._work: Callable[[ExecutorManager], bool] | None = None
-        self._wait_for_task: Callable[[float], None] | None = None
+        self._wait_for_task: Callable[
+            [Callable[[], bool], float], None] | None = None
         self._logger: EventStream | None = None
         self._done = False
         with LOCK:
@@ -100,7 +101,8 @@ class ThreadExecutorManager(ExecutorManager):
         logger = self._logger
 
         def run() -> None:
-            with add_context({"executor": self.get_own_id()}):
+            own_id = self.get_own_id()
+            with add_context({"executor": own_id}):
                 running = True
                 logger.log_event(
                     "tally.executor.start",
@@ -110,7 +112,7 @@ class ThreadExecutorManager(ExecutorManager):
                     })
                 try:
                     with LOCK:
-                        ALIVE.add(self.get_own_id())
+                        ALIVE.add(own_id)
                     conn_count = 0
                     while not self.is_done() and thread is self._thread:
                         work = self._work
@@ -122,7 +124,9 @@ class ThreadExecutorManager(ExecutorManager):
                             0.0, max(sleep_on_idle, 0.0))
                         try:
                             if not work(self) and sleep_on_idle > 0.0:
-                                wait_for_task(sleep_on_idle)
+                                wait_for_task(
+                                    lambda: self.is_release_requested(own_id),
+                                    sleep_on_idle)
                         except (ConnectionError, redis_lib.ConnectionError):
                             conn_count += 1
                             if conn_count > 10:
@@ -138,8 +142,8 @@ class ThreadExecutorManager(ExecutorManager):
                             "action": "stop",
                         })
                     with LOCK:
-                        ALIVE.discard(self.get_own_id())
-                        ACTIVE[self.get_own_id()] = False
+                        ALIVE.discard(own_id)
+                        ACTIVE[own_id] = False
                         self._thread = None
                         if running:
                             logger.log_error(
@@ -171,6 +175,17 @@ class ThreadExecutorManager(ExecutorManager):
         with LOCK:
             return ACTIVE.get(executor_id, False)
 
+    def is_release_requested(self, executor_id: ExecutorId) -> bool:
+        with LOCK:
+            if not self.is_active(executor_id):
+                return True
+            if self.is_fully_terminated(executor_id):
+                return True
+            executor = EXECUTORS.get(executor_id)
+            if executor is None:
+                return True
+            return executor.is_done()
+
     def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
         with LOCK:
             return executor_id not in ALIVE and not ACTIVE.get(
@@ -192,13 +207,15 @@ class ThreadExecutorManager(ExecutorManager):
         """
         return self._work
 
-    def get_wait_for_task(self) -> Callable[[float], None] | None:
+    def get_wait_for_task(
+            self) -> Callable[[Callable[[], bool], float], None] | None:
         """
         Retrieves the currently installed wait_for_task callback.
 
         Returns:
-            Callable[[float], None] | None: The wait_for_task callback or
-                None if the executor has not been started yet.
+            Callable[[Callable[[], bool], float], None] | None: The
+                wait_for_task callback or None if the executor has not been
+                started yet.
         """
         return self._wait_for_task
 
@@ -290,7 +307,7 @@ class ThreadExecutorManager(ExecutorManager):
             self,
             logger: EventStream,
             *,
-            wait_for_task: Callable[[float], None],
+            wait_for_task: Callable[[Callable[[], bool], float], None],
             work: Callable[[ExecutorManager], bool]) -> int | None:
         if (
                 self._work is not work
