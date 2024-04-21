@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Provides the client pool interface."""
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, TypeAlias, TypeVar
 
 from scattermind.system.base import (
@@ -194,11 +194,14 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
-    def wait_for_queues(self, timeout: float) -> None:
+    def wait_for_queues(
+            self, condition: Callable[[], bool], timeout: float) -> None:
         """
         Let's an executor wait until new tasks are available on some queue.
 
         Args:
+            condition (Callable[[], bool]): If this function returns True the
+                function returns.
             timeout (float): The timeout in seconds.
         """
         raise NotImplementedError()

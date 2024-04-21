@@ -463,7 +463,7 @@ class Config(ScattermindAPI):
             executor_manager.start_reclaimer(logger, reclaim_all_once)
 
         def wait_for_task(timeout: float) -> None:
-            cpool.wait_for_queues(timeout)
+            cpool.wait_for_queues(self.has_any_tasks, timeout)
 
         def work(emng: ExecutorManager) -> bool:
             return emng.execute_batch(logger, queue_pool, store, roa)
@@ -524,3 +524,12 @@ class Config(ScattermindAPI):
                 "queue_length": queue_length,
                 "listeners": listerners,
             }
+
+    def has_any_tasks(self) -> bool:
+        queue_pool = self.get_queue_pool()
+        for qid in queue_pool.get_all_queues():
+            queue = queue_pool.get_queue(qid)
+            queue_length = queue.get_queue_length()
+            if queue_length > 0:
+                return True
+        return False

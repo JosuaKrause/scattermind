@@ -297,6 +297,15 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
+    def has_any_tasks(self) -> bool:
+        """
+        Checks whether any tasks are present in any queue.
+
+        Returns:
+            bool: True, if there are some tasks to be computed.
+        """
+        raise NotImplementedError()
+
     def get_healthcheck(self) -> tuple[str, str, int] | None:
         """
         Gets the address at which a healthcheck is exposed.

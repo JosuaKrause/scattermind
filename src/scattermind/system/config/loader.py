@@ -184,14 +184,14 @@ def load_test(
             "name": "thread",
             "batch_size": batch_size,
             "parallelism": parallelism,
-            "sleep_on_idle": 0.01,
+            "sleep_on_idle": 60.0,
             "reclaim_sleep": 60.0,
         }
     elif parallelism == -1:
         executor_manager = {
             "name": "redis",
             "batch_size": batch_size,
-            "sleep_on_idle": 0.01,
+            "sleep_on_idle": 60.0,
             "reclaim_sleep": 60.0,
             "heartbeat_time": 0.1,
             "cfg": get_test_config(),

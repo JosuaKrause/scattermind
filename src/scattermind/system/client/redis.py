@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """A redis client pool."""
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Literal, TypeVar
 
 from redipy import Redis, RedisConfig
@@ -223,20 +223,10 @@ class RedisClientPool(ClientPool):
         with redis_raw.get_connection() as conn:
             conn.publish(redis_raw.get_pubsub_key("pqueues"), "queues")
 
-    def wait_for_queues(self, timeout: float) -> None:
+    def wait_for_queues(
+            self, condition: Callable[[], bool], timeout: float) -> None:
         redis_raw = self._redis.get_redis_runtime()
-        with redis_raw.get_connection() as conn:
-            with conn.pubsub() as psub:
-                psub.subscribe(redis_raw.get_pubsub_key("pqueues"))
-                try:
-                    msg = psub.get_message(
-                        ignore_subscribe_messages=True,
-                        timeout=timeout)
-                    if msg is not None:
-                        while psub.get_message() is not None:  # flushing queue
-                            pass
-                finally:
-                    psub.unsubscribe()
+        redis_raw.wait_for("pqueues", condition, granularity=timeout)
 
     def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
         with self._redis.pipeline() as pipe:

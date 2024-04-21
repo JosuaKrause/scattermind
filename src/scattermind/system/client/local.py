@@ -13,7 +13,7 @@
 # limitations under the License.
 """A RAM-only client pool."""
 import threading
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TypeVar
 
 from scattermind.system.base import CacheId, DataId, L_LOCAL, Locality, TaskId
@@ -125,10 +125,11 @@ class LocalClientPool(ClientPool):
         with wait:
             wait.notify_all()
 
-    def wait_for_queues(self, timeout: float) -> None:
+    def wait_for_queues(
+            self, condition: Callable[[], bool], timeout: float) -> None:
         wait = self._wait
         with wait:
-            wait.wait(timeout)
+            wait.wait_for(condition, timeout)
 
     def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
         self._defer_task[task_id] = other_task
