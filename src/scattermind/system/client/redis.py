@@ -249,7 +249,7 @@ class RedisClientPool(ClientPool):
                     return task_id
             return None
 
-        return redis_raw.wait_for("pqueues", condition, timeout)
+        return redis_raw.wait_for("presults", condition, timeout)
 
     def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
         with self._redis.pipeline() as pipe:
