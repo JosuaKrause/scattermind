@@ -33,9 +33,10 @@ LISTENERS_PREFIX: RedisPrefix = "listeners"
 
 class RedisCache(GraphCache):
     """Cache using redis."""
-    def __init__(self, cfg: RedisConfig) -> None:
+    def __init__(self, cfg: RedisConfig, *, use_defer: bool) -> None:
         super().__init__()
         self._redis = Redis("redis", cfg=cfg, redis_module="cache")
+        self._use_defer = use_defer
 
     @staticmethod
     def locality() -> Locality:
@@ -76,6 +77,8 @@ class RedisCache(GraphCache):
                 logger, store, task_id, error_info=None)
 
     def put_progress(self, cache_id: CacheId, task_id: TaskId) -> None:
+        if not self._use_defer:
+            return
         self._redis.set_value(
             self.key(DATA_PREFIX, cache_id), task_id.to_parseable())
 

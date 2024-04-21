@@ -238,6 +238,7 @@ def load_test(
         graph_cache = {
             "name": "redis",
             "cfg": get_test_config(),
+            "use_defer": True,
         }
     test_config: ConfigJSON = {
         "client_pool": client_pool,
