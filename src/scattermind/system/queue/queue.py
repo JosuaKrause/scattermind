@@ -1230,6 +1230,7 @@ class QueuePool(Module):
                     return True
                 print(f"CACHE DEFER {cache_id}")  # TODO: add logging
                 other_task_id: TaskId = result
+                cpool.init_data(store, task_id, input_format, original_input)
                 cpool.defer_task(task_id, other_task_id)
                 cpool.set_bulk_status([task_id], TASK_STATUS_DEFER)
                 graph_cache.add_listener(cache_id, task_id)
@@ -1238,9 +1239,9 @@ class QueuePool(Module):
             graph_cache.put_progress(cache_id, task_id)
         cpool.push_cache_id(task_id, cache_id)
         cpool.init_data(store, task_id, input_format, original_input)
+        cpool.set_bulk_status([task_id], TASK_STATUS_WAIT)
         node = self.get_input_node(entry_graph_id)
         qid = node.get_input_queue()
-        cpool.set_bulk_status([task_id], TASK_STATUS_WAIT)
         self.push_task_id(qid, task_id)
         cpool.notify_queues()
         return True
