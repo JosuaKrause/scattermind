@@ -37,6 +37,12 @@ class SingleExecutorManager(ExecutorManager):
     def is_active(self, executor_id: ExecutorId) -> bool:
         return self._is_active
 
+    def is_release_requested(self, executor_id: ExecutorId) -> bool:
+        return not self._is_active
+
+    def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
+        return not self._is_active
+
     def release_executor(self, executor_id: ExecutorId) -> None:
         pass
 
@@ -49,6 +55,8 @@ class SingleExecutorManager(ExecutorManager):
     def execute(
             self,
             logger: EventStream,
+            *,
+            wait_for_task: Callable[[Callable[[], bool], float], None],
             work: Callable[[ExecutorManager], bool]) -> int | None:
         with add_context({"executor": self.get_own_id()}):
             running = True
@@ -65,6 +73,8 @@ class SingleExecutorManager(ExecutorManager):
                 while not done:
                     done = not work(self)
                 running = False
+            except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                raise
             except Exception:  # pylint: disable=broad-except
                 logger.log_error("error.executor", "uncaught_executor")
                 running = False

@@ -47,6 +47,7 @@ from scattermind.system.queue.strategy.strategy import (
 )
 from scattermind.system.response import (
     TASK_STATUS_BUSY,
+    TASK_STATUS_DEFER,
     TASK_STATUS_ERROR,
     TASK_STATUS_READY,
     TASK_STATUS_WAIT,
@@ -878,11 +879,14 @@ class QueuePool(Module):
 
         good_node: 'Node | None' = None
         for node in self.get_all_nodes():
+            # pylint: disable=try-except-raise
             if node == current_node:
                 continue
             try:
                 candidate_node = process_node(candidate_node, node)
                 good_node = candidate_node
+            except KeyboardInterrupt:
+                raise
             except Exception:  # pylint: disable=broad-except
                 print(
                     f"candidate={candidate_node.get_qualified_name(self)} "
@@ -891,6 +895,8 @@ class QueuePool(Module):
                 if good_node is not None:
                     try:
                         process_node(good_node, node)
+                    except KeyboardInterrupt:
+                        raise
                     except Exception:  # pylint: disable=broad-except
                         print(
                             "bad node "
@@ -904,6 +910,8 @@ class QueuePool(Module):
                         )
                     try:
                         process_node(good_node, candidate_node)
+                    except KeyboardInterrupt:
+                        raise
                     except Exception:  # pylint: disable=broad-except
                         print(
                             "bad node "
@@ -988,6 +996,8 @@ class QueuePool(Module):
         try:
             if want_to_switch_to(candidate_node):
                 return (candidate_node, candidate_node != current_node)
+        except KeyboardInterrupt:  # pylint: disable=try-except-raise
+            raise
         except Exception:  # pylint: disable=broad-except
             print(
                 f"candidate={candidate_node.get_qualified_name(self)} "
@@ -997,6 +1007,8 @@ class QueuePool(Module):
             try:
                 want_to_switch_to(good_node)
                 return (candidate_node, candidate_node != current_node)
+            except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                raise
             except Exception:  # pylint: disable=broad-except
                 print(
                     f"current={current_node.get_qualified_name(self)} "
@@ -1034,7 +1046,8 @@ class QueuePool(Module):
             logger: EventStream,
             store: DataStore,
             task_id: TaskId,
-            error_info: ErrorInfo) -> None:
+            *,
+            error_info: ErrorInfo | None) -> None:
         """
         Enqueue a previously created task again to the overall input queue.
 
@@ -1042,21 +1055,26 @@ class QueuePool(Module):
             logger (EventStream): The logger.
             store (DataStore): The data store for storing the payload data.
             task_id (TaskId): The existing task id.
-            error_info (ErrorInfo): The error that triggered the requeue.
+            error_info (ErrorInfo | None): The error that triggered the
+                requeue. This can be None for deferred tasks.
 
         Raises:
             AssertionError: If the task is already / still in a queue.
         """
         cpool = self.get_client_pool()
-        cpool.set_error(task_id, error_info)
-        new_retries = cpool.inc_retries(task_id)
-        adj_ctx, retry_event = to_retry_event(error_info, new_retries)
-        logger.log_event("error.task", retry_event, adjust_ctx=adj_ctx)
+        if error_info is not None:
+            cpool.set_error(task_id, error_info)
+            new_retries = cpool.inc_retries(task_id)
+            adj_ctx, retry_event = to_retry_event(error_info, new_retries)
+            logger.log_event("error.task", retry_event, adjust_ctx=adj_ctx)
+        else:
+            # NOTE: we don't increase retries for deferred tasks
+            new_retries = 0
         if new_retries >= ClientPool.get_max_retries():
             cpool.set_duration(task_id)
             cpool.set_bulk_status([task_id], TASK_STATUS_ERROR)
         else:
-            if cpool.get_status(task_id) == TASK_STATUS_WAIT:
+            if cpool.get_task_status(task_id) == TASK_STATUS_WAIT:
                 mqid = self.maybe_get_queue(task_id)
                 if mqid is not None:
                     raise AssertionError(
@@ -1069,8 +1087,7 @@ class QueuePool(Module):
                         "name": "ghost",
                         "message": "Cleaned up ghost task.",
                         "task": task_id,
-                    },
-                    adjust_ctx=adj_ctx)
+                    })
 
     def handle_task_result(
             self,
@@ -1122,17 +1139,23 @@ class QueuePool(Module):
                     store, output_format, ret_data, final_vmap)
                 if tvc_out is not None:
                     cache_id = cpool.pop_cache_id(task_id)
-                    if cache_id is not None:
-                        graph_cache.put_cached_output(cache_id, tvc_out)
                     cpool.set_final_output(task_id, tvc_out)
                     cpool.set_duration(task_id)
                     cpool.set_bulk_status([task_id], TASK_STATUS_READY)
+                    if cache_id is not None:
+                        graph_cache.put_cached_output(
+                            logger,
+                            store,
+                            self,
+                            cache_id=cache_id,
+                            output_data=tvc_out)
+                    cpool.notify_result(task_id)
                 else:
                     self.maybe_requeue_task_id(
                         logger,
                         store,
                         task_id,
-                        {
+                        error_info={
                             "ctx": get_ctx(),
                             "message": "result got purged from memory",
                             "code": "memory_purge",
@@ -1148,6 +1171,7 @@ class QueuePool(Module):
         if not is_final:
             out_queue = self.get_queue(qid)
             out_queue.push_task_id(task_id)
+            cpool.notify_queues()
 
     def get_task_status(self, task_id: TaskId) -> TaskStatus:
         """
@@ -1159,7 +1183,7 @@ class QueuePool(Module):
         Returns:
             TaskStatus: The status of the task.
         """
-        return self.get_client_pool().get_status(task_id)
+        return self.get_client_pool().get_task_status(task_id)
 
     def _enqueue_task_id(
             self,
@@ -1196,18 +1220,30 @@ class QueuePool(Module):
             output_format = self.get_output_format(entry_graph_id)
             result = graph_cache.get_cached_output(cache_id, output_format)
             if result is not None:
-                print(f"CACHE HIT {cache_id}")  # TODO: add logging
-                cpool.set_final_output(task_id, result)
-                cpool.set_duration(task_id)
-                cpool.set_bulk_status([task_id], TASK_STATUS_READY)
+                if isinstance(result, TaskValueContainer):
+                    tvc: TaskValueContainer = result
+                    print(f"CACHE HIT {cache_id}")  # TODO: add logging
+                    cpool.set_final_output(task_id, tvc)
+                    cpool.set_duration(task_id)
+                    cpool.set_bulk_status([task_id], TASK_STATUS_READY)
+                    cpool.notify_result(task_id)
+                    return True
+                print(f"CACHE DEFER {cache_id}")  # TODO: add logging
+                other_task_id: TaskId = result
+                cpool.init_data(store, task_id, input_format, original_input)
+                cpool.defer_task(task_id, other_task_id)
+                cpool.set_bulk_status([task_id], TASK_STATUS_DEFER)
+                graph_cache.add_listener(cache_id, task_id)
                 return True
             print(f"CACHE MISS {cache_id}")  # TODO: add logging
+            graph_cache.put_progress(cache_id, task_id)
         cpool.push_cache_id(task_id, cache_id)
         cpool.init_data(store, task_id, input_format, original_input)
+        cpool.set_bulk_status([task_id], TASK_STATUS_WAIT)
         node = self.get_input_node(entry_graph_id)
         qid = node.get_input_queue()
-        cpool.set_bulk_status([task_id], TASK_STATUS_WAIT)
         self.push_task_id(qid, task_id)
+        cpool.notify_queues()
         return True
 
     def get_compute_task(

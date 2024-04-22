@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Provides the client pool interface."""
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, TypeAlias, TypeVar
 
 from scattermind.system.base import (
@@ -70,7 +70,8 @@ class ClientPool(Module):
             output_format: DataFormat | None) -> ResponseObject:
         """
         Retrieves the summary of the task. If the final output are available or
-        the task caused an error, the respective fields are set.
+        the task caused an error, the respective fields are set. Make sure to
+        call `get_status` of the API first.
 
         Args:
             task_id (TaskId): The task id.
@@ -84,7 +85,7 @@ class ClientPool(Module):
         """
         return {
             "ns": self.get_namespace(task_id),
-            "status": self.get_status(task_id),
+            "status": self.get_task_status(task_id),
             "duration": self.get_duration(task_id),
             "retries": self.get_retries(task_id),
             "result":
@@ -174,7 +175,7 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
-    def get_status(self, task_id: TaskId) -> TaskStatus:
+    def get_task_status(self, task_id: TaskId) -> TaskStatus:
         """
         Retrieves the status of the given task.
 
@@ -186,6 +187,77 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
+    def notify_queues(self) -> None:
+        """
+        Notifies waiting executors that new tasks are available on some queue.
+        """
+        raise NotImplementedError()
+
+    def wait_for_queues(
+            self, condition: Callable[[], bool], timeout: float) -> None:
+        """
+        Lets an executor wait until new tasks are available on some queue.
+
+        Args:
+            condition (Callable[[], bool]): If this function returns True the
+                function returns.
+            timeout (float): The timeout in seconds.
+        """
+        raise NotImplementedError()
+
+    def notify_result(self, task_id: TaskId) -> None:
+        """
+        Notifies that the results for the given task are available (or the
+        task has otherwise terminated, e.g., via error). Implementations are
+        free to interpret this as general, non task specific, notification.
+        If the task id is used, tasks must notify all deferred child tasks.
+
+        Args:
+            task_id (TaskId): The task id.
+        """
+        raise NotImplementedError()
+
+    def wait_for_task_notifications(
+            self,
+            tasks: list[TaskId],
+            *,
+            timeout: float) -> TaskId | None:
+        """
+        Waits until any of the given tasks has a final result (or has been
+        terminated for any reason; this includes the task not existing).
+
+        Args:
+            tasks (list[TaskId]): The list of tasks to wait for.
+            timeout (float): The timeout in seconds.
+
+        Returns:
+            TaskId | None: The first finished task or None if the wait timed
+                out.
+        """
+        raise NotImplementedError()
+
+    def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
+        """
+        Defers the execution of the task to the other task.
+
+        Args:
+            task_id (TaskId): The task waiting.
+            other_task (TaskId): The task executing.
+        """
+        raise NotImplementedError()
+
+    def get_deferred_task(self, task_id: TaskId) -> TaskId | None:
+        """
+        Retrieves the task that this task is deferred to if any.
+
+        Args:
+            task_id (TaskId): The task waiting.
+
+        Returns:
+            TaskId | None: The task executing or None.
+        """
+        raise NotImplementedError()
+
     def set_final_output(
             self, task_id: TaskId, final_output: 'TaskValueContainer') -> None:
         """
@@ -193,7 +265,8 @@ class ClientPool(Module):
         successfully, the final output is stored in the client pool (instead
         of the volatile payload data storage) and is guaranteed to be
         available. However, after reading the results and returning the task
-        summary all information of the task can be freed if needed.
+        summary all information of the task can be freed if needed. Make sure
+        to notify the task completion as well.
 
         Args:
             task_id (TaskId): The task id.
@@ -206,7 +279,9 @@ class ClientPool(Module):
             task_id: TaskId,
             output_format: DataFormat) -> 'TaskValueContainer | None':
         """
-        Retrieves the final output of the graph.
+        Retrieves the final output of the graph. `get_status` of the API must
+        be called before this method in order to ensure that the result has
+        been properly set.
 
         Args:
             task_id (TaskId): The task id.

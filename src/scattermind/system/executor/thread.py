@@ -68,6 +68,8 @@ class ThreadExecutorManager(ExecutorManager):
         self._thread: threading.Thread | None = None
         self._reclaim: threading.Thread | None = None
         self._work: Callable[[ExecutorManager], bool] | None = None
+        self._wait_for_task: Callable[
+            [Callable[[], bool], float], None] | None = None
         self._logger: EventStream | None = None
         self._done = False
         with LOCK:
@@ -99,7 +101,8 @@ class ThreadExecutorManager(ExecutorManager):
         logger = self._logger
 
         def run() -> None:
-            with add_context({"executor": self.get_own_id()}):
+            own_id = self.get_own_id()
+            with add_context({"executor": own_id}):
                 running = True
                 logger.log_event(
                     "tally.executor.start",
@@ -109,18 +112,21 @@ class ThreadExecutorManager(ExecutorManager):
                     })
                 try:
                     with LOCK:
-                        ALIVE.add(self.get_own_id())
+                        ALIVE.add(own_id)
                     conn_count = 0
                     while not self.is_done() and thread is self._thread:
                         work = self._work
-                        if work is None:
+                        wait_for_task = self._wait_for_task
+                        if work is None or wait_for_task is None:
                             raise ValueError("uninitialized executor")
                         sleep_on_idle = self._sleep_on_idle * 0.5
                         sleep_on_idle += random.uniform(
                             0.0, max(sleep_on_idle, 0.0))
                         try:
                             if not work(self) and sleep_on_idle > 0.0:
-                                time.sleep(sleep_on_idle)
+                                wait_for_task(
+                                    lambda: self.is_release_requested(own_id),
+                                    sleep_on_idle)
                         except (ConnectionError, redis_lib.ConnectionError):
                             conn_count += 1
                             if conn_count > 10:
@@ -136,8 +142,8 @@ class ThreadExecutorManager(ExecutorManager):
                             "action": "stop",
                         })
                     with LOCK:
-                        ALIVE.discard(self.get_own_id())
-                        ACTIVE[self.get_own_id()] = False
+                        ALIVE.discard(own_id)
+                        ACTIVE[own_id] = False
                         self._thread = None
                         if running:
                             logger.log_error(
@@ -169,6 +175,22 @@ class ThreadExecutorManager(ExecutorManager):
         with LOCK:
             return ACTIVE.get(executor_id, False)
 
+    def is_release_requested(self, executor_id: ExecutorId) -> bool:
+        with LOCK:
+            if not self.is_active(executor_id):
+                return True
+            if self.is_fully_terminated(executor_id):
+                return True
+            executor = EXECUTORS.get(executor_id)
+            if executor is None:
+                return True
+            return executor.is_done()
+
+    def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
+        with LOCK:
+            return executor_id not in ALIVE and not ACTIVE.get(
+                executor_id, False)
+
     def release_executor(self, executor_id: ExecutorId) -> None:
         with LOCK:
             executor = EXECUTORS[executor_id]
@@ -184,6 +206,18 @@ class ThreadExecutorManager(ExecutorManager):
                 None if the executor has not been started yet.
         """
         return self._work
+
+    def get_wait_for_task(
+            self) -> Callable[[Callable[[], bool], float], None] | None:
+        """
+        Retrieves the currently installed wait_for_task callback.
+
+        Returns:
+            Callable[[Callable[[], bool], float], None] | None: The
+                wait_for_task callback or None if the executor has not been
+                started yet.
+        """
+        return self._wait_for_task
 
     def get_logger(self) -> EventStream | None:
         """
@@ -224,6 +258,8 @@ class ThreadExecutorManager(ExecutorManager):
                     logger.log_error(
                         "error.executor", "connection")
                 time.sleep(60)
+            except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                raise
             except Exception:  # pylint: disable=broad-exception-caught
                 general_error += 1
                 if general_error > 10:
@@ -270,9 +306,15 @@ class ThreadExecutorManager(ExecutorManager):
     def execute(  # pylint: disable=useless-return
             self,
             logger: EventStream,
+            *,
+            wait_for_task: Callable[[Callable[[], bool], float], None],
             work: Callable[[ExecutorManager], bool]) -> int | None:
-        if self._work is not work or self._logger is not logger:
+        if (
+                self._work is not work
+                or self._wait_for_task is not wait_for_task
+                or self._logger is not logger):
             self._work = work
+            self._wait_for_task = wait_for_task
             self._logger = logger
             self._maybe_start()
             # NOTE: propagate the work to all other thread executors
@@ -281,9 +323,16 @@ class ThreadExecutorManager(ExecutorManager):
             for exe in executors:
                 is_active = exe.is_active(exe.get_own_id())
                 same_work = exe.get_work() is work
+                same_wait = exe.get_wait_for_task() is wait_for_task
                 same_logger = self.get_logger() is logger
-                if (not same_work or not same_logger) and is_active:
-                    if exe.execute(logger, work) is not None:
+                if (
+                        not same_work
+                        or not same_wait
+                        or not same_logger) and is_active:
+                    if exe.execute(
+                            logger,
+                            wait_for_task=wait_for_task,
+                            work=work) is not None:
                         raise RuntimeError("this should not happen!")
         return None
 

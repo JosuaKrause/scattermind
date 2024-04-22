@@ -199,6 +199,13 @@ class RedisExecutorManager(ExecutorManager):
     def is_active(self, executor_id: ExecutorId) -> bool:
         return self._get_state(executor_id) is not None
 
+    def is_release_requested(self, executor_id: ExecutorId) -> bool:
+        state = self._get_state(executor_id)
+        return state is None or state == ES_EXIT
+
+    def is_fully_terminated(self, executor_id: ExecutorId) -> bool:
+        return self._get_state(executor_id) is None
+
     def release_executor(self, executor_id: ExecutorId) -> None:
         self._set_state(executor_id, ES_EXIT, if_exists=True)
 
@@ -221,6 +228,8 @@ class RedisExecutorManager(ExecutorManager):
         def do_reclaim() -> None:
             conn_error = 0
             general_error = 0
+            # NOTE: on startup we wait for old executors to disappear first
+            time.sleep(10.0 + max(0.0, self._heartbeat_time * 2.0))
             while reclaim is self._reclaim:
                 try:
                     executor_count, listener_count = reclaim_all_once()
@@ -240,6 +249,8 @@ class RedisExecutorManager(ExecutorManager):
                     if conn_error > 10:
                         logger.log_error("error.executor", "connection")
                     time.sleep(60)
+                except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                    raise
                 except Exception:  # pylint: disable=broad-exception-caught
                     general_error += 1
                     logger.log_error(
@@ -288,6 +299,8 @@ class RedisExecutorManager(ExecutorManager):
     def execute(
             self,
             logger: EventStream,
+            *,
+            wait_for_task: Callable[[Callable[[], bool], float], None],
             work: Callable[[ExecutorManager], bool]) -> int | None:
         self._logger = logger
         own_id = self.get_own_id()
@@ -317,7 +330,9 @@ class RedisExecutorManager(ExecutorManager):
                         0.0, max(sleep_on_idle, 0.0))
                     try:
                         if not work(self) and sleep_on_idle > 0.0:
-                            time.sleep(sleep_on_idle)
+                            wait_for_task(
+                                lambda: self.is_release_requested(own_id),
+                                sleep_on_idle)
                         conn_count = 0
                     except (ConnectionError, redis_lib.ConnectionError):
                         conn_count += 1
@@ -325,6 +340,8 @@ class RedisExecutorManager(ExecutorManager):
                             logger.log_error("error.executor", "connection")
                         time.sleep(60)
                 running = False
+            except KeyboardInterrupt:  # pylint: disable=try-except-raise
+                raise
             except Exception:  # pylint: disable=broad-except
                 logger.log_error("error.executor", "uncaught_executor")
                 error = True

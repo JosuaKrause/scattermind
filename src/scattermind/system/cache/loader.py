@@ -27,6 +27,7 @@ NoCacheModule = TypedDict('NoCacheModule', {
 RedisCacheModule = TypedDict('RedisCacheModule', {
     "name": Literal["redis"],
     "cfg": RedisConfig,
+    "use_defer": bool,
 })
 """Cache using redis."""
 
@@ -59,5 +60,5 @@ def load_graph_cache(module: GraphCacheModule) -> GraphCache:
         return NoCache()
     if module["name"] == "redis":
         from scattermind.system.cache.redis import RedisCache
-        return RedisCache(module["cfg"])
+        return RedisCache(module["cfg"], use_defer=module["use_defer"])
     raise ValueError(f"unknown graph cache: {module['name']}")

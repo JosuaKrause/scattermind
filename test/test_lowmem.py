@@ -50,7 +50,7 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
         "graphs": [
             {
                 "name": "lowmem",
-                "description": f"batch_size={batch_size},base={base}",
+                "description": f"{batch_size=},{base=}",
                 "input": "node_0",
                 "input_format": {
                     "value": ("float", shape),
@@ -112,7 +112,8 @@ def test_low_mem(base: list[list[float]], batch_size: int) -> None:
     ]
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
-    config.run(force_no_block=False)  # NOTE: we only use single here
+    # NOTE: we only use single here
+    config.run(force_no_block=False, no_reclaim=True)
     has_error = batch_size >= 3 if len(base) < 2 else batch_size >= 2
     is_variable = (batch_size, len(base)) in (
         (2, 2),

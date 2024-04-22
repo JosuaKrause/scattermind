@@ -184,16 +184,16 @@ def load_test(
             "name": "thread",
             "batch_size": batch_size,
             "parallelism": parallelism,
-            "sleep_on_idle": 0.01,
+            "sleep_on_idle": 60.0,
             "reclaim_sleep": 60.0,
         }
     elif parallelism == -1:
         executor_manager = {
             "name": "redis",
             "batch_size": batch_size,
-            "sleep_on_idle": 0.01,
+            "sleep_on_idle": 60.0,
             "reclaim_sleep": 60.0,
-            "heartbeat_time": 1.0,
+            "heartbeat_time": 0.1,
             "cfg": get_test_config(),
         }
     elif parallelism == 0:
@@ -238,6 +238,7 @@ def load_test(
         graph_cache = {
             "name": "redis",
             "cfg": get_test_config(),
+            "use_defer": True,
         }
     test_config: ConfigJSON = {
         "client_pool": client_pool,

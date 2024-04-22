@@ -218,7 +218,7 @@ def test_simple_call(
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
     try:
-        config.run(force_no_block=True)
+        config.run(force_no_block=True, no_reclaim=True)
         for task_id, response, expected_result in wait_for_tasks(
                 config, tasks):
             response_ok(response, no_warn=True)
@@ -245,6 +245,6 @@ def test_simple_call(
             assert config.get_result(task_id) is None
     finally:
         emng = config.get_executor_manager()
-        emng.release_all(timeout=0.1)
+        emng.release_all(config.get_client_pool(), timeout=0.5)
         if emng.any_active():
             raise ValueError("threads did not shut down in time")

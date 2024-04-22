@@ -92,7 +92,8 @@ def test_cop(base: list[list[float]], batch_size: int, is_redis: bool) -> None:
     ]
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
-    config.run(force_no_block=False)  # NOTE: we only use single here
+    # NOTE: we only use single here
+    config.run(force_no_block=False, no_reclaim=True)
     for task_id, expected_result in tasks:
         response = config.get_response(task_id)
         response_ok(response, no_warn=True)
@@ -128,7 +129,7 @@ def test_cop_chain(
         "graphs": [
             {
                 "name": "copchain",
-                "description": f"batch_size={batch_size},base={base}",
+                "description": f"{batch_size=},{base=}",
                 "input": "node_0",
                 "input_format": {
                     "value": ("float", shape),
@@ -189,7 +190,8 @@ def test_cop_chain(
     ]
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
-    config.run(force_no_block=False)  # NOTE: we only use single here
+    # NOTE: we only use single here
+    config.run(force_no_block=False, no_reclaim=True)
     for task_id, expected_result in tasks:
         response = config.get_response(task_id)
         response_ok(response, no_warn=True)

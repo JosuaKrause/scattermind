@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.4.1] - 2024-04-21
+
+### Added
+
+- Deferred task computation. If two tasks would cache for the same key only
+  one of them is actually computed and the other uses the cached
+  result. ([#12])
+
+### Change
+
+- Notify executors when tasks are available. (no spin-wait anymore) ([#12])
+- Notify when results are available. (no spin-wait anymore) ([#12])
+- Update redipy. ([#12])
+
+## [0.4.0] - 2024-03-27
+
+### Added
+
+- More API functionality. ([#10])
+- Graph based caching. ([#10])
+- Proper handling of ghost tasks.
+  (tasks that are in a queue but don't exist anymore) ([#10])
+- Add healthcheck for workers. ([#10])
+- Add external version info. ([#10])
+- Add redis executor. ([#10])
+- Add exit code for workers. ([#10])
+
+### Change
+
+- Update redipy. ([#10])
+
 ## [0.3.4] - 2024-03-06
 
 ### Change
@@ -61,3 +92,5 @@
 [#5]: https://github.com/JosuaKrause/scattermind/pull/5
 [#6]: https://github.com/JosuaKrause/scattermind/pull/6
 [#7]: https://github.com/JosuaKrause/scattermind/pull/7
+[#10]: https://github.com/JosuaKrause/scattermind/pull/10
+[#12]: https://github.com/JosuaKrause/scattermind/pull/12

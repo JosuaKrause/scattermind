@@ -66,7 +66,7 @@ def init_healthcheck(
 
     prefix = "/api"
 
-    server.suppress_noise = False
+    server.suppress_noise = True
 
     def report_slow_requests(
             method_str: str, path: str, duration: float) -> None:

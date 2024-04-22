@@ -13,7 +13,8 @@
 # limitations under the License.
 """Configurations connect modules together to make scattermind work."""
 import threading
-from collections.abc import Iterable
+import time
+from collections.abc import Callable, Iterable
 from typing import cast, TypeVar
 
 from scattermind.api.api import QueueCounts, ScattermindAPI
@@ -34,7 +35,12 @@ from scattermind.system.queue.queue import (
 )
 from scattermind.system.readonly.access import ReadonlyAccess
 from scattermind.system.readonly.writer import RoAWriter
-from scattermind.system.response import ResponseObject, TaskStatus
+from scattermind.system.response import (
+    ResponseObject,
+    TASK_COMPLETE,
+    TASK_STATUS_DEFER,
+    TaskStatus,
+)
 from scattermind.system.torch_util import DTypeName
 
 
@@ -380,9 +386,51 @@ class Config(ScattermindAPI):
         cpool = self.get_client_pool()
         return cpool.get_namespace(task_id)
 
-    def get_status(self, task_id: TaskId) -> TaskStatus:
+    def wait_for(
+            self,
+            task_ids: list[TaskId],
+            *,
+            timeout: float | None = 10.0,
+            ) -> Iterable[tuple[TaskId, ResponseObject]]:
+        assert timeout is None or timeout > 0.0
         cpool = self.get_client_pool()
-        return cpool.get_status(task_id)
+        cur_ids: set[TaskId] = set(task_ids)
+        start_time = time.monotonic()
+        individual_timeout: float = 60.0 if timeout is None else timeout
+        while cur_ids:
+            task_id = cpool.wait_for_task_notifications(
+                list(cur_ids), timeout=individual_timeout)
+            elapsed = time.monotonic() - start_time
+            if task_id is None:
+                if timeout is not None and elapsed >= timeout:
+                    break
+                continue
+            status = self.get_status(task_id)
+            if status in TASK_COMPLETE:
+                yield (task_id, self.get_response(task_id))
+                start_time = time.monotonic()
+                cur_ids.remove(task_id)
+        for task_id in cur_ids:  # FIXME write timeout test?
+            yield (task_id, self.get_response(task_id))
+
+    def get_status(self, task_id: TaskId) -> TaskStatus:
+        # FIXME: remove side-effects of this method
+        cpool = self.get_client_pool()
+        res = cpool.get_task_status(task_id)
+        if res == TASK_STATUS_DEFER:
+            defer_id = cpool.get_deferred_task(task_id)
+            if defer_id is not None and defer_id != task_id:
+                defer_status = self.get_status(defer_id)
+                if defer_status not in TASK_COMPLETE:
+                    return defer_status
+            cpool.clear_task(task_id)
+            logger = self.get_logger()
+            store = self.get_data_store()
+            queue_pool = self.get_queue_pool()
+            queue_pool.maybe_requeue_task_id(
+                logger, store, task_id, error_info=None)
+            res = cpool.get_task_status(task_id)
+        return res
 
     def get_result(self, task_id: TaskId) -> TaskValueContainer | None:
         cpool = self.get_client_pool()
@@ -408,13 +456,15 @@ class Config(ScattermindAPI):
         cpool = self.get_client_pool()
         cpool.clear_task(task_id)
 
-    def run(self, *, force_no_block: bool) -> int | None:
+    def run(self, *, force_no_block: bool, no_reclaim: bool) -> int | None:
         """
         Run the executor given by this configuration.
 
         Args:
             force_no_block (bool): If set, forces the function to become
                 non-blocking.
+            no_reclaim (bool): If set, the reclaimer will not be executed.
+                This is only recommended for tests.
 
         Returns:
             int | None: If the call is blocking (i.e., the work is done inside
@@ -422,6 +472,7 @@ class Config(ScattermindAPI):
                 the function returns None.
         """
         executor_manager = self.get_executor_manager()
+        cpool = self.get_client_pool()
         queue_pool = self.get_queue_pool()
         store = self.get_data_store()
         roa = self.get_readonly_access()
@@ -429,15 +480,30 @@ class Config(ScattermindAPI):
 
         def reclaim_all_once() -> tuple[int, int]:
             return executor_manager.reclaim_inactive_tasks(
-                logger, queue_pool, store)
+                logger, cpool, queue_pool, store)
 
-        executor_manager.start_reclaimer(logger, reclaim_all_once)
+        if not no_reclaim:
+            executor_manager.start_reclaimer(logger, reclaim_all_once)
+
+        def wait_for_task(
+                is_release_requested: Callable[[], bool],
+                timeout: float) -> None:
+
+            def task_condition() -> bool:
+                if is_release_requested():
+                    return True
+                return self.has_any_tasks()
+
+            cpool.wait_for_queues(task_condition, timeout)
 
         def work(emng: ExecutorManager) -> bool:
             return emng.execute_batch(logger, queue_pool, store, roa)
 
         def do_execute() -> int | None:
-            return executor_manager.execute(logger, work)
+            return executor_manager.execute(
+                logger,
+                wait_for_task=wait_for_task,
+                work=work)
 
         if not force_no_block:
             return do_execute()
@@ -489,3 +555,12 @@ class Config(ScattermindAPI):
                 "queue_length": queue_length,
                 "listeners": listerners,
             }
+
+    def has_any_tasks(self) -> bool:
+        queue_pool = self.get_queue_pool()
+        for qid in queue_pool.get_all_queues():
+            queue = queue_pool.get_queue(qid)
+            queue_length = queue.get_queue_length()
+            if queue_length > 0:
+                return True
+        return False

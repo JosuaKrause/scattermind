@@ -763,6 +763,10 @@ class ComputeState:
         data_ids: list[DataContainer] = [{} for _ in tasks]
         byte_sizes: list[int] = [0 for _ in tasks]
         for key, cvalues in data.items():
+            if cvalues.row_count() != len(tasks):
+                raise ValueError(
+                    f"invalid row count for {key} "
+                    f"expected={len(tasks)} got={cvalues.row_count()}")
             qual = QualifiedName(node.get_name(), key)
             for ix, value in enumerate(cvalues.iter_values()):
                 data_ids[ix][qual] = store.store_tensor(value)

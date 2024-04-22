@@ -23,7 +23,7 @@ from scattermind.system.names import (
 )
 from scattermind.system.readonly.access import DataAccess
 from scattermind.system.torch_util import DTypeName, get_dtype_name
-from scattermind.system.util import as_int_list, as_shape, to_bool
+from scattermind.system.util import as_int_list, as_shape, as_str_list, to_bool
 
 
 ArgType = Literal[
@@ -32,6 +32,8 @@ ArgType = Literal[
     "int",
     "float",
     "list_int",
+    "list_str",
+    "set_str",
     "shape",
     "ushape",
     "format",
@@ -50,6 +52,7 @@ ArgumentType = (
     | float
     | list[int]
     | list[int | None]
+    | list[str]
     | DataFormatJSON
     | DataInfoJSON
     | DTypeName
@@ -64,6 +67,8 @@ ArgumentRetType = (
     | float
     | list[int]
     | list[int | None]
+    | list[str]
+    | set[str]
     | DataFormatJSON
     | DataInfo
     | QualifiedGraphName
@@ -160,6 +165,20 @@ class NodeArg:
     @overload
     def get(
             self,
+            type_name: Literal["list_str"],
+            default: list[str] | None = None) -> list[str]:
+        ...
+
+    @overload
+    def get(
+            self,
+            type_name: Literal["set_str"],
+            default: set[str] | None = None) -> set[str]:
+        ...
+
+    @overload
+    def get(
+            self,
             type_name: Literal["shape"],
             default: list[int | None] | None = None) -> list[int | None]:
         ...
@@ -247,6 +266,11 @@ class NodeArg:
         if type_name in ("list_int", "ushape"):
             res_list_int: list[int] = as_int_list(cast(list, val))
             return res_list_int
+        if type_name in ("list_str", "set_str"):
+            res_list_str: list[str] = as_str_list(cast(list, val))
+            if type_name == "set_str":
+                return set(res_list_str)
+            return res_list_str
         if type_name == "shape":
             res_shape: list[int | None] = as_shape(cast(list, val))
             return res_shape

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """A redis client pool."""
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Literal, TypeVar
 
 from redipy import Redis, RedisConfig
@@ -46,6 +46,7 @@ from scattermind.system.redis_util import (
     tvc_to_redis,
 )
 from scattermind.system.response import (
+    TASK_COMPLETE,
     TASK_STATUS_DONE,
     TASK_STATUS_INIT,
     TASK_STATUS_UNKNOWN,
@@ -71,6 +72,7 @@ KeyName = Literal[
     "cache_id",  # list cache_id str
     "stack_data",  # list obj str
     "stack_frame",  # list obj str
+    "defer",  # TaskId
     "result",  # TVC str
     "error",  # ErrorJSON str
 ]
@@ -211,11 +213,47 @@ class RedisClientPool(ClientPool):
             return None
         return GNamespace(res)
 
-    def get_status(self, task_id: TaskId) -> TaskStatus:
+    def get_task_status(self, task_id: TaskId) -> TaskStatus:
         res = self.get_value("status", task_id)
         if res is None:
             res = TASK_STATUS_UNKNOWN
         return to_status(res)
+
+    def notify_queues(self) -> None:
+        self._redis.publish("pqueues", "queues")
+
+    def wait_for_queues(
+            self, condition: Callable[[], bool], timeout: float) -> None:
+        self._redis.wait_for("pqueues", condition, timeout)
+
+    def notify_result(self, task_id: TaskId) -> None:
+        # FIXME: make usage of task_id work
+        self._redis.publish("presults", "results")
+
+    def wait_for_task_notifications(
+            self,
+            tasks: list[TaskId],
+            *,
+            timeout: float) -> TaskId | None:
+        # FIXME: make usage of task_id work
+
+        def condition() -> TaskId | None:
+            for task_id in tasks:
+                if self.get_task_status(task_id) in TASK_COMPLETE:
+                    return task_id
+            return None
+
+        return self._redis.wait_for("presults", condition, timeout)
+
+    def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
+        with self._redis.pipeline() as pipe:
+            self.set_value(pipe, "defer", task_id, other_task.to_parseable())
+
+    def get_deferred_task(self, task_id: TaskId) -> TaskId | None:
+        res = self.get_value("defer", task_id)
+        if res is None:
+            return None
+        return TaskId.parse(res)
 
     def set_final_output(
             self, task_id: TaskId, final_output: TaskValueContainer) -> None:
@@ -372,6 +410,7 @@ class RedisClientPool(ClientPool):
             self.delete(pipe, "cache_id", task_id)
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
+            self.delete(pipe, "defer", task_id)
 
     def clear_task(self, task_id: TaskId) -> None:
         with self._redis.pipeline() as pipe:
@@ -387,4 +426,5 @@ class RedisClientPool(ClientPool):
             self.delete(pipe, "cache_id", task_id)
             self.delete(pipe, "stack_data", task_id)
             self.delete(pipe, "stack_frame", task_id)
+            self.delete(pipe, "defer", task_id)
             self.delete(pipe, "error", task_id)
