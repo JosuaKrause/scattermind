@@ -220,20 +220,15 @@ class RedisClientPool(ClientPool):
         return to_status(res)
 
     def notify_queues(self) -> None:
-        redis_raw = self._redis.get_redis_runtime()
-        with redis_raw.get_connection() as conn:
-            conn.publish(redis_raw.get_pubsub_key("pqueues"), "queues")
+        self._redis.publish("pqueues", "queues")
 
     def wait_for_queues(
             self, condition: Callable[[], bool], timeout: float) -> None:
-        redis_raw = self._redis.get_redis_runtime()
-        redis_raw.wait_for("pqueues", condition, timeout)
+        self._redis.wait_for("pqueues", condition, timeout)
 
     def notify_result(self, task_id: TaskId) -> None:
         # FIXME: make usage of task_id work
-        redis_raw = self._redis.get_redis_runtime()
-        with redis_raw.get_connection() as conn:
-            conn.publish(redis_raw.get_pubsub_key("presults"), "results")
+        self._redis.publish("presults", "results")
 
     def wait_for_task_notifications(
             self,
@@ -241,7 +236,6 @@ class RedisClientPool(ClientPool):
             *,
             timeout: float) -> TaskId | None:
         # FIXME: make usage of task_id work
-        redis_raw = self._redis.get_redis_runtime()
 
         def condition() -> TaskId | None:
             for task_id in tasks:
@@ -249,7 +243,7 @@ class RedisClientPool(ClientPool):
                     return task_id
             return None
 
-        return redis_raw.wait_for("presults", condition, timeout)
+        return self._redis.wait_for("presults", condition, timeout)
 
     def defer_task(self, task_id: TaskId, other_task: TaskId) -> None:
         with self._redis.pipeline() as pipe:
