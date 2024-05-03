@@ -17,12 +17,19 @@ import uuid
 from collections.abc import Callable
 from typing import Literal, TypeVar
 
+import torch
+
 from scattermind.system.names import NAME_SEP, NName, QualifiedGraphName
+from scattermind.system.torch_util import create_tensor
 
 
 SelfT = TypeVar('SelfT', bound='BaseId')
 """A `BaseId` subclass."""
 
+NS_USER = uuid.UUID("f41a0ce6a69e485d9c26f03ed4671203")
+"""Namespace for user ids."""
+NS_SESSION = uuid.UUID("f62c48dfdd33416a98121ff4b004817a")
+"""Namespace for session ids."""
 NS_GRAPH = uuid.UUID("15f123374f9f4a9385a5f31b6ed3f630")
 """Namespace for graph ids."""
 NS_NODE = uuid.UUID("3446718135514d6c9ea36b5377ea0a19")
@@ -134,6 +141,53 @@ class BaseId:
             str: A string that can be parsed by `parse`.
         """
         return f"{self.prefix()}{self._hex()}"
+
+    def to_tensor(self) -> torch.Tensor:
+        """
+        Convert the id to a tensor value.
+
+        Returns:
+            torch.Tensor: The tensor representing the id. Use `parse_tensor` to
+                parse.
+        """
+        prefix = list(self.prefix().encode("utf-8"))
+        bid = list(self._id.bytes)
+        return create_tensor(prefix + bid, dtype="uint8")
+
+    @staticmethod
+    def tensor_shape() -> list[int]:
+        """
+        The shape of the tensor representation.
+
+        Returns:
+            list[int]: The shape is 1 prefix byte and 16 uuid bytes.
+        """
+        return [17]
+
+    @classmethod
+    def parse_tensor(cls: type[SelfT], val: torch.Tensor) -> SelfT:
+        """
+        Parse an id from a tensor.
+
+        Args:
+            cls (type[SelfT]): The id class.
+            val (torch.Tensor): The parseable tensor.
+
+        Raises:
+            ValueError: If the tensor cannot be interpreted as id.
+
+        Returns:
+            SelfT: The id.
+        """
+        val = val.ravel()
+        if val.shape != cls.tensor_shape():
+            raise ValueError(
+                f"invalid shape for tensor {val.shape} != "
+                f"{cls.tensor_shape()}")
+        prefix = bytes(val[0].cpu().tolist()).decode("utf-8")
+        if prefix != cls.prefix():
+            raise ValueError(f"invalid prefix for {cls.__name__}: {prefix}")
+        return cls(uuid.UUID(bytes=bytes(val[1:].cpu().tolist())))
 
     def __eq__(self, other: object) -> bool:
         """
