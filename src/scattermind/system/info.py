@@ -16,6 +16,7 @@ from collections.abc import Sequence
 
 import torch
 
+from scattermind.system.base import SessionId
 from scattermind.system.helper import DictHelper
 from scattermind.system.torch_util import (
     DTypeName,
@@ -30,6 +31,9 @@ DataInfoJSON = tuple[DTypeName, Sequence[int | None]]
 """A JSON serializable `DataInfo`."""
 DataFormatJSON = dict[str, DataInfoJSON]
 """A JSON serializable `DataFormat`."""
+
+
+SESSION_INFO: DataInfoJSON = ("uint8", SessionId.tensor_shape())
 
 
 class DataInfo:

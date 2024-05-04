@@ -19,7 +19,7 @@ from typing import Literal, TypeVar
 
 import torch
 
-from scattermind.system.names import NAME_SEP, NName, QualifiedGraphName
+from scattermind.system.names import NAME_SEP, NName, QualifiedGraphName, UName
 from scattermind.system.torch_util import create_tensor
 
 
@@ -235,8 +235,50 @@ class BaseId:
         return f"{self.__class__.__name__}[{self.__str__()}]"
 
 
+class UserId(BaseId):
+    """A `UserId` is used to identify a user."""
+    @staticmethod
+    def prefix() -> str:
+        return "U"
+
+    @staticmethod
+    def create(uname: UName) -> 'UserId':
+        """
+        Creates a `UserId` from a given user name.
+
+        Args:
+            uname (UName): The user name.
+
+        Returns:
+            UserId: The corrseponding user id.
+        """
+        return UserId(uuid.uuid5(NS_USER, uname.get()))
+
+
+class SessionId(BaseId):
+    """A `SessionId` is used to identify a session of a user."""
+    @staticmethod
+    def prefix() -> str:
+        return "S"
+
+    @staticmethod
+    def create_for(user_id: UserId) -> 'SessionId':
+        """
+        Create a new unique `SessionId` for a given user.
+
+        Args:
+            user_id (UserId): The user id.
+
+        Returns:
+            SessionId: The unique session id.
+        """
+        return SessionId(uuid.uuid5(
+            NS_SESSION,
+            f"{user_id.to_parseable()}{NAME_SEP}{uuid.uuid4().hex}"))
+
+
 class GraphId(BaseId):
-    """An `GraphId` is used to identify an execution graph."""
+    """A `GraphId` is used to identify an execution graph."""
     @staticmethod
     def prefix() -> str:
         return "G"

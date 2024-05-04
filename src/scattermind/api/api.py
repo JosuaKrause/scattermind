@@ -18,11 +18,12 @@ from typing import Any, TypedDict
 import numpy as np
 import torch
 
-from scattermind.system.base import QueueId, TaskId
+from scattermind.system.base import QueueId, TaskId, UserId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
-from scattermind.system.names import GNamespace, QualifiedNodeName
+from scattermind.system.names import GNamespace, QualifiedNodeName, UName
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.response import ResponseObject, TaskStatus
+from scattermind.system.session.session import Session
 from scattermind.system.torch_util import (
     create_tensor,
     DTypeName,
@@ -275,5 +276,41 @@ class ScattermindAPI:
         Returns:
             tuple[str, str, int] | None: The in address, out address, port
                 tuple. If None, no healthcheck is available.
+        """
+        raise NotImplementedError()
+
+    def get_user_id(self, user_name: str) -> UserId:
+        """
+        Get the user id for the given name.
+
+        Args:
+            user_name (str): The user name.
+
+        Returns:
+            UserId: The user id.
+        """
+        return UserId.create(UName(user_name))
+
+    def new_session(self, user_id: UserId) -> Session:
+        """
+        Create a new session for the given user.
+
+        Args:
+            user_id (UserId): The user id.
+
+        Returns:
+            Session: The session.
+        """
+        raise NotImplementedError()
+
+    def get_sessions(self, user_id: UserId) -> Iterable[Session]:
+        """
+        Returns all sessions associated with the given user.
+
+        Args:
+            user_id (UserId): The user id.
+
+        Yields:
+            BaseSession: A session object.
         """
         raise NotImplementedError()

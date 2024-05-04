@@ -31,6 +31,7 @@ from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import ComputeState, NoTasksToCompute
 from scattermind.system.queue.queue import QueuePool
 from scattermind.system.readonly.access import ReadonlyAccess
+from scattermind.system.session.session import SessionStore
 
 
 if TYPE_CHECKING:
@@ -188,6 +189,7 @@ class ExecutorManager(Module):
             logger: EventStream,
             queue_pool: QueuePool,
             store: DataStore,
+            sessions: SessionStore,
             roa: ReadonlyAccess) -> bool:
         """
         Execute one batch of tasks. The active node might change based on
@@ -217,7 +219,7 @@ class ExecutorManager(Module):
                 })
             if not tasks:
                 return False
-            state = ComputeState(queue_pool, store, node, tasks)
+            state = ComputeState(queue_pool, store, sessions, node, tasks)
             eqids = []
             e_msg: str | None = None
             r_msg: str | None = None

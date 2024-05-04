@@ -41,6 +41,7 @@ from scattermind.system.response import (
     TASK_STATUS_DEFER,
     TaskStatus,
 )
+from scattermind.system.session.session import SessionStore
 from scattermind.system.torch_util import DTypeName
 
 
@@ -62,6 +63,7 @@ class Config(ScattermindAPI):
         self._store: DataStore | None = None
         self._queue_pool: QueuePool | None = None
         self._roa: ReadonlyAccess | None = None
+        self._sessions: SessionStore | None = None
         self._healthcheck: tuple[str, str, int] | None = None
 
     def set_logger(self, logger: EventStream) -> None:
@@ -300,6 +302,16 @@ class Config(ScattermindAPI):
             raise ValueError("cannot make readonly access writable")
         return cast(RoAWriter, roa)
 
+    def set_session_store(self, sessions: SessionStore) -> None:
+        if self._sessions is not None:
+            raise ValueError("session store already initialized")
+        self._sessions = self._update_locality(sessions)
+
+    def get_session_store(self) -> SessionStore:
+        if self._sessions is None:
+            raise ValueError("session store needs to be initialized first")
+        return self._sessions
+
     def set_node_strategy(self, node_strategy: NodeStrategy) -> None:
         """
         Set the node strategy. Strategies can be set multiple times to update
@@ -476,6 +488,7 @@ class Config(ScattermindAPI):
         queue_pool = self.get_queue_pool()
         store = self.get_data_store()
         roa = self.get_readonly_access()
+        sessions = self.get_session_store()
         logger = self.get_logger()
 
         def reclaim_all_once() -> tuple[int, int]:
@@ -497,7 +510,7 @@ class Config(ScattermindAPI):
             cpool.wait_for_queues(task_condition, timeout)
 
         def work(emng: ExecutorManager) -> bool:
-            return emng.execute_batch(logger, queue_pool, store, roa)
+            return emng.execute_batch(logger, queue_pool, store, sessions, roa)
 
         def do_execute() -> int | None:
             return executor_manager.execute(

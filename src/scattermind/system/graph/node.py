@@ -278,7 +278,7 @@ class Node:
         """
         Whether the computation of the node is "pure", i.e., whether the result
         of the node is deterministic and *only* depends on its inputs (and
-        static settings).
+        static settings). If a node uses sessions it cannot be pure.
 
         See also :py:method::`
         scattermind.system.payload.data.DataStore#is_content_addressable`.
@@ -292,7 +292,21 @@ class Node:
             bool: True if the node returns the same result for same inputs
                 given the settings are the same.
         """
-        return self.do_is_pure(self._graph, queue_pool, pure_cache)
+        is_pure = self.do_is_pure(self._graph, queue_pool, pure_cache)
+        is_session = self.session_field() is not None
+        if is_pure and is_session:
+            raise RuntimeError("node cannot be both pure and use sessions!")
+        return not is_session and is_pure
+
+    def session_field(self) -> str | None:
+        """
+        The field of the node input that contains the session id. Use
+        `SESSION_INFO` as type. If the field is None no session is loaded.
+
+        Returns:
+            str | None: The field name or None if no session is used.
+        """
+        raise NotImplementedError()
 
     def do_is_pure(
             self,
