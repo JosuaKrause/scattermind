@@ -200,6 +200,7 @@ class ExecutorManager(Module):
             logger (EventStream): The logger.
             queue_pool (QueuePool): The queue pool.
             store (DataStore): The payload data store.
+            sessions (SessionStore): The session store.
             roa (ReadonlyAccess): The readonly data access.
 
         Returns:

@@ -17,7 +17,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Any, NoReturn
+from typing import Any, IO, NoReturn
 
 
 def is_partial_match(target: str, pattern: str) -> bool:
@@ -356,13 +356,27 @@ def get_file_hash(fname: str) -> str:
     Returns:
         str: The hash.
     """
-    blake = hashlib.blake2b(digest_size=32)
     with open(fname, "rb") as fin:
-        while True:
-            buff = fin.read(BUFF_SIZE)
-            if not buff:
-                break
-            blake.update(buff)
+        return get_blob_hash(fin)
+
+
+def get_blob_hash(blob: IO[bytes]) -> str:
+    """
+    Computes a hash for the content of the given blob. The length of the
+    resulting hash string can be retrieved via :py:function::`file_hash_size`.
+
+    Args:
+        blob (BinaryIO): The blob.
+
+    Returns:
+        str: The hash.
+    """
+    blake = hashlib.blake2b(digest_size=32)
+    while True:
+        buff = blob.read(BUFF_SIZE)
+        if not buff:
+            break
+        blake.update(buff)
     return blake.hexdigest()
 
 

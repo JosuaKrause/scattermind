@@ -11,6 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Sessions allow direct access to ongoing tasks via signals and access to
+"""Sessions allow direct access to ongoing tasks and access to
 large user specific blobs. If further allows to retain information across
 multiple tasks."""

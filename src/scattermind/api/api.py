@@ -152,6 +152,8 @@ class ScattermindAPI:
         def convert(
                 val: str | list[Any] | np.ndarray | torch.Tensor,
                 ) -> torch.Tensor:
+            if isinstance(val, Session):
+                return val.get_session_id().to_tensor().clone().detach()
             if isinstance(val, str):
                 return str_to_tensor(val).clone().detach()
             if isinstance(val, torch.Tensor):
