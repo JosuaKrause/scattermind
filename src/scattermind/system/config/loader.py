@@ -264,6 +264,10 @@ def load_test(
             "name": "ram",
             "scratch": "invalid",
         },
+        "sessions": {
+            "name": "ram",
+            "cache_path": "FIXME",  # FIXME
+        },
         "logger": {
             "listeners": [
                 {

@@ -13,12 +13,14 @@
 # limitations under the License.
 """This module defines various ids used internally. Also various other base
 classes are defined here."""
+import os
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Literal, TypeVar
 
 import torch
 
+from scattermind.system.io import get_subfolders
 from scattermind.system.names import NAME_SEP, NName, QualifiedGraphName, UName
 from scattermind.system.torch_util import create_tensor
 
@@ -102,6 +104,16 @@ class BaseId:
         """
         raise NotImplementedError()
 
+    @staticmethod
+    def length() -> int:
+        """
+        Get the length of the id in characters.
+
+        Returns:
+            int: The length if the id is represented as string.
+        """
+        return 33
+
     @classmethod
     def parse(cls: type[SelfT], text: str) -> SelfT:
         """
@@ -120,9 +132,64 @@ class BaseId:
         """
         if not text.startswith(cls.prefix()):
             raise ValueError(f"invalid prefix for {cls.__name__}: {text}")
-        if len(text) != 33 or "-" in text:
+        if len(text) != cls.length() or "-" in text:
             raise ValueError(f"invalid {cls.__name__}: {text}")
         return cls(uuid.UUID(text[1:]))
+
+    @classmethod
+    def parse_folder(cls: type[SelfT], path: str) -> SelfT | None:
+        """
+        Parses a folder path as id. This is done backwards from the leaf
+        folder.
+
+        Args:
+            cls (type[SelfT]): The id class.
+            path (str): The path.
+
+        Returns:
+            SelfT | None: The id or None if the path did not represent an id.
+        """
+        full = ""
+        length = cls.length()
+        while path:
+            path, segment = os.path.split(path)
+            if not segment:
+                continue
+            full = f"{full}{segment}"
+            if len(full) >= length:
+                break
+        try:
+            return cls.parse(full)
+        except ValueError:
+            return None
+
+    @classmethod
+    def find_folder_ids(cls: type[SelfT], path: str) -> Iterable[SelfT]:
+        """
+        Scans a given folder for subpaths that represent ids.
+
+        Args:
+            cls (type[SelfT]): The id class.
+            path (str): The root path (not part of any id).
+
+        Yields:
+            SelfT: The ids.
+        """
+        length = cls.length()
+
+        def scan_folder(prefix: str, folder: str) -> Iterable[SelfT]:
+            for inner in get_subfolders(folder):
+                candidate = f"{prefix}{inner}"
+                if len(candidate) >= length:
+                    try:
+                        yield cls.parse(candidate)
+                    except ValueError:
+                        pass
+                else:
+                    yield from scan_folder(
+                        candidate, os.path.join(folder, inner))
+
+        yield from scan_folder("", path)
 
     def _hex(self) -> str:
         """
@@ -141,6 +208,16 @@ class BaseId:
             str: A string that can be parsed by `parse`.
         """
         return f"{self.prefix()}{self._hex()}"
+
+    def as_folder(self) -> list[str]:
+        """
+        Creates a representation that can be used as folder structure.
+
+        Returns:
+            list[str]: Each element is a path segment.
+        """
+        out = self.to_parseable()
+        return [out[:3], out[3:]]
 
     def to_tensor(self) -> torch.Tensor:
         """

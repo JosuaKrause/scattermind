@@ -1,3 +1,17 @@
+# Copyright (C) 2024 Josua Krause
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""A collection of useful IO operations."""
 import contextlib
 import errno
 import io
@@ -7,15 +21,26 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator
-from typing import Any, cast, IO, Literal, overload
+from typing import AnyStr, IO, overload
 
 
 MAIN_LOCK = threading.RLock()
+"""The main IO lock."""
 STALE_FILE_RETRIES: list[float] = [0.1, 0.2, 0.5, 0.8, 1, 1.2, 1.5, 2, 3, 5]
+"""Wait times for stale file access."""
 TMP_POSTFIX = ".~tmp"
+"""Postfix for temporary files."""
 
 
 def when_ready(fun: Callable[[], None]) -> None:
+    """
+    Repeats an IO operation for a busy or slow disk device (e.g., NFS or
+    disk access on docker start up) until it succeeds. The operation needs to
+    be idempotent.
+
+    Args:
+        fun (Callable[[], None]): The IO operation to perform.
+    """
     with MAIN_LOCK:
         counter = 0
         while True:
@@ -31,6 +56,13 @@ def when_ready(fun: Callable[[], None]) -> None:
 
 
 def fastrename(src: str, dst: str) -> None:
+    """
+    Renames a file or folder.
+
+    Args:
+        src (str): The source file or folder.
+        dst (str): The destination file or folder.
+    """
     src = os.path.abspath(src)
     dst = os.path.abspath(dst)
     if src == dst:
@@ -56,10 +88,26 @@ def fastrename(src: str, dst: str) -> None:
 
 
 def copy_file(from_file: str, to_file: str) -> None:
+    """
+    Fully copy a file to a new location.
+
+    Args:
+        from_file (str): The source file.
+        to_file (str): The destination.
+    """
     shutil.copy(from_file, to_file)
 
 
 def normalize_folder(folder: str) -> str:
+    """
+    Normalizes a folder path and ensures it exists.
+
+    Args:
+        folder (str): The folder.
+
+    Returns:
+        str: The normalized path.
+    """
     res = os.path.abspath(folder)
     when_ready(lambda: os.makedirs(res, mode=0o777, exist_ok=True))
     if not os.path.isdir(res):
@@ -68,16 +116,44 @@ def normalize_folder(folder: str) -> str:
 
 
 def normalize_file(fname: str) -> str:
+    """
+    Normalizes a file path and ensures its folder exists.
+
+    Args:
+        fname (str): The file.
+
+    Returns:
+        str: The normalized path.
+    """
     res = os.path.abspath(fname)
     normalize_folder(os.path.dirname(res))
     return res
 
 
-def get_mode(base: str, text: bool) -> str:
+def get_mode(base: str, *, text: bool) -> str:
+    """
+    Generate a mode string for the open function.
+
+    Args:
+        base (str): Basic modifiers.
+        text (bool): Whether or not the mode should be binary or text.
+
+    Returns:
+        str: The mode string.
+    """
     return f"{base}{'' if text else 'b'}"
 
 
-def is_empty_file(fin: IO[Any]) -> bool:
+def is_empty_file(fin: IO[AnyStr]) -> bool:
+    """
+    Checks whether a file is empty from the current cursor position.
+
+    Args:
+        fin (IO[AnyStr]): The file handle.
+
+    Returns:
+        bool: True if there is no more content to read from the file.
+    """
     pos = fin.seek(0, io.SEEK_CUR)
     size = fin.seek(0, io.SEEK_END) - pos
     fin.seek(pos, io.SEEK_SET)
@@ -95,6 +171,16 @@ def ensure_folder(folder: None) -> None:
 
 
 def ensure_folder(folder: str | None) -> str | None:
+    """
+    Ensures that a folder exist. Input can be `None` in which case the function
+    is a no-op.
+
+    Args:
+        folder (str | None): The folder.
+
+    Returns:
+        str | None: The folder.
+    """
     if folder is not None and not os.path.exists(folder):
         a_folder: str = folder
         when_ready(lambda: os.makedirs(a_folder, mode=0o777, exist_ok=True))
@@ -102,131 +188,33 @@ def ensure_folder(folder: str | None) -> str | None:
 
 
 def get_tmp(basefile: str) -> str:
+    """
+    Returns the path component of the given file. Also, ensures that the folder
+    exists.
+
+    Args:
+        basefile (str): The file.
+
+    Returns:
+        str: The folder.
+    """
     return ensure_folder(os.path.dirname(basefile))
-
-
-@overload
-def open_read(filename: str, *, text: Literal[True]) -> IO[str]:
-    ...
-
-
-@overload
-def open_read(filename: str, *, text: Literal[False]) -> IO[bytes]:
-    ...
-
-
-# FIXME: make downstream users with use fixed text literals
-@overload
-def open_read(filename: str, *, text: bool) -> IO[Any]:
-    ...
-
-
-def open_read(filename: str, *, text: bool) -> IO[Any]:
-
-    def actual_read() -> IO[Any]:
-        return cast(IO[Any], open(  # pylint: disable=consider-using-with
-            filename,
-            get_mode("r", text),
-            encoding=("utf-8" if text else None)))
-
-    ix = 0
-    res = None
-    while True:
-        try:
-            # FIXME: yield instead of return
-            res = actual_read()
-            if is_empty_file(res):
-                if ix >= len(STALE_FILE_RETRIES):
-                    return res
-                res.close()
-                time.sleep(STALE_FILE_RETRIES[ix])
-                ix += 1
-                continue
-            return res
-        except OSError as os_err:
-            if res is not None:
-                res.close()
-            if ix >= len(STALE_FILE_RETRIES) or os_err.errno != errno.ESTALE:
-                raise os_err
-            time.sleep(STALE_FILE_RETRIES[ix])
-            ix += 1
-
-
-@overload
-def open_append(
-        filename: str,
-        *,
-        text: Literal[True],
-        **kwargs: Any) -> IO[str]:
-    ...
-
-
-@overload
-def open_append(
-        filename: str,
-        *,
-        text: Literal[False],
-        **kwargs: Any) -> IO[bytes]:
-    ...
-
-
-# FIXME: make downstream users with use fixed text literals
-@overload
-def open_append(
-        filename: str,
-        *,
-        text: bool,
-        **kwargs: Any) -> IO[Any]:
-    ...
-
-
-def open_append(
-        filename: str,
-        *,
-        text: bool,
-        **kwargs: Any) -> IO[Any]:
-    return cast(IO[Any], open(  # pylint: disable=consider-using-with
-        filename,
-        get_mode("a", text),
-        encoding=("utf-8" if text else None),
-        **kwargs))
-
-
-@contextlib.contextmanager
-def open_write(filename: str, *, text: bool) -> Iterator[IO[Any]]:
-    filename = normalize_file(filename)
-
-    mode = get_mode("w", text)
-    tname = None
-    tfd = None
-    sfile: IO[Any] | None = None
-    writeback = False
-    try:
-        tfd, tname = tempfile.mkstemp(
-            dir=get_tmp(filename),
-            suffix=TMP_POSTFIX)
-        sfile = cast(IO[Any], io.FileIO(tfd, mode, closefd=True))
-        if text:
-            sfile = cast(IO[Any], io.TextIOWrapper(
-                sfile, encoding="utf-8", line_buffering=True))
-        yield sfile
-        sfile.flush()
-        os.fsync(tfd)
-        writeback = True
-    finally:
-        if sfile is not None:
-            sfile.close()  # closes the temporary file descriptor
-        elif tfd is not None:
-            os.close(tfd)  # closes the actual temporary file descriptor
-        if tname is not None:
-            if writeback:
-                fastrename(tname, filename)
-            else:
-                remove_file(tname)
 
 
 @contextlib.contextmanager
 def named_write(filename: str) -> Iterator[str]:
+    """
+    Provides a secure way to write to the given file that is robust against
+    partial writes. The actual write is performed against a temporary file and
+    only if the write completes successfully the temporary file is renamed to
+    the correct path.
+
+    Args:
+        filename (str): The file destination.
+
+    Yields:
+        str: The name of the temporary file.
+    """
     filename = normalize_file(filename)
 
     tname = None
@@ -247,6 +235,12 @@ def named_write(filename: str) -> Iterator[str]:
 
 
 def remove_file(fname: str) -> None:
+    """
+    Removes the given file.
+
+    Args:
+        fname (str): The path.
+    """
     try:
         os.remove(fname)
     except FileNotFoundError:
@@ -254,10 +248,29 @@ def remove_file(fname: str) -> None:
 
 
 def get_subfolders(path: str) -> list[str]:
+    """
+    Gets all subfolders of the given folder.
+
+    Args:
+        path (str): The folder.
+
+    Returns:
+        list[str]: A sorted list of all subfolder names.
+    """
     return sorted((fobj.name for fobj in os.scandir(path) if fobj.is_dir()))
 
 
 def get_files(path: str, ext: str) -> list[str]:
+    """
+    Get all files of the given folder and extension.
+
+    Args:
+        path (str): The folder.
+        ext (str): The extension.
+
+    Returns:
+        list[str]: A sorted list of all filenames.
+    """
     return sorted((
         fobj.name
         for fobj in os.scandir(path)
@@ -266,6 +279,17 @@ def get_files(path: str, ext: str) -> list[str]:
 
 
 def get_folder(path: str, ext: str) -> Iterable[tuple[str, bool]]:
+    """
+    Get all files in the given folder and extension (for files only).
+
+    Args:
+        path (str): The folder.
+        ext (str): The extension.
+
+    Yields:
+        tuple[str, bool]: A tuple of the name and True if it is a folder,
+            otherwise False if it is a file.
+    """
     for fobj in sorted(os.scandir(path), key=lambda fobj: fobj.name):
         if fobj.is_dir():
             yield fobj.name, True
@@ -274,4 +298,172 @@ def get_folder(path: str, ext: str) -> Iterable[tuple[str, bool]]:
 
 
 def listdir(path: str) -> list[str]:
+    """
+    Lists all filenames of the given folder path.
+
+    Args:
+        path (str): The folder.
+
+    Returns:
+        list[str]: A sorted list of all filenames in the folder.
+    """
     return sorted(os.listdir(path))
+
+
+@contextlib.contextmanager
+def open_reads(filename: str) -> Iterator[IO[str]]:
+    """
+    Open a file for reading in text mode. This function ensures that the
+    file is ready even on slow disk drives (e.g., NFS or docker disk
+    immediately after start up). The file must not be empty (o bytes long).
+
+    Args:
+        filename (str): The file.
+
+    Yields:
+        IO[str]: The file handle for reading.
+    """
+    ix = 0
+    yielded = False
+    sfr = STALE_FILE_RETRIES
+    next_sleep: float | None = None
+    while not yielded:
+        if next_sleep is not None:
+            time.sleep(next_sleep)
+        with open(filename, "r", encoding="utf-8") as res:
+            try:
+                if is_empty_file(res) and ix < len(sfr):
+                    next_sleep = sfr[ix]
+                    ix += 1
+                    continue
+                yielded = True
+                yield res
+            except OSError as os_err:
+                if yielded:
+                    raise os_err
+                if ix >= len(sfr) or os_err.errno != errno.ESTALE:
+                    raise os_err
+                next_sleep = sfr[ix]
+                ix += 1
+
+
+@contextlib.contextmanager
+def open_readb(filename: str) -> Iterator[IO[bytes]]:
+    """
+    Open a file for reading in binary mode. This function ensures that the
+    file is ready even on slow disk drives (e.g., NFS or docker disk
+    immediately after start up). The file must not be empty (o bytes long).
+
+    Args:
+        filename (str): The file.
+
+    Yields:
+        IO[bytes]: The file handle for reading.
+    """
+    ix = 0
+    yielded = False
+    sfr = STALE_FILE_RETRIES
+    next_sleep: float | None = None
+    while not yielded:
+        if next_sleep is not None:
+            time.sleep(next_sleep)
+        with open(filename, "rb") as res:
+            try:
+                if is_empty_file(res) and ix < len(sfr):
+                    next_sleep = sfr[ix]
+                    ix += 1
+                    continue
+                yielded = True
+                yield res
+            except OSError as os_err:
+                if yielded:
+                    raise os_err
+                if ix >= len(sfr) or os_err.errno != errno.ESTALE:
+                    raise os_err
+                next_sleep = sfr[ix]
+                ix += 1
+
+
+@contextlib.contextmanager
+def open_writes(filename: str) -> Iterator[IO[str]]:
+    """
+    Open a file for writing in text mode. This function makes its best effort
+    to ensure the file is available even on slow disk drives (e.g., NFS). It
+    also secures against incomplete writes by writing to a temporary file first
+    and moving the file to the real location only after the initial write is
+    complete.
+
+    Args:
+        filename (str): The filename.
+
+    Yields:
+        IO[str]: The file handle.
+    """
+    filename = normalize_file(filename)
+
+    tname = None
+    tfd = None
+    sfile: IO[str] | None = None
+    writeback = False
+    try:
+        tfd, tname = tempfile.mkstemp(
+            dir=get_tmp(filename),
+            suffix=TMP_POSTFIX)
+        bfile = io.FileIO(tfd, "wb", closefd=True)
+        sfile = io.TextIOWrapper(bfile, encoding="utf-8", line_buffering=True)
+        yield sfile
+        sfile.flush()
+        os.fsync(tfd)
+        writeback = True
+    finally:
+        if sfile is not None:
+            sfile.close()  # closes the temporary file descriptor
+        elif tfd is not None:
+            os.close(tfd)  # closes the actual temporary file descriptor
+        if tname is not None:
+            if writeback:
+                fastrename(tname, filename)
+            else:
+                remove_file(tname)
+
+
+@contextlib.contextmanager
+def open_writeb(filename: str) -> Iterator[IO[bytes]]:
+    """
+    Open a file for writing in binary mode. This function makes its best effort
+    to ensure the file is available even on slow disk drives (e.g., NFS). It
+    also secures against incomplete writes by writing to a temporary file first
+    and moving the file to the real location only after the initial write is
+    complete.
+
+    Args:
+        filename (str): The filename.
+
+    Yields:
+        IO[bytes]: The file handle.
+    """
+    filename = normalize_file(filename)
+
+    tname = None
+    tfd = None
+    sfile: IO[bytes] | None = None
+    writeback = False
+    try:
+        tfd, tname = tempfile.mkstemp(
+            dir=get_tmp(filename),
+            suffix=TMP_POSTFIX)
+        sfile = io.FileIO(tfd, "wb", closefd=True)
+        yield sfile
+        sfile.flush()
+        os.fsync(tfd)
+        writeback = True
+    finally:
+        if sfile is not None:
+            sfile.close()  # closes the temporary file descriptor
+        elif tfd is not None:
+            os.close(tfd)  # closes the actual temporary file descriptor
+        if tname is not None:
+            if writeback:
+                fastrename(tname, filename)
+            else:
+                remove_file(tname)

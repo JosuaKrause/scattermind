@@ -15,11 +15,20 @@ import os
 import shutil
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from typing import BinaryIO
+from datetime import datetime
+from typing import IO
 
 from scattermind.system.base import Module, SessionId, UserId
-from scattermind.system.io import listdir, open_read, open_write, remove_file
-from scattermind.system.util import get_file_hash
+from scattermind.system.io import (
+    ensure_folder,
+    listdir,
+    open_readb,
+    open_reads,
+    open_writeb,
+    open_writes,
+    remove_file,
+)
+from scattermind.system.util import get_file_hash, get_time_str, parse_time_str
 
 
 class Session:
@@ -56,8 +65,8 @@ class Session:
 
 
 class SessionStore(Module):
-    def __init__(self) -> None:
-        pass
+    def __init__(self, *, cache_path: str) -> None:
+        self._cache_path = ensure_folder(cache_path)
 
     def get_sessions(self, user_id: UserId) -> Iterable[Session]:
         raise NotImplementedError()
@@ -74,12 +83,12 @@ class SessionStore(Module):
 
     @contextmanager
     def open_blob_write(
-            self, session_id: SessionId, name: str) -> Iterator[BinaryIO]:
+            self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
         raise NotImplementedError()
 
     @contextmanager
     def open_blob_read(
-            self, session_id: SessionId, name: str) -> Iterator[BinaryIO]:
+            self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
         raise NotImplementedError()
 
     def blob_hash(self, session_id: SessionId, name: str) -> str:
@@ -92,11 +101,22 @@ class SessionStore(Module):
         raise NotImplementedError()
 
     def local_folder(self, session_id: SessionId) -> str:
-        raise NotImplementedError()
+        return os.path.join(self._cache_path, *session_id.as_folder())
+
+    def locals(self) -> Iterable[SessionId]:
+        yield from SessionId.find_folder_ids(self._cache_path)
 
     def clear_local(self, session_id: SessionId) -> None:
         path = self.local_folder(session_id)
         shutil.rmtree(path, ignore_errors=True)
+
+    def local_time(self, session_id: SessionId) -> datetime | None:
+        path = self.local_folder(session_id)
+        try:
+            with open_reads(os.path.join(path, ".time")) as fin:
+                return parse_time_str(fin.read(200).strip())
+        except FileNotFoundError:
+            return None
 
     def sync_in(self, session_id: SessionId) -> None:
         path = self.local_folder(session_id)
@@ -113,13 +133,19 @@ class SessionStore(Module):
                 need_copy.discard(fname)
         for fname in need_copy:
             full_path = os.path.join(path, fname)
-            with open_write(full_path, text=False) as fout:
+            with open_writeb(full_path) as fout:
                 with self.open_blob_read(session_id, fname) as fin:
-                    shutil.copyfileobj(fin, fout)
+                    shutil.copyfileobj(fin, fout)  # type: ignore
+        with open_writes(os.path.join(path, ".time")) as fout:
+            print(get_time_str(), file=fout)
 
     def sync_out(self, session_id: SessionId) -> None:
         path = self.local_folder(session_id)
-        local: set[str] = set(listdir(path))
+        local: set[str] = {
+            fname
+            for fname in listdir(path)
+            if not fname.startswith(".")
+        }
         need_copy: set[str] = set(local)
         for fname in self.blob_list(session_id):
             if fname not in local:
@@ -133,8 +159,8 @@ class SessionStore(Module):
         for fname in need_copy:
             full_path = os.path.join(path, fname)
             with self.open_blob_write(session_id, fname) as fout:
-                with open_read(full_path, text=False) as fin:
-                    shutil.copyfileobj(fin, fout)
+                with open_readb(full_path) as fin:
+                    shutil.copyfileobj(fin, fout)  # type: ignore
 
     def remove(self, session_id: SessionId) -> None:
         raise NotImplementedError()

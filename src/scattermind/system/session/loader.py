@@ -20,7 +20,7 @@ from scattermind.system.session.session import SessionStore
 
 LocalSessionStoreModule = TypedDict('LocalSessionStoreModule', {
     "name": Literal["ram"],
-    "path": str,
+    "cache_path": str,
 })
 
 
@@ -32,7 +32,8 @@ def load_session_store(module: SessionStoreModule) -> SessionStore:
     if "." in module["name"]:
         kwargs = dict(module)
         plugin = load_plugin(SessionStore, f"{kwargs.pop('name')}")
-        return plugin(**kwargs)
+        cache_path = f"{kwargs.pop('cache_path')}"
+        return plugin(cache_path=cache_path, **kwargs)
     if module["name"] == "ram":
         pass  # FIXME TODO
-    raise ValueError(f"unknown readonly access: {module['name']}")
+    raise ValueError(f"unknown session store: {module['name']}")
