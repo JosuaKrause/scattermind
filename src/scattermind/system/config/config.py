@@ -18,7 +18,7 @@ from collections.abc import Callable, Iterable
 from typing import cast, TypeVar
 
 from scattermind.api.api import QueueCounts, ScattermindAPI
-from scattermind.system.base import L_EITHER, Locality, Module, TaskId
+from scattermind.system.base import L_EITHER, Locality, Module, TaskId, UserId
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.client.client import ClientPool
 from scattermind.system.executor.executor import ExecutorManager
@@ -41,7 +41,7 @@ from scattermind.system.response import (
     TASK_STATUS_DEFER,
     TaskStatus,
 )
-from scattermind.system.session.session import SessionStore
+from scattermind.system.session.session import Session, SessionStore
 from scattermind.system.torch_util import DTypeName
 
 
@@ -302,14 +302,12 @@ class Config(ScattermindAPI):
             raise ValueError("cannot make readonly access writable")
         return cast(RoAWriter, roa)
 
-    def set_session_store(self, sessions: SessionStore) -> None:
-        if self._sessions is not None:
-            raise ValueError("session store already initialized")
-        self._sessions = self._update_locality(sessions)
+    def set_session_store(self, sessions: SessionStore | None) -> None:
+        if sessions is not None:
+            sessions = self._update_locality(sessions)
+        self._sessions = sessions
 
-    def get_session_store(self) -> SessionStore:
-        if self._sessions is None:
-            raise ValueError("session store needs to be initialized first")
+    def get_session_store(self) -> SessionStore | None:
         return self._sessions
 
     def set_node_strategy(self, node_strategy: NodeStrategy) -> None:
@@ -577,3 +575,16 @@ class Config(ScattermindAPI):
             if queue_length > 0:
                 return True
         return False
+
+    def new_session(self, user_id: UserId) -> Session:
+        sessions = self.get_session_store()
+        if sessions is None:
+            raise ValueError("no session store defined")
+        return sessions.create_new_session(user_id)
+
+    def get_sessions(self, user_id: UserId) -> Iterable[Session]:
+        sessions = self.get_session_store()
+        if sessions is None:
+            yield from []
+        else:
+            yield from sessions.get_sessions(user_id)

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Create a session store."""
-from typing import Literal, TypedDict
+from typing import Literal, overload, TypedDict
 
 from scattermind.system.plugins import load_plugin
 from scattermind.system.session.session import SessionStore
@@ -27,8 +27,22 @@ LocalSessionStoreModule = TypedDict('LocalSessionStoreModule', {
 SessionStoreModule = LocalSessionStoreModule
 
 
-def load_session_store(module: SessionStoreModule) -> SessionStore:
+@overload
+def load_session_store(
+        module: SessionStoreModule) -> SessionStore:
+    ...
+
+
+@overload
+def load_session_store(module: None) -> None:
+    ...
+
+
+def load_session_store(
+        module: SessionStoreModule | None) -> SessionStore | None:
     # pylint: disable=import-outside-toplevel
+    if module is None:
+        return None
     if "." in module["name"]:
         kwargs = dict(module)
         plugin = load_plugin(SessionStore, f"{kwargs.pop('name')}")

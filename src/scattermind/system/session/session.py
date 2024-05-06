@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import contextlib
 import os
 import shutil
 from collections.abc import Iterable, Iterator
@@ -48,17 +49,16 @@ class Session:
     def get_value(self, key: str) -> str | None:
         return self._sessions.get_value(self._sid, key)
 
-    def local_folder(self) -> str:
-        return self._sessions.local_folder(self._sid)
+    @contextlib.contextmanager
+    def get_local_folder(self) -> Iterator[str]:
+        sid = self._sid
+        local_folder = self._sessions.local_folder(sid)
+        self._sessions.sync_in(sid)
+        yield local_folder
+        self._sessions.sync_out(sid)
 
     def clear_local(self) -> None:
         self._sessions.clear_local(self._sid)
-
-    def sync_in(self) -> None:
-        self._sessions.sync_in(self._sid)
-
-    def sync_out(self) -> None:
-        self._sessions.sync_out(self._sid)
 
     def remove(self) -> None:
         self._sessions.remove(self._sid)
@@ -67,6 +67,9 @@ class Session:
 class SessionStore(Module):
     def __init__(self, *, cache_path: str) -> None:
         self._cache_path = ensure_folder(cache_path)
+
+    def create_new_session(self, user_id: UserId) -> Session:
+        raise NotImplementedError()
 
     def get_sessions(self, user_id: UserId) -> Iterable[Session]:
         raise NotImplementedError()

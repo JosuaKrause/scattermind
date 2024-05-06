@@ -79,7 +79,7 @@ ConfigJSON = TypedDict('ConfigJSON', {
     "graph_cache": GraphCacheModule,
     "strategy": StrategyModule,
     "readonly_access": ReadonlyAccessModule,
-    "sessions": SessionStoreModule,
+    "sessions": NotRequired[SessionStoreModule],
     "logger": LoggerDef,
     "healthcheck": NotRequired[HealthCheck],
 })
@@ -117,7 +117,7 @@ def load_config(
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
     config.set_readonly_access(
         load_readonly_access(config_obj["readonly_access"]))
-    config.set_session_store(load_session_store(config_obj["sessions"]))
+    config.set_session_store(load_session_store(config_obj.get("sessions")))
     hc = config_obj.get("healthcheck")
     if hc is not None:
         config.set_healthcheck(hc["address_in"], hc["address_out"], hc["port"])
@@ -263,10 +263,6 @@ def load_test(
         "readonly_access": {
             "name": "ram",
             "scratch": "invalid",
-        },
-        "sessions": {
-            "name": "ram",
-            "cache_path": "FIXME",  # FIXME
         },
         "logger": {
             "listeners": [

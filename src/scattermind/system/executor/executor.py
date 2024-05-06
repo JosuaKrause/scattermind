@@ -189,7 +189,7 @@ class ExecutorManager(Module):
             logger: EventStream,
             queue_pool: QueuePool,
             store: DataStore,
-            sessions: SessionStore,
+            sessions: SessionStore | None,
             roa: ReadonlyAccess) -> bool:
         """
         Execute one batch of tasks. The active node might change based on

@@ -393,7 +393,7 @@ class ComputeValueContainer:
             self,
             data_format: DataFormat,
             store: 'DataStore',
-            sessions: SessionStore,
+            sessions: SessionStore | None,
             session_field: str | None,
             tasks: list[ComputeTask]) -> None:
         """
@@ -502,6 +502,8 @@ class ComputeValueContainer:
             raise ValueError("node is not using a session")
         vals = self.get_data(session_field)
         sessions = self._sessions
+        if sessions is None:
+            raise ValueError("no session store defined")
         return [
             sessions.get_session(SessionId.parse_tensor(val))
             for val in vals.iter_values()
@@ -557,7 +559,7 @@ class ComputeState:
             self,
             queue_pool: 'QueuePool',
             store: 'DataStore',
-            sessions: SessionStore,
+            sessions: SessionStore | None,
             node: 'Node',
             tasks: list[ComputeTask]) -> None:
         """
