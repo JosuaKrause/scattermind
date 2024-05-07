@@ -17,7 +17,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from datetime import datetime, timezone
-from typing import Any, IO, NoReturn
+from typing import Any, IO, NoReturn, overload
 
 
 def is_partial_match(target: str, pattern: str) -> bool:
@@ -158,6 +158,32 @@ def fmt_time(when: datetime) -> str:
     return when.isoformat()
 
 
+@overload
+def maybe_fmt_time(when: datetime) -> str:
+    ...
+
+
+@overload
+def maybe_fmt_time(when: None) -> None:
+    ...
+
+
+def maybe_fmt_time(when: datetime | None) -> str | None:
+    """
+    Formats a timestamp as ISO formatted string. If the value is None, None
+    will be returned
+
+    Args:
+        when (datetime | None): The timestamp or None.
+
+    Returns:
+        str | None: The formatted string or None if the input was None.
+    """
+    if when is None:
+        return None
+    return fmt_time(when)
+
+
 def get_time_str() -> str:
     """
     Get the current time as ISO formatted string.
@@ -179,6 +205,32 @@ def parse_time_str(time_str: str) -> datetime:
         datetime: The timestamp.
     """
     return datetime.fromisoformat(time_str)
+
+
+@overload
+def maybe_parse_time_str(time_str: str) -> datetime:
+    ...
+
+
+@overload
+def maybe_parse_time_str(time_str: None) -> None:
+    ...
+
+
+def maybe_parse_time_str(time_str: str | None) -> datetime | None:
+    """
+    Parses an ISO formatted string representing a timestamp. If the input is
+    None, None is returned.
+
+    Args:
+        time_str (str | None): The string or None.
+
+    Returns:
+        datetime | None: The timestamp or None if the input was None.
+    """
+    if time_str is None:
+        return None
+    return parse_time_str(time_str)
 
 
 def time_diff(from_time: datetime, to_time: datetime) -> float:

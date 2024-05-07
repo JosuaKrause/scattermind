@@ -18,7 +18,7 @@ from typing import Any, TypedDict
 import numpy as np
 import torch
 
-from scattermind.system.base import QueueId, TaskId, UserId
+from scattermind.system.base import QueueId, SessionId, TaskId, UserId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
 from scattermind.system.names import GNamespace, QualifiedNodeName, UName
 from scattermind.system.payload.values import TaskValueContainer
@@ -293,15 +293,34 @@ class ScattermindAPI:
         """
         return UserId.create(UName(user_name))
 
-    def new_session(self, user_id: UserId) -> Session:
+    def new_session(
+            self,
+            user_id: UserId,
+            *,
+            copy_from: Session | None = None) -> Session:
         """
         Create a new session for the given user.
 
         Args:
             user_id (UserId): The user id.
 
+            copy_from (Session | None): If not None the new session is
+                initialized with values from a different session.
+
         Returns:
             Session: The session.
+        """
+        raise NotImplementedError()
+
+    def get_session(self, session_id: SessionId) -> Session:
+        """
+        Returns a session object for the given session id.
+
+        Args:
+            session_id (SessionId): The session id.
+
+        Returns:
+            Session: The session object.
         """
         raise NotImplementedError()
 
@@ -313,6 +332,6 @@ class ScattermindAPI:
             user_id (UserId): The user id.
 
         Yields:
-            BaseSession: A session object.
+            Session: A session object.
         """
         raise NotImplementedError()

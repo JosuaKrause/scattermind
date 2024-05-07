@@ -18,7 +18,14 @@ from collections.abc import Callable, Iterable
 from typing import cast, TypeVar
 
 from scattermind.api.api import QueueCounts, ScattermindAPI
-from scattermind.system.base import L_EITHER, Locality, Module, TaskId, UserId
+from scattermind.system.base import (
+    L_EITHER,
+    Locality,
+    Module,
+    SessionId,
+    TaskId,
+    UserId,
+)
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.client.client import ClientPool
 from scattermind.system.executor.executor import ExecutorManager
@@ -303,11 +310,25 @@ class Config(ScattermindAPI):
         return cast(RoAWriter, roa)
 
     def set_session_store(self, sessions: SessionStore | None) -> None:
+        """
+        Set the session store. Session stores are optional. However, if they
+        are not set, sessions cannot be used during execution.
+
+        Args:
+            sessions (SessionStore | None): The session store or None.
+        """
         if sessions is not None:
             sessions = self._update_locality(sessions)
         self._sessions = sessions
 
     def get_session_store(self) -> SessionStore | None:
+        """
+        Get the session store. Session stores are optional. However, if they
+        are not set, sessions cannot be used during execution.
+
+        Returns:
+            SessionStore | None: _description_
+        """
         return self._sessions
 
     def set_node_strategy(self, node_strategy: NodeStrategy) -> None:
@@ -576,11 +597,22 @@ class Config(ScattermindAPI):
                 return True
         return False
 
-    def new_session(self, user_id: UserId) -> Session:
+    def new_session(
+            self,
+            user_id: UserId,
+            *,
+            copy_from: Session | None = None) -> Session:
         sessions = self.get_session_store()
         if sessions is None:
             raise ValueError("no session store defined")
-        return sessions.create_new_session(user_id)
+        copy_id = None if copy_from is None else copy_from.get_session_id()
+        return sessions.create_new_session(user_id, copy_from=copy_id)
+
+    def get_session(self, session_id: SessionId) -> Session:
+        sessions = self.get_session_store()
+        if sessions is None:
+            raise ValueError("no session store defined")
+        return sessions.get_session(session_id)
 
     def get_sessions(self, user_id: UserId) -> Iterable[Session]:
         sessions = self.get_session_store()

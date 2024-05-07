@@ -11,13 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Defines the session interface that allows direct access to ongoing tasks and
+large user specific blobs. If further allows to retain information across
+multiple tasks.
+"""
 import contextlib
+import json
 import os
 import shutil
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import IO
+from typing import IO, TypedDict
 
 from scattermind.system.base import Module, SessionId, UserId
 from scattermind.system.io import (
@@ -29,10 +34,37 @@ from scattermind.system.io import (
     open_writes,
     remove_file,
 )
-from scattermind.system.util import get_file_hash, get_time_str, parse_time_str
+from scattermind.system.util import (
+    get_file_hash,
+    maybe_fmt_time,
+    maybe_parse_time_str,
+    now,
+)
+
+
+INFO_NAME = ".info"
+"""The name of the local info file."""
+
+
+InfoObj = TypedDict('InfoObj', {
+    "time_in": datetime | None,
+    "time_out": datetime | None,
+})
+"""The info file content. "time_in" is the time of the last incoming sync and
+"time_out" is the time of the last outgoing sync (if any)."""
 
 
 class Session:
+    """A session enables direct access to a (running) task. There are three
+    modes of direct access: notifications from a task, bi-directional immediate
+    value access, and long term storage. Notifications can be emitted from a
+    task when certain milestones are reached. Value access happens via arrays.
+    Here, changes are immediately visible to the other side. Long term storage
+    is a way to retain state across multiple tasks (e.g., associating a new
+    task with an existing session id allows access to previously cached values
+    or the history of its inputs). During computation the latest content of the
+    long term storage is only visible to the executing task. Upon node
+    execution completion the content is made accessible."""
     def __init__(
             self,
             sessions: 'SessionStore',
@@ -41,87 +73,605 @@ class Session:
         self._sessions = sessions
 
     def get_session_id(self) -> SessionId:
+        """
+        The session id.
+
+        Returns:
+            SessionId: The session id.
+        """
         return self._sid
 
-    def set_value(self, key: str, value: str | None) -> None:
-        self._sessions.set_value(self._sid, key, value)
+    def get_session_store(self) -> 'SessionStore':
+        """
+        The session store.
 
-    def get_value(self, key: str) -> str | None:
-        return self._sessions.get_value(self._sid, key)
+        Returns:
+            SessionStore: The session store.
+        """
+        return self._sessions
+
+    def set_value(
+            self,
+            key: str,
+            index: int,
+            value: str) -> None:
+        """
+        Sets the array value at the given index. If the index is equal to the
+        length of the array a new value is appended. Negative index values
+        address the array from the back. If the index is outside the array and
+        it is not the positive length of the array an `IndexError` is raised.
+
+        Raises:
+            IndexError: If the index is outside the array and it is not the
+                positive length of the array.
+
+        Args:
+            key (str): The key.
+            index (int): The index.
+            value (str): The value to set.
+        """
+        self._sessions.set_value(self._sid, key, index, value)
+
+    def push_value(self, key: str, value: str) -> None:
+        """
+        Appends a value to the end of the array.
+
+        Args:
+            key (str): The key.
+            value (str): The value.
+        """
+        self._sessions.push_value(self._sid, key, value)
+
+    def pop_value(self, key: str) -> str | None:
+        """
+        Removes and returns the last value of the array.
+
+        Args:
+            key (str): The key.
+
+        Returns:
+            str | None: The value at the end of the array or None if the array
+                was empty.
+        """
+        return self._sessions.pop_value(self._sid, key)
+
+    def get_value(self, key: str, index: int) -> str | None:
+        """
+        Gets the value at the given index of the array. A negative index gets
+        the value from the back of the array. Out of bounds access returns
+        None.
+
+        Args:
+            key (str): The key.
+            index (int): The index.
+
+        Returns:
+            str | None: The value or None if the index was out of bounds.
+        """
+        return self._sessions.get_value(self._sid, key, index)
+
+    def get_length(self, key: str) -> int:
+        """
+        Gets the length of the given array. If the key does not exist 0 is
+        returned.
+
+        Args:
+            key (str): The key.
+
+        Returns:
+            int: THe length of the array.
+        """
+        return self._sessions.get_length(self._sid, key)
+
+    def get_keys(self) -> list[str]:
+        """
+        Returns all keys of the given session.
+
+        Returns:
+            list[str]: The list of all keys.
+        """
+        return self._sessions.get_keys(self._sid)
+
+    def notify_signal(self, key: str) -> None:
+        """
+        Emits a signal on the given key. Note, that signal keys are independent
+        of value keys.
+
+        Args:
+            key (str): The signal key.
+        """
+        self._sessions.notify_signal(self._sid, key)
+
+    def wait_for_signal(
+            self,
+            key: str,
+            condition: Callable[[], bool],
+            timeout: float) -> bool:
+        """
+        Waits for a signal on the given key and returns if the condition is
+        met. If no signal arrives or the condition is not met within the
+        timeout False is returned. Note, that signal keys are independent
+        of value keys.
+
+        Args:
+            key (str): The signal key
+
+            condition (Callable[[], bool]): If the condition is True, the
+                method returns successfully.
+
+            timeout (float): The timeout in seconds.
+
+        Returns:
+            bool: Whether the condition was met.
+        """
+        return self._sessions.wait_for_signal(
+            self._sid, key, condition, timeout)
 
     @contextlib.contextmanager
     def get_local_folder(self) -> Iterator[str]:
+        """
+        Returns the local folder where long term storage can be accessed in a
+        resource block. The folder is populated with all content before
+        returning the path and upon successful completion of the block the
+        content is synchronized. Note, if the block encounters an error no
+        synchronization happens.
+
+        Yields:
+            str: The path.
+        """
         sid = self._sid
-        local_folder = self._sessions.local_folder(sid)
-        self._sessions.sync_in(sid)
+        sessions = self._sessions
+        local_folder = sessions.local_folder(sid)
+        sessions.sync_in(sid)
         yield local_folder
-        self._sessions.sync_out(sid)
+        sessions.sync_out(sid)
+
+    @staticmethod
+    @contextlib.contextmanager
+    def get_local_folders(session_arr: list['Session']) -> Iterator[list[str]]:
+        """
+        Returns the local folders where long term storage can be accessed of a
+        list of sessions in a resource block. The folders are populated with
+        all content before returning the paths and upon successful completion
+        of the block the contents are synchronized. If an error is encountered
+        during population or execution of the block no synchronization happens.
+        If an error happens during synchronization, synchronization continues
+        for other sessions. In this case only the first error is returned.
+
+        Args:
+            session_arr (list[Session]): The sessions.
+
+        Yields:
+            list[str]: The paths associated to corresponding sessions.
+        """
+        if not session_arr:
+            yield []
+            return
+        sessions = session_arr[0].get_session_store()
+        sids = [
+            session.get_session_id()
+            for session in session_arr
+            if session.get_session_store() is sessions
+        ]
+        if len(sids) != len(session_arr):
+            raise ValueError(
+                f"all sessions must use the same store: {session_arr}")
+        success = False
+
+        def sync_out(sid: SessionId) -> BaseException | None:
+            # pylint: disable=broad-exception-caught
+
+            if not success:
+                return None
+            try:
+                sessions.sync_out(sid)
+            except BaseException as err:
+                # TODO: maybe log anyway
+                return err
+            return None
+
+        local_folders = [sessions.local_folder(sid) for sid in sids]
+        try:
+            for sid in sids:
+                sessions.sync_in(sid)
+            yield local_folders
+            success = True
+        finally:
+            exc: BaseException | None = None
+            for sid in sids:
+                err = sync_out(sid)
+                if err is not None and exc is None:
+                    exc = err
+            if exc is not None:
+                raise exc
 
     def clear_local(self) -> None:
+        """
+        Immediately empty the local copy of the session. If called outside of
+        a synchronization block only local disk space is freed.
+        """
         self._sessions.clear_local(self._sid)
 
     def remove(self) -> None:
+        """
+        Removes everything associated with the given session. Note, this does
+        not guarantee that all local copies are removed as well.
+        """
         self._sessions.remove(self._sid)
 
 
 class SessionStore(Module):
+    """
+    A session storage which manages sessions.
+
+    Sessions enable direct access to a (running) task. There are three
+    modes of direct access: notifications from a task, bi-directional immediate
+    value access, and long term storage. Notifications can be emitted from a
+    task when certain milestones are reached. Value access happens via arrays.
+    Here, changes are immediately visible to the other side. Long term storage
+    is a way to retain state across multiple tasks (e.g., associating a new
+    task with an existing session id allows access to previously cached values
+    or the history of its inputs). During computation the latest content of the
+    long term storage is only visible to the executing task. Upon node
+    execution completion the content is made accessible.
+    """
     def __init__(self, *, cache_path: str) -> None:
         self._cache_path = ensure_folder(cache_path)
 
-    def create_new_session(self, user_id: UserId) -> Session:
+    def create_new_session(
+            self,
+            user_id: UserId,
+            *,
+            copy_from: SessionId | None = None) -> Session:
+        """
+        Creates a new session for the given user id. Session ids are guaranteed
+        to be unique across all users.
+
+        Args:
+            user_id (UserId): The user.
+
+            copy_from (SessionId | None, optional): If not None the content
+                of a different session is copied over. Defaults to None.
+
+        Returns:
+            Session: The new session.
+        """
+        res = SessionId.create_for(user_id)
+        self.register_session(user_id, res)
+        if copy_from is not None:
+            self.copy_session_blobs(copy_from, res)
+        return self.get_session(res)
+
+    def register_session(self, user_id: UserId, session_id: SessionId) -> None:
+        """
+        Registers the session so the user and session can be associated.
+
+        Args:
+            user_id (UserId): The user.
+            session_id (SessionId): The session.
+        """
         raise NotImplementedError()
 
     def get_sessions(self, user_id: UserId) -> Iterable[Session]:
+        """
+        Retrieves all sessions of the given user.
+
+        Args:
+            user_id (UserId): The user.
+
+        Returns:
+            Iterable[Session]: The sessions for the user.
+        """
+        raise NotImplementedError()
+
+    def get_user(self, session_id: SessionId) -> UserId | None:
+        """
+        Retrieves the user associated with the given session.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            UserId | None: The user or None if the session is not associated
+                with any user (e.g., when it was deleted).
+        """
         raise NotImplementedError()
 
     def get_session(self, session_id: SessionId) -> Session:
+        """
+        Gets the session handle for the given id.
+
+        Args:
+            session_id (SessionId): The session id.
+
+        Returns:
+            Session: The session handle.
+        """
         return Session(self, session_id)
 
     def set_value(
-            self, session_id: SessionId, key: str, value: str | None) -> None:
+            self,
+            session_id: SessionId,
+            key: str,
+            index: int,
+            value: str) -> None:
+        """
+        Sets the array value at the given index. If the index is equal to the
+        length of the array a new value is appended. Negative index values
+        address the array from the back. If the index is outside the array and
+        it is not the positive length of the array an `IndexError` is raised.
+
+        Raises:
+            IndexError: If the index is outside the array and it is not the
+                positive length of the array.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+            index (int): The index.
+            value (str): The value to set.
+        """
         raise NotImplementedError()
 
-    def get_value(self, session_id: SessionId, key: str) -> str | None:
+    def push_value(self, session_id: SessionId, key: str, value: str) -> None:
+        """
+        Appends a value to the end of the array.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+            value (str): The value.
+        """
+        raise NotImplementedError()
+
+    def pop_value(self, session_id: SessionId, key: str) -> str | None:
+        """
+        Removes and returns the last value of the array.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+
+        Returns:
+            str | None: The value at the end of the array or None if the array
+                was empty.
+        """
+        raise NotImplementedError()
+
+    def get_value(
+            self, session_id: SessionId, key: str, index: int) -> str | None:
+        """
+        Gets the value at the given index of the array. A negative index gets
+        the value from the back of the array. Out of bounds access returns
+        None.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+            index (int): The index.
+
+        Returns:
+            str | None: The value or None if the index was out of bounds.
+        """
+        raise NotImplementedError()
+
+    def get_length(self, session_id: SessionId, key: str) -> int:
+        """
+        Gets the length of the given array. If the key does not exist 0 is
+        returned.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+
+        Returns:
+            int: THe length of the array.
+        """
+        raise NotImplementedError()
+
+    def get_keys(self, session_id: SessionId) -> list[str]:
+        """
+        Returns all keys of the given session.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            list[str]: The list of all keys.
+        """
+        raise NotImplementedError()
+
+    def notify_signal(self, session_id: SessionId, key: str) -> None:
+        """
+        Emits a signal on the given key. Note, that signal keys are independent
+        of value keys.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The signal key.
+        """
+        raise NotImplementedError()
+
+    def wait_for_signal(
+            self,
+            session_id: SessionId,
+            key: str,
+            condition: Callable[[], bool],
+            timeout: float) -> bool:
+        """
+        Waits for a signal on the given key and returns if the condition is
+        met. If no signal arrives or the condition is not met within the
+        timeout False is returned. Note, that signal keys are independent
+        of value keys.
+
+        Args:
+            session_id (SessionId): The session.
+
+            key (str): The signal key
+
+            condition (Callable[[], bool]): If the condition is True, the
+                method returns successfully.
+
+            timeout (float): The timeout in seconds.
+
+        Returns:
+            bool: Whether the condition was met.
+        """
         raise NotImplementedError()
 
     @contextmanager
     def open_blob_write(
             self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
+        """
+        Opens a blob for writing. This method is used for synchronization and
+        should not be normally used. Use the local copy instead.
+
+        Args:
+            session_id (SessionId): The session.
+
+            name (str): The name of the blob.
+
+        Yields:
+            IO[bytes]: The file handle to write to.
+        """
         raise NotImplementedError()
 
     @contextmanager
     def open_blob_read(
             self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
+        """
+        Opens a blob for reading. This method is used for synchronization and
+        should not be normally used. Use the local copy instead.
+
+        Args:
+            session_id (SessionId): The session.
+
+            name (str): The name of the blob.
+
+        Yields:
+            IO[bytes]: The file handle to read from.
+        """
         raise NotImplementedError()
 
     def blob_hash(self, session_id: SessionId, name: str) -> str:
+        """
+        Computes the hash of the remote blob. See `get_file_hash` for the
+        hashing method.
+
+        Args:
+            session_id (SessionId): The session.
+
+            name (str): The name of the blob.
+
+        Returns:
+            str: The hash.
+        """
         raise NotImplementedError()
 
     def blob_list(self, session_id: SessionId) -> list[str]:
+        """
+        Lists all blobs for the given session.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            list[str]: The list of blob names.
+        """
         raise NotImplementedError()
 
     def blob_remove(self, session_id: SessionId, name: str) -> None:
+        """
+        Remove the given blob.
+
+        Args:
+            session_id (SessionId): The session.
+
+            name (str): The name of the blob.
+        """
         raise NotImplementedError()
 
     def local_folder(self, session_id: SessionId) -> str:
+        """
+        The local folder where the local copy of the blobs is stored.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            str: The path.
+        """
         return os.path.join(self._cache_path, *session_id.as_folder())
 
     def locals(self) -> Iterable[SessionId]:
+        """
+        Find all session ids that have local copies.
+
+        Yields:
+            SessionId: The sessions.
+        """
         yield from SessionId.find_folder_ids(self._cache_path)
 
     def clear_local(self, session_id: SessionId) -> None:
+        """
+        Immediately empty the local copy of the session. If called outside of
+        a synchronization block only local disk space is freed.
+
+        Args:
+            session_id (SessionId): The session.
+        """
         path = self.local_folder(session_id)
         shutil.rmtree(path, ignore_errors=True)
 
-    def local_time(self, session_id: SessionId) -> datetime | None:
+    def get_info(self, session_id: SessionId) -> InfoObj:
+        """
+        Returns information about the local copy. This information can be used
+        to determine whether a local copy is currently in active use and
+        whether it is safe to free up the space.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            InfoObj: The info.
+        """
         path = self.local_folder(session_id)
         try:
-            with open_reads(os.path.join(path, ".time")) as fin:
-                return parse_time_str(fin.read(200).strip())
+            with open_reads(os.path.join(path, INFO_NAME)) as fin:
+                obj = json.load(fin)
+                return {
+                    "time_in": maybe_parse_time_str(obj.get("time_in")),
+                    "time_out": maybe_parse_time_str(obj.get("time_out")),
+                }
         except FileNotFoundError:
-            return None
+            return {
+                "time_in": None,
+                "time_out": None,
+            }
+
+    def set_info(self, session_id: SessionId, info: InfoObj) -> None:
+        """
+        Updates the info of the local copy.
+
+        Args:
+            session_id (SessionId): The session.
+
+            info (InfoObj): The new info.
+        """
+        path = self.local_folder(session_id)
+        with open_writes(os.path.join(path, ".info")) as fout:
+            print(json.dumps({
+                "time_in": maybe_fmt_time(info.get("time_in")),
+                "time_out": maybe_fmt_time(info.get("time_out")),
+            }, sort_keys=True, indent=2), file=fout)
 
     def sync_in(self, session_id: SessionId) -> None:
+        """
+        Populates the local copy of the given session.
+
+        Args:
+            session_id (SessionId): The session.
+        """
         path = self.local_folder(session_id)
         blobs: set[str] = set(self.blob_list(session_id))
         need_copy: set[str] = set(blobs)
@@ -139,10 +689,20 @@ class SessionStore(Module):
             with open_writeb(full_path) as fout:
                 with self.open_blob_read(session_id, fname) as fin:
                     shutil.copyfileobj(fin, fout)  # type: ignore
-        with open_writes(os.path.join(path, ".time")) as fout:
-            print(get_time_str(), file=fout)
+        self.set_info(session_id, {
+            "time_in": now(),
+            "time_out": None,
+        })
 
     def sync_out(self, session_id: SessionId) -> None:
+        """
+        Synchronizes the local copy of the given session. This ensures that
+        remote blobs are exactly the same as the local copy. If blobs do not
+        exist locally anymore they are deleted remotely as well.
+
+        Args:
+            session_id (SessionId): The session.
+        """
         path = self.local_folder(session_id)
         local: set[str] = {
             fname
@@ -164,6 +724,51 @@ class SessionStore(Module):
             with self.open_blob_write(session_id, fname) as fout:
                 with open_readb(full_path) as fin:
                     shutil.copyfileobj(fin, fout)  # type: ignore
+        info = self.get_info(session_id)
+        self.set_info(
+            session_id,
+            {
+                "time_in": info.get("time_in"),
+                "time_out": now(),
+            })
+
+    def copy_session_blobs(self, from_id: SessionId, to_id: SessionId) -> None:
+        """
+        Copies a session over from a different session. All values and blobs
+        are copied over.
+
+        Args:
+            from_id (SessionId): The source session.
+
+            to_id (SessionId): The destination session.
+        """
+        for key in self.get_keys(from_id):
+            ix = 0
+            while True:
+                val = self.get_value(from_id, key, ix)
+                if val is None:
+                    break
+                self.set_value(to_id, key, ix, val)
+                ix += 1
+        self.clear_local(to_id)
+        path_to = self.local_folder(to_id)
+        for fname in self.blob_list(from_id):
+            full_path = os.path.join(path_to, fname)
+            with open_writeb(full_path) as fout:
+                with self.open_blob_read(from_id, fname) as fin:
+                    shutil.copyfileobj(fin, fout)  # type: ignore
+        self.set_info(to_id, {
+            "time_in": now(),
+            "time_out": None,
+        })
+        self.sync_out(to_id)
 
     def remove(self, session_id: SessionId) -> None:
+        """
+        Removes everything associated with the given session. Note, this does
+        not guarantee that all local copies are removed as well.
+
+        Args:
+            session_id (SessionId): The session.
+        """
         raise NotImplementedError()
