@@ -33,7 +33,10 @@ DataFormatJSON = dict[str, DataInfoJSON]
 """A JSON serializable `DataFormat`."""
 
 
+STRING_INFO: DataInfoJSON = ("uint8", [None])
+"""The info for a string field."""
 SESSION_INFO: DataInfoJSON = ("uint8", SessionId.tensor_shape())
+"""The info for a session id field."""
 
 
 class DataInfo:
