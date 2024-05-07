@@ -497,6 +497,15 @@ class ComputeValueContainer:
         return data[name]
 
     def get_sessions(self) -> list[Session]:
+        """
+        Get sessions of all the tasks.
+
+        Raises:
+            ValueError: If the node or system does not support sessions.
+
+        Returns:
+            list[Session]: The sessions.
+        """
         session_field = self._session_field
         if session_field is None:
             raise ValueError("node is not using a session")
