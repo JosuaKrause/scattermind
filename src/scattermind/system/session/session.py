@@ -214,7 +214,7 @@ class Session:
         resource block. The folder is populated with all content before
         returning the path and upon successful completion of the block the
         content is synchronized. Note, if the block encounters an error no
-        synchronization happens.
+        synchronization happens. Files starting with '.' are not synchronized.
 
         Yields:
             str: The path.
@@ -237,6 +237,7 @@ class Session:
         during population or execution of the block no synchronization happens.
         If an error happens during synchronization, synchronization continues
         for other sessions. In this case only the first error is returned.
+        Files starting with '.' are not synchronized.
 
         Args:
             session_arr (list[Session]): The sessions.
@@ -529,7 +530,8 @@ class SessionStore(Module):
         Args:
             session_id (SessionId): The session.
 
-            name (str): The name of the blob.
+            name (str): The name of the blob. Blob names cannot start with a
+                '.'.
 
         Yields:
             IO[bytes]: The file handle to write to.
@@ -546,7 +548,8 @@ class SessionStore(Module):
         Args:
             session_id (SessionId): The session.
 
-            name (str): The name of the blob.
+            name (str): The name of the blob. Blob names cannot start with a
+                '.'.
 
         Yields:
             IO[bytes]: The file handle to read from.

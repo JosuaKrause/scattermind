@@ -305,9 +305,13 @@ def listdir(path: str) -> list[str]:
         path (str): The folder.
 
     Returns:
-        list[str]: A sorted list of all filenames in the folder.
+        list[str]: A sorted list of all filenames in the folder. An empty list
+            is returned if the path does not exist.
     """
-    return sorted(os.listdir(path))
+    try:
+        return sorted(os.listdir(path))
+    except FileNotFoundError:
+        return []
 
 
 @contextlib.contextmanager

@@ -14,17 +14,21 @@
 """Create a session store."""
 from typing import Literal, overload, TypedDict
 
+from redipy import RedisConfig
+
 from scattermind.system.plugins import load_plugin
 from scattermind.system.session.session import SessionStore
 
 
-LocalSessionStoreModule = TypedDict('LocalSessionStoreModule', {
-    "name": Literal["ram"],
+RedisSessionStoreModule = TypedDict('RedisSessionStoreModule', {
+    "name": Literal["redis"],
+    "cfg": RedisConfig,
+    "disk_path": str,
     "cache_path": str,
 })
 
 
-SessionStoreModule = LocalSessionStoreModule
+SessionStoreModule = RedisSessionStoreModule
 
 
 @overload
@@ -40,6 +44,19 @@ def load_session_store(module: None) -> None:
 
 def load_session_store(
         module: SessionStoreModule | None) -> SessionStore | None:
+    """
+    Loads the session store for the given configuration.
+
+    Args:
+        module (SessionStoreModule | None): The session store configuration or
+            None if sessions are deactivated.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+
+    Returns:
+        SessionStore | None: The session store or None.
+    """
     # pylint: disable=import-outside-toplevel
     if module is None:
         return None
@@ -48,6 +65,10 @@ def load_session_store(
         plugin = load_plugin(SessionStore, f"{kwargs.pop('name')}")
         cache_path = f"{kwargs.pop('cache_path')}"
         return plugin(cache_path=cache_path, **kwargs)
-    if module["name"] == "ram":
-        pass  # FIXME TODO
+    if module["name"] == "redis":
+        from scattermind.system.session.redis import RedisSessionStore
+        return RedisSessionStore(
+            module["cfg"],
+            disk_path=module["disk_path"],
+            cache_path=module["cache_path"])
     raise ValueError(f"unknown session store: {module['name']}")
