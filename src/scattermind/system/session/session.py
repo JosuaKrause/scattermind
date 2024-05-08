@@ -22,7 +22,7 @@ import shutil
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import IO, TypedDict
+from typing import IO, TypedDict, TypeVar
 
 from scattermind.system.base import Module, SessionId, UserId
 from scattermind.system.io import (
@@ -40,6 +40,9 @@ from scattermind.system.util import (
     maybe_parse_time_str,
     now,
 )
+
+
+T = TypeVar('T')
 
 
 INFO_NAME = ".info"
@@ -185,8 +188,8 @@ class Session:
     def wait_for_signal(
             self,
             key: str,
-            condition: Callable[[], bool],
-            timeout: float) -> bool:
+            condition: Callable[[], T],
+            timeout: float) -> T | None:
         """
         Waits for a signal on the given key and returns if the condition is
         met. If no signal arrives or the condition is not met within the
@@ -196,13 +199,14 @@ class Session:
         Args:
             key (str): The signal key
 
-            condition (Callable[[], bool]): If the condition is True, the
-                method returns successfully.
+            condition (Callable[[], T]): If the condition can be converted to
+                True, the method returns successfully with its result.
 
             timeout (float): The timeout in seconds.
 
         Returns:
-            bool: Whether the condition was met.
+            T | None: The result of the condition if it could be evaluated to
+                True. Otherwise, if the timeout occurred, None is returned.
         """
         return self._sessions.wait_for_signal(
             self._sid, key, condition, timeout)
@@ -497,8 +501,8 @@ class SessionStore(Module):
             self,
             session_id: SessionId,
             key: str,
-            condition: Callable[[], bool],
-            timeout: float) -> bool:
+            condition: Callable[[], T],
+            timeout: float) -> T | None:
         """
         Waits for a signal on the given key and returns if the condition is
         met. If no signal arrives or the condition is not met within the
@@ -510,13 +514,14 @@ class SessionStore(Module):
 
             key (str): The signal key
 
-            condition (Callable[[], bool]): If the condition is True, the
-                method returns successfully.
+            condition (Callable[[], T]): If the condition can be converted to
+                True, the method returns successfully with its result.
 
             timeout (float): The timeout in seconds.
 
         Returns:
-            bool: Whether the condition was met.
+            T | None: The result of the condition if it could be evaluated to
+                True. Otherwise, if the timeout occurred, None is returned.
         """
         raise NotImplementedError()
 

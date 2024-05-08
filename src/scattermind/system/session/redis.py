@@ -17,7 +17,7 @@ import os
 import shutil
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
-from typing import IO
+from typing import IO, TypeVar
 
 from redipy import Redis, RedisConfig
 
@@ -31,6 +31,9 @@ from scattermind.system.io import (
 )
 from scattermind.system.session.session import Session, SessionStore
 from scattermind.system.util import get_blob_hash
+
+
+T = TypeVar('T')
 
 
 class RedisSessionStore(SessionStore):
@@ -130,11 +133,10 @@ class RedisSessionStore(SessionStore):
             self,
             session_id: SessionId,
             key: str,
-            condition: Callable[[], bool],
-            timeout: float) -> bool:
-        res = self._redis.wait_for(
+            condition: Callable[[], T],
+            timeout: float) -> T | None:
+        return self._redis.wait_for(
             self._signal_key(session_id, key), condition, timeout)
-        return bool(res)
 
     def _get_folder(
             self, session_id: SessionId, *, ensure: bool = True) -> str:
