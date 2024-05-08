@@ -13,7 +13,7 @@
 # limitations under the License.
 """Provides functionality to send tasks and retrieve results."""
 from collections.abc import Iterable
-from typing import Any, TypedDict
+from typing import Any, TypeAlias, TypedDict
 
 import numpy as np
 import torch
@@ -29,6 +29,16 @@ from scattermind.system.torch_util import (
     DTypeName,
     str_to_tensor,
 )
+
+
+InputTypes: TypeAlias = (
+    str
+    | Session
+    | SessionId
+    | list[Any]
+    | np.ndarray
+    | torch.Tensor)
+"""Types for task inputs."""
 
 
 QueueCounts = TypedDict('QueueCounts', {
@@ -132,16 +142,17 @@ class ScattermindAPI:
     def enqueue_task(
             self,
             ns: GNamespace | str,
-            obj: dict[str, str | list[Any] | np.ndarray | torch.Tensor],
+            obj: dict[str, InputTypes],
             ) -> TaskId:
         """
         Enqueues a task.
 
         Args:
             ns (GNamespace | str): The namespace or a namespace string.
-            obj (dict[str, str | list[Any] | np.ndarray | torch.Tensor]):
+            obj (dict[str, InputTypes]):
                 The task's input values. Values can be strings or various forms
-                of tensor data (nested float lists, numpy arrays, etc.).
+                of tensor data (nested float lists, numpy arrays, etc.) and
+                other special types.
 
         Returns:
             TaskId: The task id.
@@ -149,9 +160,9 @@ class ScattermindAPI:
         if not isinstance(ns, GNamespace):
             ns = GNamespace(ns)
 
-        def convert(
-                val: str | list[Any] | np.ndarray | torch.Tensor,
-                ) -> torch.Tensor:
+        def convert(val: InputTypes) -> torch.Tensor:
+            if isinstance(val, SessionId):
+                return val.to_tensor().clone().detach()
             if isinstance(val, Session):
                 return val.get_session_id().to_tensor().clone().detach()
             if isinstance(val, str):
