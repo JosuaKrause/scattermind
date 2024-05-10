@@ -290,6 +290,20 @@ class Session:
             if exc is not None:
                 raise exc
 
+    def sync_in(self) -> None:
+        """
+        Populates or updates the local copy of the given session.
+        """
+        self._sessions.sync_in(self._sid)
+
+    def sync_out(self) -> None:
+        """
+        Synchronizes the local copy of the given session. This ensures that
+        remote blobs are exactly the same as the local copy. If blobs do not
+        exist locally anymore they are deleted remotely as well.
+        """
+        self._sessions.sync_out(self._sid)
+
     def clear_local(self) -> None:
         """
         Immediately empty the local copy of the session. If called outside of
