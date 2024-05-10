@@ -413,6 +413,31 @@ def deserialize_tensor(
     return create_tensor(numpy_val, dtype=dtype)
 
 
+def tensor_list(value: torch.Tensor) -> list[int | float]:
+    """
+    Returns a flat tensor as list. Guarantees that a list is returned even for
+    scalar tensors.
+
+    Args:
+        value (torch.Tensor): The tensor.
+
+    Raises:
+        ValueError: If the tensor is nested or shapeless.
+
+    Returns:
+        list[int | float]: The list.
+    """
+    shape = list(value.shape)
+    if len(shape) != 1:
+        raise ValueError(f"nested or shapeless tensor use ravel {value=}")
+    if shape[0] == 0:
+        return []
+    res = value.cpu().tolist()
+    if shape[0] == 1:
+        return [res]
+    return res
+
+
 def pad_tensor(value: torch.Tensor, shape: list[int]) -> torch.Tensor:
     """
     Pads a tensor to a given shape. Each dimension where the tensor is smaller
@@ -649,6 +674,6 @@ def tensor_to_str(value: torch.Tensor) -> str:
         str: The string.
     """
     try:
-        return bytes(value.ravel().cpu().tolist()).decode("utf-8")
+        return bytes(tensor_list(value.ravel())).decode("utf-8")
     except UnicodeDecodeError as e:
         raise ValueError(f"invalid str from tensor {value}") from e

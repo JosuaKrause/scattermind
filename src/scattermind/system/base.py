@@ -22,7 +22,11 @@ import torch
 
 from scattermind.system.io import get_subfolders
 from scattermind.system.names import NAME_SEP, NName, QualifiedGraphName, UName
-from scattermind.system.torch_util import create_tensor
+from scattermind.system.torch_util import (
+    create_tensor,
+    tensor_list,
+    tensor_to_str,
+)
 
 
 SelfT = TypeVar('SelfT', bound='BaseId')
@@ -261,10 +265,10 @@ class BaseId:
             raise ValueError(
                 f"invalid shape for tensor {list(val.shape)} != "
                 f"{cls.tensor_shape()}")
-        prefix = bytes(val[0].cpu().tolist()).decode("utf-8")
+        prefix = tensor_to_str(val[0])
         if prefix != cls.prefix():
             raise ValueError(f"invalid prefix for {cls.__name__}: {prefix}")
-        return cls(uuid.UUID(bytes=bytes(val[1:].cpu().tolist())))
+        return cls(uuid.UUID(bytes=bytes(tensor_list(val[1:]))))
 
     def __eq__(self, other: object) -> bool:
         """
