@@ -30,7 +30,7 @@ from scattermind.system.util import as_shape
 
 SpecialDataInfo = Literal["string", "session"]
 """Shortcut data info fields that can be used in the JSON spec."""
-UserDataInfoJSON = tuple[DTypeName, Sequence[int | None] | SpecialDataInfo]
+UserDataInfoJSON = tuple[DTypeName, Sequence[int | None]] | SpecialDataInfo
 """A user friendly JSON serializable `DataInfo`."""
 DataInfoJSON = tuple[DTypeName, Sequence[int | None]]
 """A JSON serializable `DataInfo`."""
@@ -60,12 +60,11 @@ def normalize_data_info(info: UserDataInfoJSON) -> DataInfoJSON:
     Returns:
         DataInfoJSON: The normalized JSON data info.
     """
-    dtype, fmt = info
-    if not isinstance(fmt, str):
-        return (dtype, fmt)
-    if fmt == "string":
+    if not isinstance(info, str):
+        return info
+    if info == "string":
         return STRING_INFO
-    if fmt == "session":
+    if info == "session":
         return SESSION_INFO
     raise ValueError(
         f"special value of {info=} must be in {SPECIAL_INFOS}")
@@ -81,11 +80,10 @@ def denormalize_data_info(info: DataInfoJSON) -> UserDataInfoJSON:
     Returns:
         UserDataInfoJSON: The user friendly data info.
     """
-    dtype, _ = info
     if info == STRING_INFO:
-        return (dtype, "string")
+        return "string"
     if info == SESSION_INFO:
-        return (dtype, "session")
+        return "session"
     return info
 
 
