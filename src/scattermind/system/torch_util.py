@@ -432,9 +432,10 @@ def tensor_list(value: torch.Tensor) -> list[int | float]:
         raise ValueError(f"nested or shapeless tensor use ravel {value=}")
     if shape[0] == 0:
         return []
+    # NOTE: res will be int or float instead of list if shape == [1]
     res = value.cpu().tolist()
     if shape[0] == 1:
-        return [res]
+        return [res]  # type: ignore
     return res
 
 
@@ -674,6 +675,7 @@ def tensor_to_str(value: torch.Tensor) -> str:
         str: The string.
     """
     try:
-        return bytes(tensor_list(value.ravel())).decode("utf-8")
+        sbytes = bytes(tensor_list(value.ravel()))  # type: ignore
+        return sbytes.decode("utf-8")
     except UnicodeDecodeError as e:
         raise ValueError(f"invalid str from tensor {value}") from e

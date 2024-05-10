@@ -268,7 +268,8 @@ class BaseId:
         prefix = tensor_to_str(val[0])
         if prefix != cls.prefix():
             raise ValueError(f"invalid prefix for {cls.__name__}: {prefix}")
-        return cls(uuid.UUID(bytes=bytes(tensor_list(val[1:]))))
+        ubytes = bytes(tensor_list(val[1:]))  # type: ignore
+        return cls(uuid.UUID(bytes=ubytes))
 
     def __eq__(self, other: object) -> bool:
         """
