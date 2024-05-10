@@ -47,6 +47,8 @@ def worker_start(
             If its result is not None, then the integer should be used
             as exit code.
     """
+    if device == "auto":
+        device = None
     if device is not None:
         set_system_device(device)
 
