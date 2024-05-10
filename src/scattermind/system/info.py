@@ -13,6 +13,7 @@
 # limitations under the License.
 """Provides classes that manage information about tensor data."""
 from collections.abc import Sequence
+from typing import get_args, Literal
 
 import torch
 
@@ -27,16 +28,81 @@ from scattermind.system.torch_util import (
 from scattermind.system.util import as_shape
 
 
+SpecialDataInfo = Literal["string", "session"]
+"""Shortcut data info fields that can be used in the JSON spec."""
+UserDataInfoJSON = tuple[DTypeName, Sequence[int | None] | SpecialDataInfo]
+"""A user friendly JSON serializable `DataInfo`."""
 DataInfoJSON = tuple[DTypeName, Sequence[int | None]]
 """A JSON serializable `DataInfo`."""
+UserDataFormatJSON = dict[str, UserDataInfoJSON]
+"""A user friendly JSON serializable `DataFormat`."""
 DataFormatJSON = dict[str, DataInfoJSON]
 """A JSON serializable `DataFormat`."""
 
-
+SPECIAL_INFOS = get_args(SpecialDataInfo)
+"""All special values for data info."""
 STRING_INFO: DataInfoJSON = ("uint8", [None])
 """The info for a string field."""
 SESSION_INFO: DataInfoJSON = ("uint8", SessionId.tensor_shape())
 """The info for a session id field."""
+
+
+def normalize_data_info(info: UserDataInfoJSON) -> DataInfoJSON:
+    """
+    Convert a user friendly JSON data info into a normalized JSON data info.
+
+    Args:
+        info (UserDataInfoJSON): The data info.
+
+    Raises:
+        ValueError: If a special value cannot be recognized.
+
+    Returns:
+        DataInfoJSON: The normalized JSON data info.
+    """
+    dtype, fmt = info
+    if not isinstance(fmt, str):
+        return (dtype, fmt)
+    if fmt == "string":
+        return STRING_INFO
+    if fmt == "session":
+        return SESSION_INFO
+    raise ValueError(
+        f"special value of {info=} must be in {SPECIAL_INFOS}")
+
+
+def denormalize_data_info(info: DataInfoJSON) -> UserDataInfoJSON:
+    """
+    Replace special data infos with their shortcut representations.
+
+    Args:
+        info (DataInfoJSON): The data info.
+
+    Returns:
+        UserDataInfoJSON: The user friendly data info.
+    """
+    dtype, _ = info
+    if info == STRING_INFO:
+        return (dtype, "string")
+    if info == SESSION_INFO:
+        return (dtype, "session")
+    return info
+
+
+def normalize_data_format(data_format: UserDataFormatJSON) -> DataFormatJSON:
+    """
+    Normalize a user friendly JSON data format.
+
+    Args:
+        data_format (UserDataFormatJSON): The data format.
+
+    Returns:
+        DataFormatJSON: The normalized data format.
+    """
+    return {
+        key: normalize_data_info(info)
+        for key, info in data_format.items()
+    }
 
 
 class DataInfo:
@@ -268,7 +334,7 @@ class DataFormat(DictHelper[DataInfo]):
             for name, info_obj in obj.items()
         })
 
-    def data_format_to_json(self) -> DataFormatJSON:
+    def data_format_to_json(self) -> UserDataFormatJSON:
         """
         Converts the data info into a JSON serializable representation.
 
@@ -276,6 +342,6 @@ class DataFormat(DictHelper[DataInfo]):
             DataFormatJSON: The JSON serializable representation.
         """
         return {
-            name: data_info.to_json()
+            name: denormalize_data_info(data_info.to_json())
             for name, data_info in self.items()
         }
