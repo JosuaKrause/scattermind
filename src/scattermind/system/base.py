@@ -257,9 +257,9 @@ class BaseId:
             SelfT: The id.
         """
         val = val.ravel()
-        if val.shape != cls.tensor_shape():
+        if list(val.shape) != cls.tensor_shape():
             raise ValueError(
-                f"invalid shape for tensor {val.shape} != "
+                f"invalid shape for tensor {list(val.shape)} != "
                 f"{cls.tensor_shape()}")
         prefix = bytes(val[0].cpu().tolist()).decode("utf-8")
         if prefix != cls.prefix():
