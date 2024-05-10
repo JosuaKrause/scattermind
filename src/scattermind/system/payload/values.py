@@ -494,7 +494,10 @@ class ComputeValueContainer:
             ComputeValues: The data of all tasks.
         """
         data = self._compute_data()
-        return data[name]
+        try:
+            return data[name]
+        except KeyError as err:
+            raise KeyError(f"{name=} not in {data=}") from err
 
     def get_sessions(self) -> list[Session]:
         """
