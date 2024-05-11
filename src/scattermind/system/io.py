@@ -290,7 +290,7 @@ def get_folder(path: str, ext: str) -> Iterable[tuple[str, bool]]:
             elif fobj.is_file() and fobj.name.endswith(ext):
                 yield fobj.name, False
     except FileNotFoundError:
-        return []
+        yield from []
 
 
 def listdir(path: str) -> list[str]:
