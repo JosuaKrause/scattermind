@@ -243,7 +243,11 @@ def get_subfolders(path: str) -> list[str]:
     Returns:
         list[str]: A sorted list of all subfolder names.
     """
-    return sorted((fobj.name for fobj in os.scandir(path) if fobj.is_dir()))
+    try:
+        return sorted(
+            (fobj.name for fobj in os.scandir(path) if fobj.is_dir()))
+    except FileNotFoundError:
+        return []
 
 
 def get_files(path: str, *, ext: str) -> list[str]:
@@ -257,11 +261,14 @@ def get_files(path: str, *, ext: str) -> list[str]:
     Returns:
         list[str]: A sorted list of all filenames.
     """
-    return sorted((
-        fobj.name
-        for fobj in os.scandir(path)
-        if fobj.is_file() and fobj.name.endswith(ext)
-    ))
+    try:
+        return sorted((
+            fobj.name
+            for fobj in os.scandir(path)
+            if fobj.is_file() and fobj.name.endswith(ext)
+        ))
+    except FileNotFoundError:
+        return []
 
 
 def get_folder(path: str, ext: str) -> Iterable[tuple[str, bool]]:
@@ -276,11 +283,14 @@ def get_folder(path: str, ext: str) -> Iterable[tuple[str, bool]]:
         tuple[str, bool]: A tuple of the name and True if it is a folder,
             otherwise False if it is a file.
     """
-    for fobj in sorted(os.scandir(path), key=lambda fobj: fobj.name):
-        if fobj.is_dir():
-            yield fobj.name, True
-        elif fobj.is_file() and fobj.name.endswith(ext):
-            yield fobj.name, False
+    try:
+        for fobj in sorted(os.scandir(path), key=lambda fobj: fobj.name):
+            if fobj.is_dir():
+                yield fobj.name, True
+            elif fobj.is_file() and fobj.name.endswith(ext):
+                yield fobj.name, False
+    except FileNotFoundError:
+        return []
 
 
 def listdir(path: str) -> list[str]:
