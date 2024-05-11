@@ -18,6 +18,7 @@ from redipy import RedisConfig
 
 from scattermind.system.plugins import load_plugin
 from scattermind.system.session.session import SessionStore
+from scattermind.system.util import to_bool
 
 
 RedisSessionStoreModule = TypedDict('RedisSessionStoreModule', {
@@ -25,6 +26,7 @@ RedisSessionStoreModule = TypedDict('RedisSessionStoreModule', {
     "cfg": RedisConfig,
     "disk_path": str,
     "cache_path": str,
+    "is_shared": bool,
 })
 
 
@@ -64,11 +66,13 @@ def load_session_store(
         kwargs = dict(module)
         plugin = load_plugin(SessionStore, f"{kwargs.pop('name')}")
         cache_path = f"{kwargs.pop('cache_path')}"
-        return plugin(cache_path=cache_path, **kwargs)
+        is_shared = to_bool(kwargs.pop('is_shared'))
+        return plugin(cache_path=cache_path, is_shared=is_shared, **kwargs)
     if module["name"] == "redis":
         from scattermind.system.session.redis import RedisSessionStore
         return RedisSessionStore(
             module["cfg"],
             disk_path=module["disk_path"],
-            cache_path=module["cache_path"])
+            cache_path=module["cache_path"],
+            is_shared=module["is_shared"])
     raise ValueError(f"unknown session store: {module['name']}")

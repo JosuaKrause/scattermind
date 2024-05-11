@@ -265,7 +265,7 @@ def seconds_since(time_str: str | None) -> float:
     return time_diff(parse_time_str(time_str), now())
 
 
-def to_bool(text: str | None) -> bool:
+def to_bool(text: object | bool | str | None) -> bool:
     """
     Makes a best effort conversion of the value to a boolean. If the value is
     None it is interpreted as False. If the value is a number or can be parsed
@@ -274,7 +274,7 @@ def to_bool(text: str | None) -> bool:
     False.
 
     Args:
-        text (str | None): The value to convert.
+        text (object | bool | str | None): The value to convert.
 
     Returns:
         bool: The converted boolean.
@@ -282,7 +282,7 @@ def to_bool(text: str | None) -> bool:
     if text is None:
         return False
     try:
-        return int(text) > 0
+        return int(text) > 0  # type: ignore
     except ValueError:
         pass
     return f"{text}".lower() == "true"

@@ -24,7 +24,7 @@ from redipy import Redis, RedisConfig
 from scattermind.system.base import L_EITHER, Locality, SessionId, UserId
 from scattermind.system.io import (
     ensure_folder,
-    listdir,
+    get_files,
     open_readb,
     open_writeb,
     remove_file,
@@ -45,8 +45,9 @@ class RedisSessionStore(SessionStore):
             cfg: RedisConfig,
             *,
             disk_path: str,
-            cache_path: str) -> None:
-        super().__init__(cache_path=cache_path)
+            cache_path: str,
+            is_shared: bool) -> None:
+        super().__init__(cache_path=cache_path, is_shared=is_shared)
         self._redis = Redis("redis", cfg=cfg, redis_module="session")
         self._disk_path = disk_path
 
@@ -168,7 +169,11 @@ class RedisSessionStore(SessionStore):
 
     def blob_list(self, session_id: SessionId) -> list[str]:
         path = self._get_folder(session_id, ensure=False)
-        return [fname for fname in listdir(path) if not fname.startswith(".")]
+        return [
+            fname
+            for fname in get_files(path, ext="")
+            if not fname.startswith(".")
+        ]
 
     def blob_remove(self, session_id: SessionId, name: str) -> None:
         remove_file(self._get_path(session_id, name))

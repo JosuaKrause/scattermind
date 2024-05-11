@@ -19,6 +19,8 @@ import contextlib
 import json
 import os
 import shutil
+import threading
+import uuid
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from datetime import datetime
@@ -27,7 +29,7 @@ from typing import IO, TypedDict, TypeVar
 from scattermind.system.base import Module, SessionId, UserId
 from scattermind.system.io import (
     ensure_folder,
-    listdir,
+    get_files,
     open_readb,
     open_reads,
     open_writeb,
@@ -55,6 +57,31 @@ InfoObj = TypedDict('InfoObj', {
 })
 """The info file content. "time_in" is the time of the last incoming sync and
 "time_out" is the time of the last outgoing sync (if any)."""
+
+
+PROCESS_LOCK = threading.RLock()
+"""The lock for generating process ids."""
+
+
+PROCESS_ID: str | None = None
+"""The unique process id."""
+
+
+def get_process_id() -> str:
+    """
+    Get a unique id for this process.
+
+    Returns:
+        str: The id for this process.
+    """
+    global PROCESS_ID  # pylint: disable=global-statement
+
+    if PROCESS_ID is None:
+        with PROCESS_LOCK:
+            if PROCESS_ID is None:
+                # FIXME: make it not completely random every time
+                PROCESS_ID = uuid.uuid4().hex
+    return PROCESS_ID
 
 
 class Session:
@@ -334,7 +361,19 @@ class SessionStore(Module):
     long term storage is only visible to the executing task. Upon node
     execution completion the content is made accessible.
     """
-    def __init__(self, *, cache_path: str) -> None:
+    def __init__(self, *, cache_path: str, is_shared: bool) -> None:
+        """
+        Creates a session store.
+
+        Args:
+            cache_path (str): The cache root.
+
+            is_shared (bool): Whether the cache root is shared. If it is shared
+                each process gets assigned a random folder in the cache root.
+                Otherwise, the cache root is used directly.
+        """
+        if is_shared:
+            cache_path = os.path.join(cache_path, get_process_id())
         self._cache_path = ensure_folder(cache_path)
 
     def create_new_session(
@@ -697,7 +736,9 @@ class SessionStore(Module):
         path = self.local_folder(session_id)
         blobs: set[str] = set(self.blob_list(session_id))
         need_copy: set[str] = set(blobs)
-        for fname in listdir(path):
+        for fname in get_files(path, ext=""):
+            if fname.startswith("."):
+                continue
             full_path = os.path.join(path, fname)
             if fname not in blobs:
                 remove_file(full_path)
@@ -725,10 +766,11 @@ class SessionStore(Module):
         Args:
             session_id (SessionId): The session.
         """
+        # FIXME: allow folders
         path = self.local_folder(session_id)
         local: set[str] = {
             fname
-            for fname in listdir(path)
+            for fname in get_files(path, ext="")
             if not fname.startswith(".")
         }
         need_copy: set[str] = set(local)

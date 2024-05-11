@@ -130,20 +130,6 @@ def normalize_file(fname: str) -> str:
     return res
 
 
-def get_mode(base: str, *, text: bool) -> str:
-    """
-    Generate a mode string for the open function.
-
-    Args:
-        base (str): Basic modifiers.
-        text (bool): Whether or not the mode should be binary or text.
-
-    Returns:
-        str: The mode string.
-    """
-    return f"{base}{'' if text else 'b'}"
-
-
 def is_empty_file(fin: IO[AnyStr]) -> bool:
     """
     Checks whether a file is empty from the current cursor position.
@@ -260,7 +246,7 @@ def get_subfolders(path: str) -> list[str]:
     return sorted((fobj.name for fobj in os.scandir(path) if fobj.is_dir()))
 
 
-def get_files(path: str, ext: str) -> list[str]:
+def get_files(path: str, *, ext: str) -> list[str]:
     """
     Get all files of the given folder and extension.
 
