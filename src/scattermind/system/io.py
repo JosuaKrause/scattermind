@@ -250,23 +250,41 @@ def get_subfolders(path: str) -> list[str]:
         return []
 
 
-def get_files(path: str, *, ext: str) -> list[str]:
+def get_files(
+        path: str,
+        *,
+        exclude_prefix: list[str] | None = None,
+        exclude_ext: list[str] | None = None) -> list[str]:
     """
     Get all files of the given folder and extension.
 
     Args:
         path (str): The folder.
-        ext (str): The extension.
+
+        exclude_prefix (list[str] | None, optional): A list of prefixes to
+            exclude. Defaults to no exclusions.
+
+        exclude_ext (list[str] | None, optional): A list of extensions to
+            exclude. Defaults to no exclusions.
 
     Returns:
         list[str]: A sorted list of all filenames.
     """
+    if exclude_prefix is None:
+        exclude_prefix = []
+    if exclude_ext is None:
+        exclude_ext = []
     try:
-        return sorted((
+        return sorted(
             fobj.name
             for fobj in os.scandir(path)
-            if fobj.is_file() and fobj.name.endswith(ext)
-        ))
+            if (
+                fobj.is_file()
+                and not any(
+                    fobj.name.endswith(ext) for ext in exclude_ext)
+                and not any(
+                    fobj.name.startswith(prefix) for prefix in exclude_prefix))
+        )
     except FileNotFoundError:
         return []
 

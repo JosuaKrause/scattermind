@@ -169,11 +169,7 @@ class RedisSessionStore(SessionStore):
 
     def blob_list(self, session_id: SessionId) -> list[str]:
         path = self._get_folder(session_id, ensure=False)
-        return [
-            fname
-            for fname in get_files(path, ext="")
-            if not fname.startswith(".")
-        ]
+        return get_files(path, exclude_prefix=["."], exclude_ext=[".~tmp"])
 
     def blob_remove(self, session_id: SessionId, name: str) -> None:
         remove_file(self._get_path(session_id, name))

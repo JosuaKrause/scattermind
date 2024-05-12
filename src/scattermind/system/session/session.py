@@ -736,9 +736,8 @@ class SessionStore(Module):
         path = self.local_folder(session_id)
         blobs: set[str] = set(self.blob_list(session_id))
         need_copy: set[str] = set(blobs)
-        for fname in get_files(path, ext=""):
-            if fname.startswith("."):
-                continue
+        for fname in get_files(
+                path, exclude_prefix=["."], exclude_ext=[".~tmp"]):
             full_path = os.path.join(path, fname)
             if fname not in blobs:
                 remove_file(full_path)
@@ -768,11 +767,8 @@ class SessionStore(Module):
         """
         # FIXME: allow folders
         path = self.local_folder(session_id)
-        local: set[str] = {
-            fname
-            for fname in get_files(path, ext="")
-            if not fname.startswith(".")
-        }
+        local: set[str] = set(
+            get_files(path, exclude_prefix=["."], exclude_ext=[".~tmp"]))
         need_copy: set[str] = set(local)
         for fname in self.blob_list(session_id):
             if fname not in local:
