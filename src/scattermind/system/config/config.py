@@ -614,6 +614,12 @@ class Config(ScattermindAPI):
             raise ValueError("no session store defined")
         return sessions.get_session(session_id)
 
+    def get_session_user(self, session_id: SessionId) -> UserId | None:
+        sessions = self.get_session_store()
+        if sessions is None:
+            raise ValueError("no session store defined")
+        return sessions.get_user(session_id)
+
     def get_sessions(self, user_id: UserId) -> Iterable[Session]:
         sessions = self.get_session_store()
         if sessions is None:

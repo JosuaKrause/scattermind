@@ -335,6 +335,19 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
+    def get_session_user(self, session_id: SessionId) -> UserId | None:
+        """
+        Retrieves the user associated with the given session.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            UserId | None: The user or None if the session is not associated
+                with any user (e.g., when it was deleted).
+        """
+        raise NotImplementedError()
+
     def get_sessions(self, user_id: UserId) -> Iterable[Session]:
         """
         Returns all sessions associated with the given user.
