@@ -60,11 +60,12 @@ ${PYTHON} -m pip install --progress-bar off --upgrade pip
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.txt
 ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.dev.txt
 
-# change this branch when using a development branch for redipy
-# change to main to deactivate
+# change branches here when using a development branch for redipy or
+# quick-server change to main and master to deactivate
 REDIPY_BRANCH="jk-helpers"
+QS_BRANCH="jk-shutoff"
 
-if [ "${REDIPY_BRANCH}" != "main" ] && [ ! -z "${USE_REDIPY_DEV}" ]; then
+if [ "${REDIPY_BRANCH}" != "main" ] && [ ! -z "${USE_DEV}" ]; then
     REDIPY_PATH="../redipy"
     REDIPY_URL="git+https://github.com/JosuaKrause/redipy.git"
     ${PYTHON} -m pip uninstall -y redipy
@@ -72,6 +73,17 @@ if [ "${REDIPY_BRANCH}" != "main" ] && [ ! -z "${USE_REDIPY_DEV}" ]; then
         ${PYTHON} -m pip install --upgrade -e "${REDIPY_PATH}"
     else
         ${PYTHON} -m pip install --upgrade "${REDIPY_URL}@${REDIPY_BRANCH}"
+    fi
+fi
+
+if [ "${QS_BRANCH}" != "master" ] && [ ! -z "${USE_DEV}" ]; then
+    QS_PATH="../quick_server"
+    QS_URL="git+https://github.com/JosuaKrause/quick_server.git"
+    ${PYTHON} -m pip uninstall -y quick-server
+    if [ -d "${QS_PATH}" ]; then
+        ${PYTHON} -m pip install --upgrade -e "${QS_PATH}"
+    else
+        ${PYTHON} -m pip install --upgrade "${QS_URL}@${QS_BRANCH}"
     fi
 fi
 

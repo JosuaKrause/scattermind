@@ -20,6 +20,7 @@ from collections.abc import Callable, Iterator
 from typing import Literal
 
 import redis as redis_lib
+from quick_server import add_shutdown_hook
 from redipy import Redis, RedisConfig
 
 from scattermind.system.base import ExecutorId, L_EITHER, Locality
@@ -305,6 +306,9 @@ class RedisExecutorManager(ExecutorManager):
         self._logger = logger
         own_id = self.get_own_id()
         running = True
+
+        add_shutdown_hook(lambda: self.release_executor(own_id))
+
         error = False
         with add_context({"executor": own_id}):
             logger.log_event(

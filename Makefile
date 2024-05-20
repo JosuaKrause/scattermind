@@ -94,7 +94,7 @@ lint-all: \
 	lint-flake8
 
 install:
-	PYTHON=$(PYTHON) USE_REDIPY_DEV=$(USE_REDIPY_DEV) ./sh/install.sh
+	PYTHON=$(PYTHON) USE_DEV=$(USE_DEV) ./sh/install.sh
 
 requirements-check:
 	PYTHON=$(PYTHON) ./sh/requirements_check.sh $(FILE)
