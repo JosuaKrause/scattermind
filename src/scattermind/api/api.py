@@ -20,8 +20,15 @@ import torch
 
 from scattermind.system.base import QueueId, SessionId, TaskId, UserId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
+from scattermind.system.info import DataFormat
 from scattermind.system.names import GNamespace, QualifiedNodeName, UName
 from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.redis_util import (
+    redis_to_robj,
+    redis_to_tensor,
+    robj_to_redis,
+    tensor_to_redis,
+)
 from scattermind.system.response import ResponseObject, TaskStatus
 from scattermind.system.session.session import Session
 from scattermind.system.torch_util import (
@@ -48,6 +55,62 @@ QueueCounts = TypedDict('QueueCounts', {
     "listeners": int,
 })
 """Information about a queue."""
+
+
+def convert_data_to_tensor(val: InputTypes) -> torch.Tensor:
+    """
+    Convert standard data types into their tensor representation.
+
+    Args:
+        val (InputTypes): The value to convert.
+
+    Returns:
+        torch.Tensor: The tensor.
+    """
+    if isinstance(val, SessionId):
+        return val.to_tensor().clone().detach()
+    if isinstance(val, Session):
+        return val.get_session_id().to_tensor().clone().detach()
+    if isinstance(val, str):
+        return str_to_tensor(val).clone().detach()
+    if isinstance(val, torch.Tensor):
+        return val.clone().detach()
+    return create_tensor(val, dtype=None).clone().detach()
+
+
+def task_input_to_redis(obj: dict[str, InputTypes]) -> str:
+    """
+    Convert task inputs into a redis storable format.
+
+    Args:
+        obj (dict[str, InputTypes]): The task inputs.
+
+    Returns:
+        str: The redis storable format.
+    """
+    return robj_to_redis({
+        key: tensor_to_redis(convert_data_to_tensor(value))
+        for key, value in obj.items()
+    })
+
+
+def redis_to_task_input(
+        text: str, input_format: DataFormat) -> dict[str, InputTypes]:
+    """
+    Convert a redis value to a task input.
+
+    Args:
+        text (str): The redis value.
+        input_format (DataFormat): The expected data format of the task.
+
+    Returns:
+        dict[str, InputTypes]: The task input.
+    """
+    obj = redis_to_robj(text)
+    return {
+        key: redis_to_tensor(value, input_format[key].dtype())
+        for key, value in obj.items()
+    }
 
 
 class ScattermindAPI:
@@ -170,22 +233,10 @@ class ScattermindAPI:
         """
         if not isinstance(ns, GNamespace):
             ns = GNamespace(ns)
-
-        def convert(val: InputTypes) -> torch.Tensor:
-            if isinstance(val, SessionId):
-                return val.to_tensor().clone().detach()
-            if isinstance(val, Session):
-                return val.get_session_id().to_tensor().clone().detach()
-            if isinstance(val, str):
-                return str_to_tensor(val).clone().detach()
-            if isinstance(val, torch.Tensor):
-                return val.clone().detach()
-            return create_tensor(val, dtype=None).clone().detach()
-
         return self.enqueue(
             ns,
             TaskValueContainer({
-                key: convert(value)
+                key: convert_data_to_tensor(value)
                 for key, value in obj.items()
             }),
             task_id=task_id)
