@@ -93,6 +93,7 @@ class ClientPool(Module):
                 if output_format is None
                 else self.get_final_output(task_id, output_format),
             "error": self.get_error(task_id),
+            "fmt": output_format,
         }
 
     def create_task(

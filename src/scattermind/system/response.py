@@ -14,8 +14,22 @@
 """Defines how a task response contains."""
 from typing import cast, get_args, Literal, TYPE_CHECKING, TypedDict
 
-from scattermind.system.logger.error import ErrorInfo, raise_error, warn_error
+from scattermind.system.info import DataFormat, UserDataFormatJSON
+from scattermind.system.logger.error import (
+    ErrorInfo,
+    ErrorJSON,
+    from_error_json,
+    raise_error,
+    to_error_json,
+    warn_error,
+)
 from scattermind.system.names import GNamespace
+from scattermind.system.redis_util import (
+    redis_to_robj,
+    redis_to_tvc,
+    robj_to_redis,
+    tvc_to_redis,
+)
 
 
 if TYPE_CHECKING:
@@ -87,6 +101,7 @@ ResponseObject = TypedDict('ResponseObject', {
     "duration": float,
     "retries": int,
     "error": ErrorInfo | None,
+    "fmt": DataFormat | None,
 })
 """
 Information about a task. The status indicates the progress of the task's
@@ -122,3 +137,59 @@ def response_ok(response: ResponseObject, *, no_warn: bool = False) -> None:
             warn_error(response["error"], response["retries"])
         else:
             raise_error(response["error"], response["retries"])
+
+
+def response_to_redis(response: ResponseObject) -> str:
+    """
+    Convert a response into a redis storable format.
+
+    Args:
+        response (ResponseObject): The response object.
+
+    Returns:
+        str: Redis storable format.
+    """
+    result = response["result"]
+    error = response["error"]
+    fmt = response["fmt"]
+    obj: dict[str, UserDataFormatJSON | ErrorJSON | str | None] = {
+        "ns": None if response["ns"] is None else response["ns"].get(),
+        "status": response["status"],
+        "result": None if result is None else tvc_to_redis(result),
+        "duration": f"{response['duration']}",
+        "retries": f"{response['retries']}",
+        "error": None if error is None else to_error_json(error),
+        "fmt": None if fmt is None else fmt.data_format_to_json(),
+    }
+    return robj_to_redis(obj)
+
+
+def redis_to_response(text: str) -> ResponseObject:
+    """
+    Convert a value from redis back into a response object.
+
+    Args:
+        text (str): The redis value.
+
+    Returns:
+        ResponseObject: The response object.
+    """
+    obj = redis_to_robj(text)
+    result = obj["result"]
+    error = obj["error"]
+    fmt = obj["fmt"]
+    if fmt is None:
+        data_format = None
+        result_tvc = None
+    else:
+        data_format = DataFormat.data_format_from_json(fmt)
+        result_tvc = redis_to_tvc(result, data_format)
+    return {
+        "ns": None if obj["ns"] is None else GNamespace(obj["ns"]),
+        "status": to_status(obj["status"]),
+        "result": result_tvc,
+        "duration": float(obj["duration"]),
+        "retries": int(obj["retries"]),
+        "error": None if error is None else from_error_json(error),
+        "fmt": data_format,
+    }
