@@ -523,7 +523,7 @@ class SessionStore(Module):
             key (str): The key.
 
         Returns:
-            int: THe length of the array.
+            int: The length of the array.
         """
         raise NotImplementedError()
 
