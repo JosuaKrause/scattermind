@@ -7,3 +7,5 @@ even small machines (*).
 
 (*) Currently only available through plugins. Once the plugins have matured
 they will be included in the main distribution.
+
+An open source usage exapmle can be seen at https://github.com/UNDP-Accelerator-Labs/nlpapi
