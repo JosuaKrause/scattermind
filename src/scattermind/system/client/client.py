@@ -28,7 +28,6 @@ from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.error import ErrorInfo
 from scattermind.system.names import GNamespace, NName, ValueMap
 from scattermind.system.payload.data import DataStore
-from scattermind.system.response import ResponseObject, TaskStatus
 from scattermind.system.util import seconds_since
 
 
@@ -37,6 +36,7 @@ if TYPE_CHECKING:
         DataContainer,
         TaskValueContainer,
     )
+    from scattermind.system.response import ResponseObject, TaskStatus
 
 
 DT = TypeVar('DT', bound=DataId)
@@ -67,7 +67,7 @@ class ClientPool(Module):
     def get_response(
             self,
             task_id: TaskId,
-            output_format: DataFormat | None) -> ResponseObject:
+            output_format: DataFormat | None) -> 'ResponseObject':
         """
         Retrieves the summary of the task. If the final output are available or
         the task caused an error, the respective fields are set. Make sure to
@@ -154,7 +154,7 @@ class ClientPool(Module):
     def set_bulk_status(
             self,
             task_ids: Iterable[TaskId],
-            status: TaskStatus) -> list[TaskId]:
+            status: 'TaskStatus') -> list[TaskId]:
         """
         Sets the status for multiple tasks.
 
@@ -180,7 +180,7 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
-    def get_task_status(self, task_id: TaskId) -> TaskStatus:
+    def get_task_status(self, task_id: TaskId) -> 'TaskStatus':
         """
         Retrieves the status of the given task.
 

@@ -24,16 +24,13 @@ from scattermind.system.logger.error import (
     warn_error,
 )
 from scattermind.system.names import GNamespace
+from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.redis_util import (
     redis_to_robj,
     redis_to_tvc,
     robj_to_redis,
     tvc_to_redis,
 )
-
-
-if TYPE_CHECKING:
-    from scattermind.system.payload.values import TaskValueContainer
 
 
 TaskStatus = Literal[
@@ -97,7 +94,7 @@ def to_status(text: str) -> TaskStatus:
 ResponseObject = TypedDict('ResponseObject', {
     "ns": GNamespace | None,
     "status": TaskStatus,
-    "result": 'TaskValueContainer | None',
+    "result": TaskValueContainer | None,
     "duration": float,
     "retries": int,
     "error": ErrorInfo | None,
