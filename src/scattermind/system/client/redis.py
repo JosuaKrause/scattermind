@@ -155,8 +155,11 @@ class RedisClientPool(ClientPool):
     def create_task(
             self,
             ns: GNamespace,
-            original_input: TaskValueContainer) -> TaskId:
-        task_id = TaskId.create()
+            original_input: TaskValueContainer,
+            *,
+            task_id: TaskId | None = None) -> TaskId:
+        if task_id is None:
+            task_id = TaskId.create()
         with self._redis.pipeline() as pipe:
             self.set_value(pipe, "ns", task_id, ns.get())
             self.set_value(

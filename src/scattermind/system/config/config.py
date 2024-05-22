@@ -408,10 +408,15 @@ class Config(ScattermindAPI):
         graph = json_to_graph(self.get_queue_pool(), graph_def)
         return self.add_graph(graph)
 
-    def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
+    def enqueue(
+            self,
+            ns: GNamespace,
+            value: TaskValueContainer,
+            *,
+            task_id: TaskId | None = None) -> TaskId:
         store = self.get_data_store()
         queue_pool = self.get_queue_pool()
-        return queue_pool.enqueue_task(ns, store, value)
+        return queue_pool.enqueue_task(ns, store, value, task_id=task_id)
 
     def get_namespace(self, task_id: TaskId) -> GNamespace | None:
         cpool = self.get_client_pool()

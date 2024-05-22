@@ -64,7 +64,12 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
+    def enqueue(
+            self,
+            ns: GNamespace,
+            value: TaskValueContainer,
+            *,
+            task_id: TaskId | None = None) -> TaskId:
         """
         Enqueues a task. ::py::method:`enqueue_task` provides a more
         user-friendly way of creating a task.
@@ -72,6 +77,8 @@ class ScattermindAPI:
         Args:
             ns (GNamespace): The namespace.
             value (TaskValueContainer): The task's input values.
+            task_id (TaskId | None, optional): The task id to use for the task.
+                If set, the user has to ensure that the id is globally unique.
 
         Returns:
             TaskId: The task id.
@@ -143,6 +150,8 @@ class ScattermindAPI:
             self,
             ns: GNamespace | str,
             obj: dict[str, InputTypes],
+            *,
+            task_id: TaskId | None = None,
             ) -> TaskId:
         """
         Enqueues a task.
@@ -153,6 +162,8 @@ class ScattermindAPI:
                 The task's input values. Values can be strings or various forms
                 of tensor data (nested float lists, numpy arrays, etc.) and
                 other special types.
+            task_id (TaskId | None, optional): The task id to use for the task.
+                If set, the user has to ensure that the id is globally unique.
 
         Returns:
             TaskId: The task id.
@@ -176,7 +187,8 @@ class ScattermindAPI:
             TaskValueContainer({
                 key: convert(value)
                 for key, value in obj.items()
-            }))
+            }),
+            task_id=task_id)
 
     def wait_for(
             self,

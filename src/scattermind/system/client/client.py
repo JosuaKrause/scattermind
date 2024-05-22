@@ -98,13 +98,17 @@ class ClientPool(Module):
     def create_task(
             self,
             ns: GNamespace,
-            original_input: 'TaskValueContainer') -> TaskId:
+            original_input: 'TaskValueContainer',
+            *,
+            task_id: TaskId | None = None) -> TaskId:
         """
         Create a new task from a given input.
 
         Args:
             ns (GNamespace): The namespace.
             original_input (TaskValueContainer): The input data for the task.
+            task_id (TaskId | None, optional): The task id to use for the task.
+                If set, the user has to ensure that the id is globally unique.
 
         Returns:
             TaskId: The new task id.
