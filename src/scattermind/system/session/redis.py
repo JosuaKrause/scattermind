@@ -163,16 +163,23 @@ class RedisSessionStore(SessionStore):
         with open_readb(self._get_path(session_id, name)) as fin:
             yield fin
 
-    def blob_hash(self, session_id: SessionId, name: str) -> str:
-        with self.open_blob_read(session_id, name) as fin:
-            return get_blob_hash(fin)
+    def blob_hash(
+            self, session_id: SessionId, names: list[str]) -> dict[str, str]:
+        res: dict[str, str] = {}
+        for name in names:
+            if name in res:
+                continue
+            with self.open_blob_read(session_id, name) as fin:
+                res[name] = get_blob_hash(fin)
+        return res
 
     def blob_list(self, session_id: SessionId) -> list[str]:
         path = self._get_folder(session_id, ensure=False)
         return get_files(path, exclude_prefix=["."], exclude_ext=[".~tmp"])
 
-    def blob_remove(self, session_id: SessionId, name: str) -> None:
-        remove_file(self._get_path(session_id, name))
+    def blob_remove(self, session_id: SessionId, names: list[str]) -> None:
+        for name in names:
+            remove_file(self._get_path(session_id, name))
 
     def remove(self, session_id: SessionId) -> None:
         # FIXME: make redis function

@@ -614,18 +614,19 @@ class SessionStore(Module):
         """
         raise NotImplementedError()
 
-    def blob_hash(self, session_id: SessionId, name: str) -> str:
+    def blob_hash(
+            self, session_id: SessionId, names: list[str]) -> dict[str, str]:
         """
-        Computes the hash of the remote blob. See `get_file_hash` for the
+        Computes the hash of remote blobs. See `get_file_hash` for the
         hashing method.
 
         Args:
             session_id (SessionId): The session.
 
-            name (str): The name of the blob.
+            names (list[str]): The name of the blobs.
 
         Returns:
-            str: The hash.
+            dict[str, str]: A mapping of names to blob hashes.
         """
         raise NotImplementedError()
 
@@ -641,14 +642,14 @@ class SessionStore(Module):
         """
         raise NotImplementedError()
 
-    def blob_remove(self, session_id: SessionId, name: str) -> None:
+    def blob_remove(self, session_id: SessionId, names: list[str]) -> None:
         """
-        Remove the given blob.
+        Remove the given blobs.
 
         Args:
             session_id (SessionId): The session.
 
-            name (str): The name of the blob.
+            names (list[str]): The name of the blobs.
         """
         raise NotImplementedError()
 
@@ -736,14 +737,22 @@ class SessionStore(Module):
         path = self.local_folder(session_id)
         blobs: set[str] = set(self.blob_list(session_id))
         need_copy: set[str] = set(blobs)
+        need_hash: list[str] = []
         for fname in get_files(
                 path, exclude_prefix=["."], exclude_ext=[".~tmp"]):
             full_path = os.path.join(path, fname)
             if fname not in blobs:
                 remove_file(full_path)
                 continue
+            need_hash.append(fname)
+        if need_hash:
+            hash_lookup = self.blob_hash(session_id, need_hash)
+        else:
+            hash_lookup = {}
+        for fname in need_hash:
+            full_path = os.path.join(path, fname)
             own_hash = get_file_hash(full_path)
-            in_hash = self.blob_hash(session_id, fname)
+            in_hash = hash_lookup[fname]
             if own_hash == in_hash:
                 need_copy.discard(fname)
         for fname in need_copy:
@@ -770,12 +779,22 @@ class SessionStore(Module):
         local: set[str] = set(
             get_files(path, exclude_prefix=["."], exclude_ext=[".~tmp"]))
         need_copy: set[str] = set(local)
+        need_hash: list[str] = []
+        need_remove: list[str] = []
         for fname in self.blob_list(session_id):
             if fname not in local:
-                self.blob_remove(session_id, fname)
+                need_remove.append(fname)
                 continue
+            need_hash.append(fname)
+        if need_remove:
+            self.blob_remove(session_id, need_remove)
+        if need_hash:
+            hash_lookup = self.blob_hash(session_id, need_hash)
+        else:
+            hash_lookup = {}
+        for fname in need_hash:
             full_path = os.path.join(path, fname)
-            other_hash = self.blob_hash(session_id, fname)
+            other_hash = hash_lookup[fname]
             out_hash = get_file_hash(full_path)
             if other_hash == out_hash:
                 need_copy.discard(fname)
