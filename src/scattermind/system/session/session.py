@@ -615,7 +615,9 @@ class SessionStore(Module):
         raise NotImplementedError()
 
     def blob_hash(
-            self, session_id: SessionId, names: list[str]) -> dict[str, str]:
+            self,
+            session_id: SessionId,
+            names: Iterable[str]) -> dict[str, str]:
         """
         Computes the hash of remote blobs. See `get_file_hash` for the
         hashing method.
@@ -623,7 +625,7 @@ class SessionStore(Module):
         Args:
             session_id (SessionId): The session.
 
-            names (list[str]): The name of the blobs.
+            names (Iterable[str]): The name of the blobs.
 
         Returns:
             dict[str, str]: A mapping of names to blob hashes.
@@ -755,11 +757,17 @@ class SessionStore(Module):
             in_hash = hash_lookup[fname]
             if own_hash == in_hash:
                 need_copy.discard(fname)
+        new_blobs = need_copy.difference(need_hash)
+        if new_blobs:
+            for fname, blob_hash in self.blob_hash(
+                    session_id, new_blobs).items():
+                hash_lookup[fname] = blob_hash
         for fname in need_copy:
             full_path = os.path.join(path, fname)
             with open_writeb(full_path) as fout:
                 with self.open_blob_read(session_id, fname) as fin:
                     shutil.copyfileobj(fin, fout)  # type: ignore
+            assert get_file_hash(full_path) == hash_lookup[fname]
         self.set_info(session_id, {
             "time_in": now(),
             "time_out": None,
@@ -792,17 +800,25 @@ class SessionStore(Module):
             hash_lookup = self.blob_hash(session_id, need_hash)
         else:
             hash_lookup = {}
+        out_hash_lookup: dict[str, str] = {}
         for fname in need_hash:
             full_path = os.path.join(path, fname)
             other_hash = hash_lookup[fname]
             out_hash = get_file_hash(full_path)
             if other_hash == out_hash:
                 need_copy.discard(fname)
-        for fname in need_copy:
-            full_path = os.path.join(path, fname)
-            with self.open_blob_write(session_id, fname) as fout:
-                with open_readb(full_path) as fin:
-                    shutil.copyfileobj(fin, fout)  # type: ignore
+            else:
+                out_hash_lookup[fname] = out_hash
+        if need_copy:
+            for fname in need_copy:
+                full_path = os.path.join(path, fname)
+                with self.open_blob_write(session_id, fname) as fout:
+                    with open_readb(full_path) as fin:
+                        shutil.copyfileobj(fin, fout)  # type: ignore
+            hash_final = self.blob_hash(session_id, need_copy)
+            for fname in need_copy:
+                assert out_hash_lookup[fname] == hash_final[fname]
+
         info = self.get_info(session_id)
         self.set_info(
             session_id,
@@ -831,11 +847,14 @@ class SessionStore(Module):
                 ix += 1
         self.clear_local(to_id)
         path_to = self.local_folder(to_id)
-        for fname in self.blob_list(from_id):
+        blobs = self.blob_list(from_id)
+        hash_lookup = self.blob_hash(from_id, blobs)
+        for fname in blobs:
             full_path = os.path.join(path_to, fname)
             with open_writeb(full_path) as fout:
                 with self.open_blob_read(from_id, fname) as fin:
                     shutil.copyfileobj(fin, fout)  # type: ignore
+            assert get_file_hash(full_path) == hash_lookup[fname]
         self.set_info(to_id, {
             "time_in": now(),
             "time_out": None,

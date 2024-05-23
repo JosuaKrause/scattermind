@@ -164,7 +164,9 @@ class RedisSessionStore(SessionStore):
             yield fin
 
     def blob_hash(
-            self, session_id: SessionId, names: list[str]) -> dict[str, str]:
+            self,
+            session_id: SessionId,
+            names: Iterable[str]) -> dict[str, str]:
         res: dict[str, str] = {}
         for name in names:
             if name in res:
