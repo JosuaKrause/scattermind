@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Defines how a task response contains."""
-from typing import cast, get_args, Literal, TYPE_CHECKING, TypedDict
+from typing import cast, get_args, Literal, TypedDict
 
 from scattermind.system.info import DataFormat, UserDataFormatJSON
 from scattermind.system.logger.error import (
