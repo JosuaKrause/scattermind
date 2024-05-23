@@ -216,6 +216,7 @@ class Session:
             self,
             key: str,
             condition: Callable[[], T],
+            *,
             timeout: float) -> T | None:
         """
         Waits for a signal on the given key and returns if the condition is
@@ -236,7 +237,7 @@ class Session:
                 True. Otherwise, if the timeout occurred, None is returned.
         """
         return self._sessions.wait_for_signal(
-            self._sid, key, condition, timeout)
+            self._sid, key, condition, timeout=timeout)
 
     @contextlib.contextmanager
     def get_local_folder(self) -> Iterator[str]:
@@ -555,6 +556,7 @@ class SessionStore(Module):
             session_id: SessionId,
             key: str,
             condition: Callable[[], T],
+            *,
             timeout: float) -> T | None:
         """
         Waits for a signal on the given key and returns if the condition is

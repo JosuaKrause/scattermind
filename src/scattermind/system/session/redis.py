@@ -135,6 +135,7 @@ class RedisSessionStore(SessionStore):
             session_id: SessionId,
             key: str,
             condition: Callable[[], T],
+            *,
             timeout: float) -> T | None:
         return self._redis.wait_for(
             self._signal_key(session_id, key), condition, timeout)
