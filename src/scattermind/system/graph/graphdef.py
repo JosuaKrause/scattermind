@@ -19,11 +19,7 @@ from typing_extensions import NotRequired
 from scattermind.system.base import GraphId, NodeId, QueueId
 from scattermind.system.graph.args import NodeArg, NodeArguments
 from scattermind.system.graph.graph import Graph
-from scattermind.system.info import (
-    DataFormat,
-    normalize_data_format,
-    UserDataFormatJSON,
-)
+from scattermind.system.info import DataFormat, UserDataFormatJSON
 from scattermind.system.names import (
     GName,
     GNamespace,
@@ -235,12 +231,10 @@ def json_to_graph(queue_pool: QueuePool, def_obj: FullGraphDefJSON) -> Graph:
                 vmap=vmap)
         queue_pool.set_input_format(
             graph_id,
-            DataFormat.data_format_from_json(
-                normalize_data_format(gobj["input_format"])))
+            DataFormat.data_format_from_json(gobj["input_format"]))
         queue_pool.set_output_format(
             graph_id,
-            DataFormat.data_format_from_json(
-                normalize_data_format(gobj["output_format"])))
+            DataFormat.data_format_from_json(gobj["output_format"]))
         for node_obj in gobj["nodes"]:
             out_node_id = node_ids[NName(node_obj["name"])]
             for out_name, in_def in node_obj.get("outs", {}).items():

@@ -317,18 +317,18 @@ class DataFormat(DictHelper[DataInfo]):
     `DataInfo`.
     """
     @staticmethod
-    def data_format_from_json(obj: DataFormatJSON) -> 'DataFormat':
+    def data_format_from_json(obj: UserDataFormatJSON) -> 'DataFormat':
         """
         Reads a data format from a JSON serializable object.
 
         Args:
-            obj (DataFormatJSON): The object.
+            obj (UserDataFormatJSON): The object.
 
         Returns:
             DataFormat: The data format.
         """
         return DataFormat({
-            name: DataInfo.from_json(info_obj)
+            name: DataInfo.from_json(normalize_data_info(info_obj))
             for name, info_obj in obj.items()
         })
 
