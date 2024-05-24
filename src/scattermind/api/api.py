@@ -296,6 +296,19 @@ class ScattermindAPI:
         Returns:
             set[str]: The names of the input fields.
         """
+        inputs = self.main_input_format(ns)
+        return set(inputs.keys())
+
+    def main_input_format(self, ns: GNamespace) -> DataFormat:
+        """
+        Retrieves the input format of the main graph.
+
+        Args:
+            ns (GNamespace): The namespace.
+
+        Returns:
+            DataFormat: The data format.
+        """
         raise NotImplementedError()
 
     def main_outputs(self, ns: GNamespace) -> set[str]:

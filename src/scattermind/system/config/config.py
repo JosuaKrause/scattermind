@@ -31,6 +31,7 @@ from scattermind.system.client.client import ClientPool
 from scattermind.system.executor.executor import ExecutorManager
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.graphdef import FullGraphDefJSON, json_to_graph
+from scattermind.system.info import DataFormat
 from scattermind.system.logger.log import EventStream
 from scattermind.system.names import GNamespace
 from scattermind.system.payload.data import DataStore
@@ -557,10 +558,9 @@ class Config(ScattermindAPI):
         return queue_pool.get_graph_name(
             queue_pool.get_entry_graph(ns)).to_parseable()
 
-    def main_inputs(self, ns: GNamespace) -> set[str]:
+    def main_input_format(self, ns: GNamespace) -> DataFormat:
         queue_pool = self.get_queue_pool()
-        inputs = queue_pool.get_input_format(queue_pool.get_entry_graph(ns))
-        return set(inputs.keys())
+        return queue_pool.get_input_format(queue_pool.get_entry_graph(ns))
 
     def main_outputs(self, ns: GNamespace) -> set[str]:
         queue_pool = self.get_queue_pool()
