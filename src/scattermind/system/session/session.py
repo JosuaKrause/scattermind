@@ -817,6 +817,8 @@ class SessionStore(Module):
                 with self.open_blob_write(session_id, fname) as fout:
                     with open_readb(full_path) as fin:
                         shutil.copyfileobj(fin, fout)  # type: ignore
+                if fname not in out_hash_lookup:
+                    out_hash_lookup[fname] = get_file_hash(full_path)
             hash_final = self.blob_hash(session_id, need_copy)
             for fname in need_copy:
                 assert out_hash_lookup[fname] == hash_final[fname]
