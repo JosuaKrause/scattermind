@@ -33,8 +33,8 @@ help:
 export LC_ALL=C
 export LANG=C
 
-PYTHON=python
-NS=default
+PYTHON?=python
+NS?=default
 
 lint-comment:
 	! ./sh/findpy.sh \
