@@ -155,6 +155,7 @@ class RedisSessionStore(SessionStore):
         def get_file(key: str, tmp: str) -> str:
             hash_str = get_file_hash(tmp)
             self._redis.set_value(key, hash_str)
+            print(f"writing {hash_str=} {key=} {name=}")
             return self._get_hashpath(hash_str)
 
         with open_writeb(
