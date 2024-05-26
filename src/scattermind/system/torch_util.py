@@ -14,7 +14,7 @@
 """Utility functions for pytorch."""
 import gzip
 import io
-from typing import Any, cast, Literal
+from typing import Any, cast, get_args, Literal
 
 import numpy as np
 import torch
@@ -47,6 +47,9 @@ DTypeName = Literal[
 A supported data type. Names might map to the same internal type
 (e.g., `double` vs. `float64`).
 """
+
+
+ALL_DTYPES: tuple[DTypeName] = get_args(DTypeName)
 
 
 DTYPE_MAP: dict[DTypeName, torch.dtype] = {

@@ -39,7 +39,7 @@ UserDataFormatJSON = dict[str, UserDataInfoJSON]
 DataFormatJSON = dict[str, DataInfoJSON]
 """A JSON serializable `DataFormat`."""
 
-SPECIAL_INFOS = get_args(SpecialDataInfo)
+SPECIAL_INFOS: tuple[SpecialDataInfo] = get_args(SpecialDataInfo)
 """All special values for data info."""
 STRING_INFO: DataInfoJSON = ("uint8", [None])
 """The info for a string field."""
