@@ -138,13 +138,14 @@ class RedisSessionStore(SessionStore):
             self._signal_key(session_id, key), condition, timeout)
 
     def _get_hashpath(self, hash_str: str, *, ensure: bool = True) -> str:
-        folder = os.path.join(
+        full_path = os.path.join(
             self._disk_path,
             hash_str[:2],
             f"{hash_str[2:]}.blob")
         if ensure:
-            return ensure_folder(folder)
-        return folder
+            ensure_folder(os.path.dirname(full_path))
+            return full_path
+        return full_path
 
     @contextmanager
     def open_blob_write(
