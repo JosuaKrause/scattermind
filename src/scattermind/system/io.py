@@ -439,6 +439,8 @@ def open_writes(
     filename = normalize_file(filename)
     if tmp_base is None:
         tmp_base = get_tmp(filename)
+    else:
+        ensure_folder(tmp_base)
 
     def fname_id(fname: str, _tmp: str) -> str:
         return fname
@@ -505,6 +507,8 @@ def open_writeb(
     filename = normalize_file(filename)
     if tmp_base is None:
         tmp_base = get_tmp(filename)
+    else:
+        ensure_folder(tmp_base)
 
     def fname_id(fname: str, _tmp: str) -> str:
         return fname
