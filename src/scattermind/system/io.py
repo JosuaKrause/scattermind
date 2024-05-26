@@ -426,7 +426,8 @@ def open_writes(
 
         tmp_base (str | None, optional): If set the temporary file will be
             created in this folder. Otherwise the folder of the initial
-            filename is used instead.
+            filename is used instead (this will cause the filename to be
+            normalized and its folder to be created).
 
         filename_fn (Callable[[str, str], str] | None, optional): Adjusts the
             filename before writing the file back. The arguments to the
@@ -496,7 +497,8 @@ def open_writeb(
 
         tmp_base (str | None, optional): If set the temporary file will be
             created in this folder. Otherwise the folder of the initial
-            filename is used instead.
+            filename is used instead (this will cause the filename to be
+            normalized and its folder to be created).
 
         filename_fn (Callable[[str, str], str] | None, optional): Adjusts the
             filename before writing the file back. The arguments to the
