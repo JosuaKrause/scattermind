@@ -69,8 +69,13 @@ def fastrename(src: str, dst: str) -> None:
         raise ValueError(f"{src} == {dst}")
     if not os.path.exists(src):
         raise FileNotFoundError(f"{src} does not exist!")
+
+    def do_rename() -> None:
+        # ensure_folder(os.path.dirname(dst))  # FIXME: is this necessary?
+        os.rename(src, dst)
+
     try:
-        when_ready(lambda: os.rename(src, dst))
+        when_ready(do_rename)
         if not src.endswith(TMP_POSTFIX):
             print(f"move {src} to {dst}")
     except OSError:
@@ -403,7 +408,12 @@ def open_readb(filename: str) -> Iterator[IO[bytes]]:
 
 
 @contextlib.contextmanager
-def open_writes(filename: str) -> Iterator[IO[str]]:
+def open_writes(
+        filename: str,
+        *,
+        tmp_base: str | None = None,
+        filename_fn: Callable[[str, str], str] | None = None,
+        ) -> Iterator[IO[str]]:
     """
     Open a file for writing in text mode. This function makes its best effort
     to ensure the file is available even on slow disk drives (e.g., NFS). It
@@ -414,10 +424,27 @@ def open_writes(filename: str) -> Iterator[IO[str]]:
     Args:
         filename (str): The filename.
 
+        tmp_base (str | None, optional): If set the temporary file will be
+            created in this folder. Otherwise the folder of the initial
+            filename is used instead.
+
+        filename_fn (Callable[[str, str], str] | None, optional): Adjusts the
+            filename before writing the file back. The arguments to the
+            function are the initial filename and the temporary filename.
+            Defaults to the initial filename.
+
     Yields:
         IO[str]: The file handle.
     """
     filename = normalize_file(filename)
+    if tmp_base is None:
+        tmp_base = get_tmp(filename)
+
+    def fname_id(fname: str, _tmp: str) -> str:
+        return fname
+
+    if filename_fn is None:
+        filename_fn = fname_id
 
     tname = None
     tfd = None
@@ -425,7 +452,7 @@ def open_writes(filename: str) -> Iterator[IO[str]]:
     writeback = False
     try:
         tfd, tname = tempfile.mkstemp(
-            dir=get_tmp(filename),
+            dir=tmp_base,
             suffix=TMP_POSTFIX)
         bfile = io.FileIO(tfd, "wb", closefd=True)
         sfile = io.TextIOWrapper(bfile, encoding="utf-8", line_buffering=True)
@@ -440,13 +467,19 @@ def open_writes(filename: str) -> Iterator[IO[str]]:
             os.close(tfd)  # closes the actual temporary file descriptor
         if tname is not None:
             if writeback:
-                fastrename(tname, filename)
+                adj_fname = filename_fn(filename, tname)
+                fastrename(tname, adj_fname)
             else:
                 remove_file(tname)
 
 
 @contextlib.contextmanager
-def open_writeb(filename: str) -> Iterator[IO[bytes]]:
+def open_writeb(
+        filename: str,
+        *,
+        tmp_base: str | None = None,
+        filename_fn: Callable[[str, str], str] | None = None,
+        ) -> Iterator[IO[bytes]]:
     """
     Open a file for writing in binary mode. This function makes its best effort
     to ensure the file is available even on slow disk drives (e.g., NFS). It
@@ -457,10 +490,27 @@ def open_writeb(filename: str) -> Iterator[IO[bytes]]:
     Args:
         filename (str): The filename.
 
+        tmp_base (str | None, optional): If set the temporary file will be
+            created in this folder. Otherwise the folder of the initial
+            filename is used instead.
+
+        filename_fn (Callable[[str, str], str] | None, optional): Adjusts the
+            filename before writing the file back. The arguments to the
+            function are the initial filename and the temporary filename.
+            Defaults to the initial filename.
+
     Yields:
         IO[bytes]: The file handle.
     """
     filename = normalize_file(filename)
+    if tmp_base is None:
+        tmp_base = get_tmp(filename)
+
+    def fname_id(fname: str, _tmp: str) -> str:
+        return fname
+
+    if filename_fn is None:
+        filename_fn = fname_id
 
     tname = None
     tfd = None
@@ -468,7 +518,7 @@ def open_writeb(filename: str) -> Iterator[IO[bytes]]:
     writeback = False
     try:
         tfd, tname = tempfile.mkstemp(
-            dir=get_tmp(filename),
+            dir=tmp_base,
             suffix=TMP_POSTFIX)
         sfile = io.FileIO(tfd, "wb", closefd=True)
         yield sfile
@@ -482,6 +532,7 @@ def open_writeb(filename: str) -> Iterator[IO[bytes]]:
             os.close(tfd)  # closes the actual temporary file descriptor
         if tname is not None:
             if writeback:
-                fastrename(tname, filename)
+                adj_fname = filename_fn(filename, tname)
+                fastrename(tname, adj_fname)
             else:
                 remove_file(tname)

@@ -35,6 +35,7 @@ from scattermind.system.io import (
     open_writeb,
     open_writes,
     remove_file,
+    TMP_POSTFIX,
 )
 from scattermind.system.util import (
     get_file_hash,
@@ -743,7 +744,7 @@ class SessionStore(Module):
         need_copy: set[str] = set(blobs)
         need_hash: list[str] = []
         for fname in get_files(
-                path, exclude_prefix=["."], exclude_ext=[".~tmp"]):
+                path, exclude_prefix=["."], exclude_ext=[TMP_POSTFIX]):
             full_path = os.path.join(path, fname)
             if fname not in blobs:
                 remove_file(full_path)
@@ -787,7 +788,7 @@ class SessionStore(Module):
         # FIXME: allow folders
         path = self.local_folder(session_id)
         local: set[str] = set(
-            get_files(path, exclude_prefix=["."], exclude_ext=[".~tmp"]))
+            get_files(path, exclude_prefix=["."], exclude_ext=[TMP_POSTFIX]))
         need_copy: set[str] = set(local)
         need_hash: list[str] = []
         need_remove: list[str] = []

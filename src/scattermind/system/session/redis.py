@@ -14,7 +14,6 @@
 """A session storage using redis and the local file system.
 """
 import os
-import shutil
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from typing import IO, TypeVar
@@ -22,15 +21,9 @@ from typing import IO, TypeVar
 from redipy import Redis, RedisConfig
 
 from scattermind.system.base import L_EITHER, Locality, SessionId, UserId
-from scattermind.system.io import (
-    ensure_folder,
-    get_files,
-    open_readb,
-    open_writeb,
-    remove_file,
-)
+from scattermind.system.io import ensure_folder, open_readb, open_writeb
 from scattermind.system.session.session import Session, SessionStore
-from scattermind.system.util import get_blob_hash
+from scattermind.system.util import get_file_hash
 
 
 T = TypeVar('T')
@@ -54,6 +47,10 @@ class RedisSessionStore(SessionStore):
     @staticmethod
     def locality() -> Locality:
         return L_EITHER
+
+    @staticmethod
+    def _fname_key(session_id: SessionId, fname: str) -> str:
+        return f"fname:{session_id.to_parseable()}:{fname}"
 
     @staticmethod
     def _uts_key(user_id: UserId) -> str:
@@ -140,28 +137,40 @@ class RedisSessionStore(SessionStore):
         return self._redis.wait_for(
             self._signal_key(session_id, key), condition, timeout)
 
-    def _get_folder(
-            self, session_id: SessionId, *, ensure: bool = True) -> str:
-        folder = os.path.join(self._disk_path, *session_id.as_folder())
+    def _get_hashpath(self, hash_str: str, *, ensure: bool = True) -> str:
+        folder = os.path.join(
+            self._disk_path,
+            hash_str[:2],
+            f"{hash_str[2:]}.blob")
         if ensure:
             return ensure_folder(folder)
         return folder
 
-    def _get_path(self, session_id: SessionId, name: str) -> str:
-        if not name or name.startswith(".") or "/" in name:
-            raise ValueError(f"invalid {name=} for {session_id=}")
-        return os.path.join(self._get_folder(session_id), name)
-
     @contextmanager
     def open_blob_write(
             self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
-        with open_writeb(self._get_path(session_id, name)) as fout:
+        key = self._fname_key(session_id, name)
+
+        def get_file(key: str, tmp: str) -> str:
+            hash_str = get_file_hash(tmp)
+            self._redis.set_value(key, hash_str)
+            return self._get_hashpath(hash_str)
+
+        with open_writeb(
+                key,
+                tmp_base=self._disk_path,
+                filename_fn=get_file) as fout:
             yield fout
 
     @contextmanager
     def open_blob_read(
             self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
-        with open_readb(self._get_path(session_id, name)) as fin:
+        key = self._fname_key(session_id, name)
+        hash_str = self._redis.get_value(key)
+        if hash_str is None:
+            raise FileNotFoundError(
+                f"cannot find file for {session_id=} {name=}")
+        with open_readb(self._get_hashpath(hash_str, ensure=False)) as fin:
             yield fin
 
     def blob_hash(
@@ -169,20 +178,29 @@ class RedisSessionStore(SessionStore):
             session_id: SessionId,
             names: Iterable[str]) -> dict[str, str]:
         res: dict[str, str] = {}
-        for name in names:
-            if name in res:
-                continue
-            with self.open_blob_read(session_id, name) as fin:
-                res[name] = get_blob_hash(fin)
+        with self._redis.pipeline() as pipe:
+            for name in names:
+                key = self._fname_key(session_id, name)
+                pipe.get_value(key)
+            for name, hash_str in zip(names, pipe.execute()):
+                if hash_str is None:
+                    raise FileNotFoundError(
+                        f"cannot find file for {session_id=} {name=}")
+                res[name] = hash_str
         return res
 
     def blob_list(self, session_id: SessionId) -> list[str]:
-        path = self._get_folder(session_id, ensure=False)
-        return get_files(path, exclude_prefix=["."], exclude_ext=[".~tmp"])
+        prefix = self._fname_key(session_id, "")
+        return sorted({
+            key.removeprefix(prefix)
+            for key in self._redis.iter_keys(match=f"{prefix}*")
+        })
 
     def blob_remove(self, session_id: SessionId, names: list[str]) -> None:
-        for name in names:
-            remove_file(self._get_path(session_id, name))
+        self._redis.delete(*(
+            self._fname_key(session_id, name)
+            for name in names
+        ))
 
     def remove(self, session_id: SessionId) -> None:
         # FIXME: make redis function
@@ -190,10 +208,10 @@ class RedisSessionStore(SessionStore):
         if user_id is None:
             raise ValueError(f"cannot find user of {session_id=}")
         keys = self.get_keys(session_id)
+        names = self.blob_list(session_id)
         with self._redis.pipeline() as pipe:
             pipe.delete(self._stu_key(session_id))
             pipe.srem(self._uts_key(user_id), session_id.to_parseable())
             pipe.delete(*(self._val_key(session_id, key) for key in keys))
-        folder = self._get_folder(session_id, ensure=False)
-        shutil.rmtree(folder, ignore_errors=True)
+            pipe.delete(*(self._fname_key(session_id, name) for name in names))
         self.clear_local(session_id)
