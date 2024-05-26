@@ -18,6 +18,8 @@ import sys
 from collections.abc import Callable
 from typing import cast
 
+from dotenv import load_dotenv
+
 from scattermind.api.loader import get_version_info, load_api, VersionInfo
 from scattermind.app.healthcheck import perform_healthcheck
 from scattermind.app.worker import worker_start
@@ -143,6 +145,13 @@ def parse_args() -> tuple[
         help=(
             "if booting, do not exit on load error. "
             "this prevents crash restart loops"))
+    parser.add_argument(
+        "--env",
+        default=None,
+        help="loads the given env file at startup")
 
     args = parser.parse_args()
+    env_file: str | None = args.env
+    if env_file:
+        load_dotenv(env_file)
     return args, args.func
