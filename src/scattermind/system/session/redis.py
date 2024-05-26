@@ -152,14 +152,13 @@ class RedisSessionStore(SessionStore):
             self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
         key = self._fname_key(session_id, name)
 
-        def get_file(key: str, tmp: str) -> str:
+        def get_file(_: str, tmp: str) -> str:
             hash_str = get_file_hash(tmp)
             self._redis.set_value(key, hash_str)
-            print(f"writing {hash_str=} {key=} {name=}")
             return self._get_hashpath(hash_str)
 
         with open_writeb(
-                key,
+                "invalid",
                 tmp_base=self._disk_path,
                 filename_fn=get_file) as fout:
             yield fout
@@ -186,7 +185,6 @@ class RedisSessionStore(SessionStore):
                 key = self._fname_key(session_id, name)
                 pipe.get_value(key)
             hashes = pipe.execute()
-            print(names, hashes)
             for name, hash_str in zip(names, hashes):
                 if hash_str is None:
                     raise FileNotFoundError(
