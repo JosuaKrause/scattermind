@@ -179,6 +179,7 @@ class RedisSessionStore(SessionStore):
             session_id: SessionId,
             names: Iterable[str]) -> dict[str, str]:
         res: dict[str, str] = {}
+        names = list(names)
         with self._redis.pipeline() as pipe:
             for name in names:
                 key = self._fname_key(session_id, name)
