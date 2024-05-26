@@ -152,13 +152,13 @@ class RedisSessionStore(SessionStore):
             self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
         key = self._fname_key(session_id, name)
 
-        def get_file(_: str, tmp: str) -> str:
+        def get_file(key: str, tmp: str) -> str:
             hash_str = get_file_hash(tmp)
             self._redis.set_value(key, hash_str)
             return self._get_hashpath(hash_str)
 
         with open_writeb(
-                "invalid",
+                key,
                 tmp_base=self._disk_path,
                 filename_fn=get_file) as fout:
             yield fout

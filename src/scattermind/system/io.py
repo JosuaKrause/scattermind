@@ -436,7 +436,9 @@ def open_writes(
     Yields:
         IO[str]: The file handle.
     """
-    filename = normalize_file(filename)
+    if filename_fn is None or tmp_base is None:
+        filename = normalize_file(filename)
+
     if tmp_base is None:
         tmp_base = get_tmp(filename)
     else:
@@ -504,7 +506,9 @@ def open_writeb(
     Yields:
         IO[bytes]: The file handle.
     """
-    filename = normalize_file(filename)
+    if filename_fn is None or tmp_base is None:
+        filename = normalize_file(filename)
+
     if tmp_base is None:
         tmp_base = get_tmp(filename)
     else:
