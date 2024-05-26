@@ -184,7 +184,9 @@ class RedisSessionStore(SessionStore):
             for name in names:
                 key = self._fname_key(session_id, name)
                 pipe.get_value(key)
-            for name, hash_str in zip(names, pipe.execute()):
+            hashes = pipe.execute()
+            print(names, hashes)
+            for name, hash_str in zip(names, hashes):
                 if hash_str is None:
                     raise FileNotFoundError(
                         f"cannot find file for {session_id=} {name=}")
