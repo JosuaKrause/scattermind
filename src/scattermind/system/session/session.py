@@ -744,7 +744,10 @@ class SessionStore(Module):
         need_copy: set[str] = set(blobs)
         need_hash: list[str] = []
         for fname in get_files(
-                path, exclude_prefix=["."], exclude_ext=[TMP_POSTFIX]):
+                path,
+                exclude_prefix=["."],
+                exclude_ext=[TMP_POSTFIX],
+                recurse=True):
             full_path = os.path.join(path, fname)
             if fname not in blobs:
                 remove_file(full_path)
@@ -767,6 +770,7 @@ class SessionStore(Module):
                 hash_lookup[fname] = blob_hash
         for fname in need_copy:
             full_path = os.path.join(path, fname)
+            ensure_folder(os.path.dirname(full_path))
             with open_writeb(full_path) as fout:
                 with self.open_blob_read(session_id, fname) as fin:
                     shutil.copyfileobj(fin, fout)  # type: ignore
@@ -787,8 +791,11 @@ class SessionStore(Module):
         """
         # FIXME: allow folders
         path = self.local_folder(session_id)
-        local: set[str] = set(
-            get_files(path, exclude_prefix=["."], exclude_ext=[TMP_POSTFIX]))
+        local: set[str] = set(get_files(
+            path,
+            exclude_prefix=["."],
+            exclude_ext=[TMP_POSTFIX],
+            recurse=True))
         need_copy: set[str] = set(local)
         need_hash: list[str] = []
         need_remove: list[str] = []
@@ -856,6 +863,7 @@ class SessionStore(Module):
         hash_lookup = self.blob_hash(from_id, blobs)
         for fname in blobs:
             full_path = os.path.join(path_to, fname)
+            ensure_folder(os.path.dirname(full_path))
             with open_writeb(full_path) as fout:
                 with self.open_blob_read(from_id, fname) as fin:
                     shutil.copyfileobj(fin, fout)  # type: ignore

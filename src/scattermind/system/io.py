@@ -259,7 +259,9 @@ def get_files(
         path: str,
         *,
         exclude_prefix: list[str] | None = None,
-        exclude_ext: list[str] | None = None) -> list[str]:
+        exclude_ext: list[str] | None = None,
+        recurse: bool = False,
+        path_prefix: str | None = None) -> Iterable[str]:
     """
     Get all files of the given folder and extension.
 
@@ -272,26 +274,40 @@ def get_files(
         exclude_ext (list[str] | None, optional): A list of extensions to
             exclude. Defaults to no exclusions.
 
-    Returns:
-        list[str]: A sorted list of all filenames.
+        recurse (bool, optional): Whether to include subfolders. Filenames are
+            relative to the folder. Default is False.
+
+        path_prefix (str | None, optional): A path prefix to include in the
+            results.
+
+    Yields:
+        str: All filenames.
     """
     if exclude_prefix is None:
         exclude_prefix = []
     if exclude_ext is None:
         exclude_ext = []
+    if path_prefix is None:
+        path_prefix = ""
     try:
-        return sorted(
-            fobj.name
-            for fobj in os.scandir(path)
-            if (
-                fobj.is_file()
-                and not any(
-                    fobj.name.endswith(ext) for ext in exclude_ext)
-                and not any(
-                    fobj.name.startswith(prefix) for prefix in exclude_prefix))
-        )
+        for fobj in os.scandir(path):
+            if any(fobj.name.endswith(ext) for ext in exclude_ext):
+                continue
+            if any(fobj.name.startswith(prefix) for prefix in exclude_prefix):
+                continue
+            cur_name = os.path.join(path_prefix, fobj.name)
+            if fobj.is_file():
+                yield cur_name
+            elif recurse and fobj.is_dir():
+                sub_path = os.path.join(path, fobj.name)
+                yield from get_files(
+                    sub_path,
+                    exclude_prefix=exclude_prefix,
+                    exclude_ext=exclude_ext,
+                    recurse=recurse,
+                    path_prefix=cur_name)
     except FileNotFoundError:
-        return []
+        yield from []
 
 
 def get_folder(path: str, ext: str) -> Iterable[tuple[str, bool]]:

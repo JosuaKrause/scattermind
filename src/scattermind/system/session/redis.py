@@ -141,7 +141,8 @@ class RedisSessionStore(SessionStore):
         full_path = os.path.join(
             self._disk_path,
             hash_str[:2],
-            f"{hash_str[2:]}.blob")
+            hash_str[2:4],
+            f"{hash_str[4:]}.blob")
         if ensure:
             ensure_folder(os.path.dirname(full_path))
             return full_path
