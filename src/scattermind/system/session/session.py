@@ -377,6 +377,8 @@ class SessionStore(Module):
         if is_shared:
             cache_path = os.path.join(cache_path, get_process_id())
         self._cache_path = ensure_folder(cache_path)
+        self._scratch_path = ensure_folder(
+            os.path.join(self._cache_path, "scratch"))
 
     def create_new_session(
             self,
@@ -670,6 +672,15 @@ class SessionStore(Module):
         """
         return os.path.join(self._cache_path, *session_id.as_folder())
 
+    def scratch_folder(self) -> str:
+        """
+        A folder for temporary files.
+
+        Returns:
+            str: The path.
+        """
+        return self._scratch_path
+
     def locals(self) -> Iterable[SessionId]:
         """
         Find all session ids that have local copies.
@@ -750,7 +761,7 @@ class SessionStore(Module):
                 recurse=True):
             full_path = os.path.join(path, fname)
             if fname not in blobs:
-                remove_file(full_path)
+                remove_file(full_path, stop=path)
                 continue
             need_hash.append(fname)
         if need_hash:

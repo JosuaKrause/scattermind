@@ -225,15 +225,28 @@ def named_write(filename: str) -> Iterator[str]:
                 remove_file(tname)
 
 
-def remove_file(fname: str) -> None:
+def remove_file(fname: str, *, stop: str | None = None) -> None:
     """
     Removes the given file.
 
     Args:
         fname (str): The path.
+
+        stop (str | None, optional): The first path allowed to be an empty
+            folder. If None, no additional folders are removed.
     """
+    if stop is not None and not fname.startswith(stop):
+        raise ValueError(f"{stop=} must be a prefix of {fname=}")
     try:
         os.remove(fname)
+        if stop is not None:
+            try:
+                while fname and fname.startswith(stop) and fname != stop:
+                    fname = os.path.dirname(fname)
+                    os.rmdir(fname)
+            except OSError as oserr:
+                if oserr.errno != 66:
+                    raise oserr
     except FileNotFoundError:
         pass
 
