@@ -499,6 +499,22 @@ class ComputeValueContainer:
         except KeyError as err:
             raise KeyError(f"{name=} not in {data=}") from err
 
+    def get_session_scratch_folder(self) -> str:
+        """
+        Returns the scratch folder for sessions. This folder is shared and not
+        synchronized.
+
+        Raises:
+            ValueError: If the node or system does not support sessions.
+
+        Returns:
+            str: The scratch folder.
+        """
+        sessions = self._sessions
+        if sessions is None:
+            raise ValueError("no session store defined")
+        return sessions.scratch_folder()
+
     def get_sessions(self) -> list[Session]:
         """
         Get sessions of all the tasks.
