@@ -190,7 +190,7 @@ class Session:
             key (str): The key.
 
         Returns:
-            int: THe length of the array.
+            int: The length of the array.
         """
         return self._sessions.get_length(self._sid, key)
 
