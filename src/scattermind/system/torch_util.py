@@ -14,6 +14,7 @@
 """Utility functions for pytorch."""
 import gzip
 import io
+import subprocess
 from typing import Any, cast, get_args, Literal
 
 import numpy as np
@@ -682,3 +683,32 @@ def tensor_to_str(value: torch.Tensor) -> str:
         return bytes(byte_list).decode("utf-8")  # type: ignore
     except UnicodeDecodeError as e:
         raise ValueError(f"invalid str from tensor {value}") from e
+
+
+def get_arch() -> str:
+    """
+    Gets a string detailing the GPU backend.
+
+    Raises:
+        ValueError: If no GPU backend is found.
+
+    Returns:
+        str: A string detailing the GPU backend.
+    """
+
+    def normalize(text: str) -> str:
+        return text.strip().lower().replace(" ", "-")
+
+    if torch.backends.mps.is_built() or torch.backends.mps.is_available():
+        return normalize(subprocess.check_output(
+            ["sysctl", "-n", "machdep.cpu.brand_string"]).decode("utf-8"))
+    if torch.cuda.is_available() or torch.backends.cudnn.enabled:
+        device = torch.device("cuda")
+        name = normalize(torch.cuda.get_device_name(device))
+        mem_gb = torch.cuda.mem_get_info(device)[1] / 1024.0 / 1024.0 / 1024.0
+        if mem_gb > 10.0:
+            mem = f"{int(mem_gb)}"
+        else:
+            mem = f"{mem:.1f}"
+        return f"{name}-{mem}gb"
+    raise ValueError("pytorch is CPU only!")
