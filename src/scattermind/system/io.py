@@ -32,6 +32,9 @@ TMP_POSTFIX = ".~tmp"
 """Postfix for temporary files."""
 
 
+RETRY_ERRORS: set[int] = {errno.EAGAIN, errno.EBUSY, errno.EROFS}
+
+
 def when_ready(fun: Callable[[], None]) -> None:
     """
     Repeats an IO operation for a busy or slow disk device (e.g., NFS or
@@ -48,7 +51,7 @@ def when_ready(fun: Callable[[], None]) -> None:
                 fun()
                 return
             except OSError as ose:
-                if counter < 120 and ose.errno in (errno.EAGAIN, errno.EBUSY):
+                if counter < 120 and ose.errno in RETRY_ERRORS:
                     time.sleep(1.0)
                     counter += 1
                     continue
