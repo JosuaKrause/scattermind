@@ -705,10 +705,12 @@ def get_arch() -> str:
     if torch.cuda.is_available() or torch.backends.cudnn.enabled:
         device = torch.device("cuda")
         name = normalize(torch.cuda.get_device_name(device))
-        mem_gb = torch.cuda.mem_get_info(device)[1] / 1024.0 / 1024.0 / 1024.0
-        if mem_gb > 10.0:
-            mem = f"{int(mem_gb)}"
-        else:
-            mem = f"{mem:.1f}"
-        return f"{name}-{mem}gb"
+        # mem_gb = (
+        #     torch.cuda.mem_get_info(device)[1] / 1024.0 / 1024.0 / 1024.0)
+        # if mem_gb > 10.0:
+        #     mem = f"{int(mem_gb)}"
+        # else:
+        #     mem = f"{mem:.1f}"
+        # return f"{name}-{mem}gb"
+        return name
     raise ValueError("pytorch is CPU only!")
