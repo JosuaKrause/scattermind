@@ -490,5 +490,8 @@ def json_read(data: str) -> Any:
     """
     try:
         return json.loads(data)
-    except json.JSONDecodeError as e:
-        report_json_error(e)
+    except TypeError as texc:
+        raise TypeError(
+            f"invalid type for JSON got {type(data)} {data=}") from texc
+    except json.JSONDecodeError as exc:
+        report_json_error(exc)
