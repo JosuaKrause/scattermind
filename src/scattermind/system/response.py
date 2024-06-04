@@ -175,7 +175,7 @@ def redis_to_response(text: str) -> ResponseObject:
     result = obj["result"]
     error = obj["error"]
     fmt = obj["fmt"]
-    if fmt is None:
+    if fmt is None or result is None:
         data_format = None
         result_tvc = None
     else:

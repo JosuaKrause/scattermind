@@ -485,6 +485,8 @@ def json_read(data: str) -> Any:
     Raises:
         ValueError: If the data couldn't be parsed.
 
+        TypeError: If the data type is incorrect.
+
     Returns:
         Any: The JSON object. Make sure to validate the expected layout.
     """
