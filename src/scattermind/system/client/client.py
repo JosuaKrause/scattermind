@@ -48,6 +48,19 @@ TASK_MAX_RETRIES = 10
 up and setting the error and updating the state to error."""
 
 
+def set_task_max_retries(task_max_retries: int) -> None:
+    """
+    Sets the maximum number the same task can be repeated for execution before
+    giving up and setting the error.
+
+    Args:
+        task_max_retries (int): The number.
+    """
+    global TASK_MAX_RETRIES  # pylint: disable=global-statement
+
+    TASK_MAX_RETRIES = task_max_retries
+
+
 TaskFrame: TypeAlias = tuple[NName, GraphId, QueueId]
 
 
