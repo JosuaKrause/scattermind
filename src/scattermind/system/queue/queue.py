@@ -924,6 +924,8 @@ class QueuePool(Module):
                             (current_node is None
                                 or candidate_node == current_node),
                         )
+        if candidate_node == current_node:
+            return (current_node, False)
         if current_node is None or good_node is None:
             print(
                 f"candidate={candidate_node.get_qualified_name(self)} "

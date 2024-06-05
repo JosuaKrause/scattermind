@@ -153,7 +153,7 @@ class ExecutorManager(Module):
         own_id = self._own_id
         node = self._node
         new_node, switch = queue_pool.pick_node(logger, node)
-        if switch:
+        if switch and new_node != node:
             if node is not None:
                 logger.log_event(
                     "tally.node.unload",
