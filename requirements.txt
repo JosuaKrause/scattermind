@@ -1,4 +1,4 @@
-mypy>=1.5.1
+mypy>=1.10.0
 numpy>=1.25.2
 python-dotenv>=1.0.1
 quick-server>=0.9.0
