@@ -194,6 +194,29 @@ def get_time_str() -> str:
     return fmt_time(now())
 
 
+def fmt_day(when: datetime) -> str:
+    """
+    Format the timestamp as "YYYY-mm-dd".
+
+    Args:
+        when (datetime): The timestamp.
+
+    Returns:
+        str: The formatted timestamp.
+    """
+    return when.strftime(r"%Y-%m-%d")
+
+
+def get_day_str() -> str:
+    """
+    Get the current date as "YYYY-mm-dd".
+
+    Returns:
+        str: The current date as "YYYY-mm-dd".
+    """
+    return fmt_day(now())
+
+
 def parse_time_str(time_str: str) -> datetime:
     """
     Parses an ISO formatted string representing a timestamp.
