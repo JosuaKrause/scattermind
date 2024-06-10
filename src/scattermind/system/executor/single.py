@@ -27,8 +27,7 @@ class SingleExecutorManager(ExecutorManager):
         super().__init__(own_id, batch_size)
         self._is_active = False
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_EITHER  # FIXME: figure out a way to clearly define it here
 
     def get_all_executors(self) -> list[Executor]:

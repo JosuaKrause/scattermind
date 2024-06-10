@@ -45,8 +45,7 @@ class LocalQueuePool(QueuePool):
         self._expect: dict[QueueId, dict[ExecutorId, tuple[float, int]]] = {}
         self._lock = threading.RLock()
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_LOCAL
 
     def push_task_id(self, qid: QueueId, task_id: TaskId) -> None:

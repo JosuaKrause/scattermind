@@ -169,8 +169,7 @@ class ThreadExecutorManager(ExecutorManager):
             self._thread = thread
             thread.start()
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_EITHER  # FIXME: figure out a way to clearly define it here
 
     def get_all_executors(self) -> list[Executor]:

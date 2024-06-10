@@ -26,7 +26,13 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import IO, TypedDict, TypeVar
 
-from scattermind.system.base import Module, SessionId, UserId
+from scattermind.system.base import (
+    L_EITHER,
+    Locality,
+    Module,
+    SessionId,
+    UserId,
+)
 from scattermind.system.io import (
     ensure_folder,
     get_files,
@@ -363,11 +369,24 @@ class SessionStore(Module):
     long term storage is only visible to the executing task. Upon node
     execution completion the content is made accessible.
     """
-    def __init__(self, *, cache_path: str, is_shared: bool) -> None:
+    def __init__(
+            self,
+            session_user: 'SessionUser',
+            session_blob: 'SessionBlob',
+            session_key_value: 'SessionKeyValue',
+            *,
+            cache_path: str,
+            is_shared: bool) -> None:
         """
         Creates a session store.
 
         Args:
+            session_user (SessionUser): The session user handler.
+
+            session_blob (SessionBlob): The session blob handler.
+
+            session_key_value (SessionKeyValue): The session key value handler.
+
             cache_path (str): The cache root.
 
             is_shared (bool): Whether the cache root is shared. If it is shared
@@ -379,6 +398,22 @@ class SessionStore(Module):
         self._cache_path = ensure_folder(cache_path)
         self._scratch_path = ensure_folder(
             os.path.join(self._cache_path, "scratch"))
+        self._session_user = session_user
+        self._session_blob = session_blob
+        self._session_key_value = session_key_value
+
+    def locality(self) -> Locality:
+        b_loc = self._session_blob.locality()
+        kv_loc = self._session_key_value.locality()
+        if b_loc == L_EITHER:
+            return kv_loc
+        if kv_loc == L_EITHER:
+            return b_loc
+        if b_loc != kv_loc:
+            raise ValueError(
+                f"mismatching localities for {self._session_blob=} ({b_loc}) "
+                f"and {self._session_key_value=} ({kv_loc})")
+        return b_loc
 
     def create_new_session(
             self,
@@ -412,7 +447,7 @@ class SessionStore(Module):
             user_id (UserId): The user.
             session_id (SessionId): The session.
         """
-        raise NotImplementedError()
+        self._session_user.register_session(user_id, session_id)
 
     def get_sessions(self, user_id: UserId) -> Iterable[Session]:
         """
@@ -424,7 +459,7 @@ class SessionStore(Module):
         Returns:
             Iterable[Session]: The sessions for the user.
         """
-        raise NotImplementedError()
+        return self._session_user.get_sessions(self, user_id)
 
     def get_user(self, session_id: SessionId) -> UserId | None:
         """
@@ -437,7 +472,7 @@ class SessionStore(Module):
             UserId | None: The user or None if the session is not associated
                 with any user (e.g., when it was deleted).
         """
-        raise NotImplementedError()
+        return self._session_user.get_user(session_id)
 
     def get_session(self, session_id: SessionId) -> Session:
         """
@@ -473,7 +508,7 @@ class SessionStore(Module):
             index (int): The index.
             value (str): The value to set.
         """
-        raise NotImplementedError()
+        self._session_key_value.set_value(session_id, key, index, value)
 
     def push_value(self, session_id: SessionId, key: str, value: str) -> None:
         """
@@ -484,7 +519,7 @@ class SessionStore(Module):
             key (str): The key.
             value (str): The value.
         """
-        raise NotImplementedError()
+        self._session_key_value.push_value(session_id, key, value)
 
     def pop_value(self, session_id: SessionId, key: str) -> str | None:
         """
@@ -498,7 +533,7 @@ class SessionStore(Module):
             str | None: The value at the end of the array or None if the array
                 was empty.
         """
-        raise NotImplementedError()
+        return self._session_key_value.pop_value(session_id, key)
 
     def get_value(
             self, session_id: SessionId, key: str, index: int) -> str | None:
@@ -515,7 +550,7 @@ class SessionStore(Module):
         Returns:
             str | None: The value or None if the index was out of bounds.
         """
-        raise NotImplementedError()
+        return self._session_key_value.get_value(session_id, key, index)
 
     def get_length(self, session_id: SessionId, key: str) -> int:
         """
@@ -529,7 +564,7 @@ class SessionStore(Module):
         Returns:
             int: The length of the array.
         """
-        raise NotImplementedError()
+        return self._session_key_value.get_length(session_id, key)
 
     def get_keys(self, session_id: SessionId) -> list[str]:
         """
@@ -541,7 +576,7 @@ class SessionStore(Module):
         Returns:
             list[str]: The list of all keys.
         """
-        raise NotImplementedError()
+        return self._session_key_value.get_keys(session_id)
 
     def notify_signal(self, session_id: SessionId, key: str) -> None:
         """
@@ -552,7 +587,7 @@ class SessionStore(Module):
             session_id (SessionId): The session.
             key (str): The signal key.
         """
-        raise NotImplementedError()
+        self._session_key_value.notify_signal(session_id, key)
 
     def wait_for_signal(
             self,
@@ -581,7 +616,8 @@ class SessionStore(Module):
             T | None: The result of the condition if it could be evaluated to
                 True. Otherwise, if the timeout occurred, None is returned.
         """
-        raise NotImplementedError()
+        return self._session_key_value.wait_for_signal(
+            session_id, key, condition, timeout=timeout)
 
     @contextmanager
     def open_blob_write(
@@ -599,7 +635,8 @@ class SessionStore(Module):
         Yields:
             IO[bytes]: The file handle to write to.
         """
-        raise NotImplementedError()
+        with self._session_blob.open_blob_write(session_id, name) as b_out:
+            yield b_out
 
     @contextmanager
     def open_blob_read(
@@ -617,7 +654,8 @@ class SessionStore(Module):
         Yields:
             IO[bytes]: The file handle to read from.
         """
-        raise NotImplementedError()
+        with self._session_blob.open_blob_read(session_id, name) as b_in:
+            yield b_in
 
     def blob_hash(
             self,
@@ -635,7 +673,7 @@ class SessionStore(Module):
         Returns:
             dict[str, str]: A mapping of names to blob hashes.
         """
-        raise NotImplementedError()
+        return self._session_blob.blob_hash(session_id, names)
 
     def blob_list(self, session_id: SessionId) -> list[str]:
         """
@@ -647,7 +685,7 @@ class SessionStore(Module):
         Returns:
             list[str]: The list of blob names.
         """
-        raise NotImplementedError()
+        return self._session_blob.blob_list(session_id)
 
     def blob_remove(self, session_id: SessionId, names: list[str]) -> None:
         """
@@ -658,7 +696,7 @@ class SessionStore(Module):
 
             names (list[str]): The name of the blobs.
         """
-        raise NotImplementedError()
+        self._session_blob.blob_remove(session_id, names)
 
     def local_folder(self, session_id: SessionId) -> str:
         """
@@ -884,6 +922,297 @@ class SessionStore(Module):
             "time_out": None,
         })
         self.sync_out(to_id)
+
+    def remove(self, session_id: SessionId) -> None:
+        """
+        Removes everything associated with the given session. Note, this does
+        not guarantee that all local copies are removed as well.
+
+        Args:
+            session_id (SessionId): The session.
+        """
+        self._session_key_value.remove(session_id)
+        self._session_blob.remove(session_id)
+        self._session_user.remove(session_id)
+        self.clear_local(session_id)
+
+
+class SessionUser(Module):
+    """Session handler to connect users with sessions."""
+    def register_session(self, user_id: UserId, session_id: SessionId) -> None:
+        """
+        Registers the session so the user and session can be associated.
+
+        Args:
+            user_id (UserId): The user.
+            session_id (SessionId): The session.
+        """
+        raise NotImplementedError()
+
+    def get_sessions(
+            self,
+            sessions: SessionStore,
+            user_id: UserId) -> Iterable[Session]:
+        """
+        Retrieves all sessions of the given user.
+
+        Args:
+            sessions (SessionHandler): The session handler.
+
+            user_id (UserId): The user.
+
+        Returns:
+            Iterable[Session]: The sessions for the user.
+        """
+        raise NotImplementedError()
+
+    def get_user(self, session_id: SessionId) -> UserId | None:
+        """
+        Retrieves the user associated with the given session.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            UserId | None: The user or None if the session is not associated
+                with any user (e.g., when it was deleted).
+        """
+        raise NotImplementedError()
+
+    def remove(self, session_id: SessionId) -> None:
+        """
+        Removes everything associated with the given session. Note, this does
+        not guarantee that all local copies are removed as well.
+
+        Args:
+            session_id (SessionId): The session.
+        """
+        raise NotImplementedError()
+
+
+class SessionBlob(Module):
+    """Session handler for providing a blob store for sessions."""
+    @contextmanager
+    def open_blob_write(
+            self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
+        """
+        Opens a blob for writing. This method is used for synchronization and
+        should not be normally used. Use the local copy instead.
+
+        Args:
+            session_id (SessionId): The session.
+
+            name (str): The name of the blob. Blob names cannot start with a
+                '.'.
+
+        Yields:
+            IO[bytes]: The file handle to write to.
+        """
+        raise NotImplementedError()
+
+    @contextmanager
+    def open_blob_read(
+            self, session_id: SessionId, name: str) -> Iterator[IO[bytes]]:
+        """
+        Opens a blob for reading. This method is used for synchronization and
+        should not be normally used. Use the local copy instead.
+
+        Args:
+            session_id (SessionId): The session.
+
+            name (str): The name of the blob. Blob names cannot start with a
+                '.'.
+
+        Yields:
+            IO[bytes]: The file handle to read from.
+        """
+        raise NotImplementedError()
+
+    def blob_hash(
+            self,
+            session_id: SessionId,
+            names: Iterable[str]) -> dict[str, str]:
+        """
+        Computes the hash of remote blobs. See `get_file_hash` for the
+        hashing method.
+
+        Args:
+            session_id (SessionId): The session.
+
+            names (Iterable[str]): The name of the blobs.
+
+        Returns:
+            dict[str, str]: A mapping of names to blob hashes.
+        """
+        raise NotImplementedError()
+
+    def blob_list(self, session_id: SessionId) -> list[str]:
+        """
+        Lists all blobs for the given session.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            list[str]: The list of blob names.
+        """
+        raise NotImplementedError()
+
+    def blob_remove(self, session_id: SessionId, names: list[str]) -> None:
+        """
+        Remove the given blobs.
+
+        Args:
+            session_id (SessionId): The session.
+
+            names (list[str]): The name of the blobs.
+        """
+        raise NotImplementedError()
+
+    def remove(self, session_id: SessionId) -> None:
+        """
+        Removes everything associated with the given session. Note, this does
+        not guarantee that all local copies are removed as well.
+
+        Args:
+            session_id (SessionId): The session.
+        """
+        raise NotImplementedError()
+
+
+class SessionKeyValue(Module):
+    """Session handler for providing a key value store for sessions."""
+    def set_value(
+            self,
+            session_id: SessionId,
+            key: str,
+            index: int,
+            value: str) -> None:
+        """
+        Sets the array value at the given index. If the index is equal to the
+        length of the array a new value is appended. Negative index values
+        address the array from the back. If the index is outside the array and
+        it is not the positive length of the array an `IndexError` is raised.
+
+        Raises:
+            IndexError: If the index is outside the array and it is not the
+                positive length of the array.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+            index (int): The index.
+            value (str): The value to set.
+        """
+        raise NotImplementedError()
+
+    def push_value(self, session_id: SessionId, key: str, value: str) -> None:
+        """
+        Appends a value to the end of the array.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+            value (str): The value.
+        """
+        raise NotImplementedError()
+
+    def pop_value(self, session_id: SessionId, key: str) -> str | None:
+        """
+        Removes and returns the last value of the array.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+
+        Returns:
+            str | None: The value at the end of the array or None if the array
+                was empty.
+        """
+        raise NotImplementedError()
+
+    def get_value(
+            self, session_id: SessionId, key: str, index: int) -> str | None:
+        """
+        Gets the value at the given index of the array. A negative index gets
+        the value from the back of the array. Out of bounds access returns
+        None.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+            index (int): The index.
+
+        Returns:
+            str | None: The value or None if the index was out of bounds.
+        """
+        raise NotImplementedError()
+
+    def get_length(self, session_id: SessionId, key: str) -> int:
+        """
+        Gets the length of the given array. If the key does not exist 0 is
+        returned.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The key.
+
+        Returns:
+            int: The length of the array.
+        """
+        raise NotImplementedError()
+
+    def get_keys(self, session_id: SessionId) -> list[str]:
+        """
+        Returns all keys of the given session.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            list[str]: The list of all keys.
+        """
+        raise NotImplementedError()
+
+    def notify_signal(self, session_id: SessionId, key: str) -> None:
+        """
+        Emits a signal on the given key. Note, that signal keys are independent
+        of value keys.
+
+        Args:
+            session_id (SessionId): The session.
+            key (str): The signal key.
+        """
+        raise NotImplementedError()
+
+    def wait_for_signal(
+            self,
+            session_id: SessionId,
+            key: str,
+            condition: Callable[[], T],
+            *,
+            timeout: float) -> T | None:
+        """
+        Waits for a signal on the given key and returns if the condition is
+        met. If no signal arrives or the condition is not met within the
+        timeout False is returned. Note, that signal keys are independent
+        of value keys.
+
+        Args:
+            session_id (SessionId): The session.
+
+            key (str): The signal key
+
+            condition (Callable[[], T]): If the condition can be converted to
+                True, the method returns successfully with its result.
+
+            timeout (float): The timeout in seconds.
+
+        Returns:
+            T | None: The result of the condition if it could be evaluated to
+                True. Otherwise, if the timeout occurred, None is returned.
+        """
+        raise NotImplementedError()
 
     def remove(self, session_id: SessionId) -> None:
         """

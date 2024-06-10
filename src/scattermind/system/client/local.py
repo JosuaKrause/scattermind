@@ -63,8 +63,7 @@ class LocalClientPool(ClientPool):
         self._wait_queues = threading.Condition()
         self._wait_results = threading.Condition()
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_LOCAL
 
     def create_task(

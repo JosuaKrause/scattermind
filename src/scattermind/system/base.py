@@ -698,8 +698,7 @@ class Module:  # pylint: disable=too-few-public-methods
     A module for environment dependent behavior. Module classes need to be
     subclassed to implement the respective behavior.
     """
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         """
         Whether the module is for a local (same process) environment only, a
         possibly remote (other process / other node) environment, or either.

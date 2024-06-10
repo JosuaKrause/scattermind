@@ -184,8 +184,7 @@ class RedisExecutorManager(ExecutorManager):
         self._heartbeat = heartbeat
         heartbeat.start()
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_EITHER
 
     def get_all_executors(self) -> list[Executor]:

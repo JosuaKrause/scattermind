@@ -17,20 +17,122 @@ from typing import Literal, overload, TypedDict
 from redipy import RedisConfig
 
 from scattermind.system.plugins import load_plugin
-from scattermind.system.session.session import SessionStore
+from scattermind.system.session.session import (
+    SessionBlob,
+    SessionKeyValue,
+    SessionStore,
+    SessionUser,
+)
 from scattermind.system.util import to_bool
 
 
-RedisSessionStoreModule = TypedDict('RedisSessionStoreModule', {
+RedisSessionUserModule = TypedDict('RedisSessionUserModule', {
     "name": Literal["redis"],
     "cfg": RedisConfig,
+})
+
+
+SessionUserModule = RedisSessionUserModule
+
+
+RedisSessionKeyValueModule = TypedDict('RedisSessionKeyValueModule', {
+    "name": Literal["redis"],
+    "cfg": RedisConfig,
+})
+
+
+SessionKeyValueModule = RedisSessionKeyValueModule
+
+
+DiskSessionBlobModule = TypedDict('DiskSessionBlobModule', {
+    "name": Literal["disk"],
+    "cfg": RedisConfig,
     "disk_path": str,
+})
+
+
+SessionBlobModule = DiskSessionBlobModule
+
+
+SessionStoreModule = TypedDict('SessionStoreModule', {
+    "user": SessionUserModule,
+    "key_value": SessionKeyValueModule,
+    "blob": SessionBlobModule,
     "cache_path": str,
     "is_shared": bool,
 })
 
 
-SessionStoreModule = RedisSessionStoreModule
+def load_session_user(module: SessionUserModule) -> SessionUser:
+    """
+    Loads the session user handler.
+
+    Args:
+        module (SessionUserModule): The module configuration.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+
+    Returns:
+        SessionUser: The session user handler.
+    """
+    # pylint: disable=import-outside-toplevel
+    if "." in module["name"]:
+        kwargs = dict(module)
+        plugin = load_plugin(SessionUser, f"{kwargs.pop('name')}")
+        return plugin(**kwargs)
+    if module["name"] == "redis":
+        from scattermind.system.session.user_redis import RedisSessionUser
+        return RedisSessionUser(module["cfg"])
+    raise ValueError(f"unknown session user handler: {module['name']}")
+
+
+def load_session_key_value(module: SessionKeyValueModule) -> SessionKeyValue:
+    """
+    Loads the session key value handler.
+
+    Args:
+        module (SessionKeyValueModule): The module configuration.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+
+    Returns:
+        SessionKeyValue: The session key value handler.
+    """
+    # pylint: disable=import-outside-toplevel
+    if "." in module["name"]:
+        kwargs = dict(module)
+        plugin = load_plugin(SessionKeyValue, f"{kwargs.pop('name')}")
+        return plugin(**kwargs)
+    if module["name"] == "redis":
+        from scattermind.system.session.kv_redis import RedisSessionKeyValue
+        return RedisSessionKeyValue(module["cfg"])
+    raise ValueError(f"unknown session user handler: {module['name']}")
+
+
+def load_session_blob(module: SessionBlobModule) -> SessionBlob:
+    """
+    Loads the session blob handler.
+
+    Args:
+        module (SessionBlobModule): The module configuration.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+
+    Returns:
+        SessionBlob: The session blob handler.
+    """
+    # pylint: disable=import-outside-toplevel
+    if "." in module["name"]:
+        kwargs = dict(module)
+        plugin = load_plugin(SessionBlob, f"{kwargs.pop('name')}")
+        return plugin(**kwargs)
+    if module["name"] == "disk":
+        from scattermind.system.session.blob_disk import DiskSessionBlob
+        return DiskSessionBlob(module["cfg"], disk_path=module["disk_path"])
+    raise ValueError(f"unknown session user handler: {module['name']}")
 
 
 @overload
@@ -62,17 +164,12 @@ def load_session_store(
     # pylint: disable=import-outside-toplevel
     if module is None:
         return None
-    if "." in module["name"]:
-        kwargs = dict(module)
-        plugin = load_plugin(SessionStore, f"{kwargs.pop('name')}")
-        cache_path = f"{kwargs.pop('cache_path')}"
-        is_shared = to_bool(kwargs.pop('is_shared'))
-        return plugin(cache_path=cache_path, is_shared=is_shared, **kwargs)
-    if module["name"] == "redis":
-        from scattermind.system.session.redis import RedisSessionStore
-        return RedisSessionStore(
-            module["cfg"],
-            disk_path=module["disk_path"],
-            cache_path=module["cache_path"],
-            is_shared=module["is_shared"])
-    raise ValueError(f"unknown session store: {module['name']}")
+    session_user = load_session_user(module["user"])
+    session_blob = load_session_blob(module["blob"])
+    session_kv = load_session_key_value(module["key_value"])
+    return SessionStore(
+        session_user,
+        session_blob,
+        session_kv,
+        cache_path=module["cache_path"],
+        is_shared=to_bool(module["is_shared"]))

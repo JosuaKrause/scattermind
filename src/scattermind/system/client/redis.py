@@ -86,8 +86,7 @@ class RedisClientPool(ClientPool):
         self._redis = Redis("redis", cfg=cfg, redis_module="client")
         self._stack = RStack(self._redis)
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_REMOTE
 
     @staticmethod
