@@ -271,7 +271,8 @@ class Node:
             if not self._loads:
                 self.do_unload()
 
-    def batch_size(self) -> int | None:
+    def batch_size(  # pylint: disable=redundant-returns-doc
+            self) -> int | None:
         """
         Overwrite to set the recommended batch size for this node. If None,
         the default batch size of the executor is used.
