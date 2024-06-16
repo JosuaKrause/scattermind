@@ -271,6 +271,16 @@ class Node:
             if not self._loads:
                 self.do_unload()
 
+    def batch_size(self) -> int | None:
+        """
+        Overwrite to set the recommended batch size for this node. If None,
+        the default batch size of the executor is used.
+
+        Returns:
+            int | None: The batch size.
+        """
+        return None
+
     def is_pure(
             self,
             queue_pool: QueuePool,
@@ -298,16 +308,6 @@ class Node:
             raise RuntimeError("node cannot be both pure and use sessions!")
         return not is_session and is_pure
 
-    def session_field(self) -> str | None:
-        """
-        The field of the node input that contains the session id. Use
-        `SESSION_INFO` as type. If the field is None no session is loaded.
-
-        Returns:
-            str | None: The field name or None if no session is used.
-        """
-        raise NotImplementedError()
-
     def do_is_pure(
             self,
             graph: 'Graph',
@@ -330,6 +330,16 @@ class Node:
         Returns:
             bool: True if the node returns the same result for same inputs
                 given the settings are the same.
+        """
+        raise NotImplementedError()
+
+    def session_field(self) -> str | None:
+        """
+        The field of the node input that contains the session id. Use
+        `SESSION_INFO` as type. If the field is None no session is loaded.
+
+        Returns:
+            str | None: The field name or None if no session is used.
         """
         raise NotImplementedError()
 
