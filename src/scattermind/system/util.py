@@ -15,9 +15,12 @@
 import base64
 import hashlib
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
-from typing import Any, IO, NoReturn, overload
+from typing import Any, IO, NoReturn, overload, TypeVar
+
+
+T = TypeVar('T')
 
 
 def is_partial_match(target: str, pattern: str) -> bool:
@@ -520,3 +523,36 @@ def json_read(data: str) -> Any:
             f"invalid type for JSON got {type(data)} {data=}") from texc
     except json.JSONDecodeError as exc:
         report_json_error(exc)
+
+
+def first(iterator: Iterable[T]) -> T:
+    """
+    Returns the first element of the iterable.
+
+    Args:
+        iterator (Iterable[T]): The iterable.
+
+    Raises:
+        ValueError: If the iterable was empty.
+
+    Returns:
+        T: The first item.
+    """
+    for res in iterator:
+        return res
+    raise ValueError("empty iterator!")
+
+
+def maybe_first(iterator: Iterable[T]) -> T | None:
+    """
+    Returns the first element of the iterable or None if the iterable is empty.
+
+    Args:
+        iterator (Iterable[T]): The iterable.
+
+    Returns:
+        T | None: The first item or None if the iterable was empty.
+    """
+    for res in iterator:
+        return res
+    return None
