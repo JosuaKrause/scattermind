@@ -1,9 +1,11 @@
 # Changelog
 
-## [0.4.2] - 2024-06-27
+## [0.5.0] - 2024-06-27
 
 ### Added
 
+- network drive friendly IO ([#15])
+- loading env files ([#15])
 - add session module ([#15])
 - add id tensor conversion ([#15])
 - add user id generation ([#15])
@@ -17,8 +19,13 @@
 - make result fully serializable ([#15])
 - store format in result ([#15])
 - make task inputs serializable ([#15])
-- overwrite batch size from node ([#15])
+- overwrite batch size from node via `batch_size` ([#15])
 - configurable max_task_retries ([#15])
+
+### Breaking
+
+- `locality` is now a method and not a staticmethod anymore ([#15])
+- new required node method `session_field` ([#15])
 
 ### Bug-Fixes
 
