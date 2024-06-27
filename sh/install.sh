@@ -62,8 +62,8 @@ ${PYTHON} -m pip install --progress-bar off --upgrade -r requirements.dev.txt
 
 # change branches here when using a development branch for redipy or
 # quick-server change to main and master to deactivate
-REDIPY_BRANCH="jk-helpers"
-QS_BRANCH="jk-shutoff"
+REDIPY_BRANCH="main"
+QS_BRANCH="master"
 
 if [ "${REDIPY_BRANCH}" != "main" ] && [ ! -z "${USE_DEV}" ]; then
     REDIPY_PATH="../redipy"

@@ -2,7 +2,7 @@
     name = "scattermind"
     description = "A decentralized and distributed horizontally scalable model execution framework."
     readme = "README.md"
-    version = "0.4.1"
+    version = "0.4.2"
     authors = [
         {name = "Josua Krause", email = "josua.krause@gmail.com"},
     ]
