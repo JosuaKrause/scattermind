@@ -20,6 +20,7 @@ import time
 from collections.abc import Callable
 
 import redis as redis_lib
+from quick_server import add_shutdown_hook
 
 from scattermind.system.base import ExecutorId, L_EITHER, Locality
 from scattermind.system.executor.executor import Executor, ExecutorManager
@@ -75,6 +76,11 @@ class ThreadExecutorManager(ExecutorManager):
         with LOCK:
             EXECUTORS[own_id] = self
             ACTIVE[own_id] = True
+
+        def hook() -> None:
+            self._thread = None
+
+        add_shutdown_hook(hook)
 
     def is_done(self) -> bool:
         """
@@ -163,8 +169,7 @@ class ThreadExecutorManager(ExecutorManager):
             self._thread = thread
             thread.start()
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_EITHER  # FIXME: figure out a way to clearly define it here
 
     def get_all_executors(self) -> list[Executor]:

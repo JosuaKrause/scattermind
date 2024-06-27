@@ -18,12 +18,20 @@ from collections.abc import Callable, Iterable
 from typing import cast, TypeVar
 
 from scattermind.api.api import QueueCounts, ScattermindAPI
-from scattermind.system.base import L_EITHER, Locality, Module, TaskId
+from scattermind.system.base import (
+    L_EITHER,
+    Locality,
+    Module,
+    SessionId,
+    TaskId,
+    UserId,
+)
 from scattermind.system.cache.cache import GraphCache
 from scattermind.system.client.client import ClientPool
 from scattermind.system.executor.executor import ExecutorManager
 from scattermind.system.graph.graph import Graph
 from scattermind.system.graph.graphdef import FullGraphDefJSON, json_to_graph
+from scattermind.system.info import DataFormat
 from scattermind.system.logger.log import EventStream
 from scattermind.system.names import GNamespace
 from scattermind.system.payload.data import DataStore
@@ -41,6 +49,7 @@ from scattermind.system.response import (
     TASK_STATUS_DEFER,
     TaskStatus,
 )
+from scattermind.system.session.session import Session, SessionStore
 from scattermind.system.torch_util import DTypeName
 
 
@@ -62,6 +71,7 @@ class Config(ScattermindAPI):
         self._store: DataStore | None = None
         self._queue_pool: QueuePool | None = None
         self._roa: ReadonlyAccess | None = None
+        self._sessions: SessionStore | None = None
         self._healthcheck: tuple[str, str, int] | None = None
 
     def set_logger(self, logger: EventStream) -> None:
@@ -300,6 +310,28 @@ class Config(ScattermindAPI):
             raise ValueError("cannot make readonly access writable")
         return cast(RoAWriter, roa)
 
+    def set_session_store(self, sessions: SessionStore | None) -> None:
+        """
+        Set the session store. Session stores are optional. However, if they
+        are not set, sessions cannot be used during execution.
+
+        Args:
+            sessions (SessionStore | None): The session store or None.
+        """
+        if sessions is not None:
+            sessions = self._update_locality(sessions)
+        self._sessions = sessions
+
+    def get_session_store(self) -> SessionStore | None:
+        """
+        Get the session store. Session stores are optional. However, if they
+        are not set, sessions cannot be used during execution.
+
+        Returns:
+            SessionStore | None: _description_
+        """
+        return self._sessions
+
     def set_node_strategy(self, node_strategy: NodeStrategy) -> None:
         """
         Set the node strategy. Strategies can be set multiple times to update
@@ -377,10 +409,15 @@ class Config(ScattermindAPI):
         graph = json_to_graph(self.get_queue_pool(), graph_def)
         return self.add_graph(graph)
 
-    def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
+    def enqueue(
+            self,
+            ns: GNamespace,
+            value: TaskValueContainer,
+            *,
+            task_id: TaskId | None = None) -> TaskId:
         store = self.get_data_store()
         queue_pool = self.get_queue_pool()
-        return queue_pool.enqueue_task(ns, store, value)
+        return queue_pool.enqueue_task(ns, store, value, task_id=task_id)
 
     def get_namespace(self, task_id: TaskId) -> GNamespace | None:
         cpool = self.get_client_pool()
@@ -476,6 +513,7 @@ class Config(ScattermindAPI):
         queue_pool = self.get_queue_pool()
         store = self.get_data_store()
         roa = self.get_readonly_access()
+        sessions = self.get_session_store()
         logger = self.get_logger()
 
         def reclaim_all_once() -> tuple[int, int]:
@@ -497,7 +535,7 @@ class Config(ScattermindAPI):
             cpool.wait_for_queues(task_condition, timeout)
 
         def work(emng: ExecutorManager) -> bool:
-            return emng.execute_batch(logger, queue_pool, store, roa)
+            return emng.execute_batch(logger, queue_pool, store, sessions, roa)
 
         def do_execute() -> int | None:
             return executor_manager.execute(
@@ -520,10 +558,9 @@ class Config(ScattermindAPI):
         return queue_pool.get_graph_name(
             queue_pool.get_entry_graph(ns)).to_parseable()
 
-    def main_inputs(self, ns: GNamespace) -> set[str]:
+    def main_input_format(self, ns: GNamespace) -> DataFormat:
         queue_pool = self.get_queue_pool()
-        inputs = queue_pool.get_input_format(queue_pool.get_entry_graph(ns))
-        return set(inputs.keys())
+        return queue_pool.get_input_format(queue_pool.get_entry_graph(ns))
 
     def main_outputs(self, ns: GNamespace) -> set[str]:
         queue_pool = self.get_queue_pool()
@@ -564,3 +601,33 @@ class Config(ScattermindAPI):
             if queue_length > 0:
                 return True
         return False
+
+    def new_session(
+            self,
+            user_id: UserId,
+            *,
+            copy_from: Session | None = None) -> Session:
+        sessions = self.get_session_store()
+        if sessions is None:
+            raise ValueError("no session store defined")
+        copy_id = None if copy_from is None else copy_from.get_session_id()
+        return sessions.create_new_session(user_id, copy_from=copy_id)
+
+    def get_session(self, session_id: SessionId) -> Session:
+        sessions = self.get_session_store()
+        if sessions is None:
+            raise ValueError("no session store defined")
+        return sessions.get_session(session_id)
+
+    def get_session_user(self, session_id: SessionId) -> UserId | None:
+        sessions = self.get_session_store()
+        if sessions is None:
+            raise ValueError("no session store defined")
+        return sessions.get_user(session_id)
+
+    def get_sessions(self, user_id: UserId) -> Iterable[Session]:
+        sessions = self.get_session_store()
+        if sessions is None:
+            yield from []
+        else:
+            yield from sessions.get_sessions(user_id)

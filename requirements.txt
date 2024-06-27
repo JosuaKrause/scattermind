@@ -1,6 +1,7 @@
-mypy>=1.5.1
+mypy>=1.10.0
 numpy>=1.25.2
-quick-server>=0.9.0
-redipy>=0.7.0
+python-dotenv>=1.0.1
+quick-server>=0.10.0
+redipy>=0.7.1
 requests>=2.31.0
 torch>=2.0.0

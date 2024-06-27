@@ -53,6 +53,9 @@ class MatSquare(Node):
     def get_load_cost(self) -> float:
         return 1.0
 
+    def session_field(self) -> str | None:
+        return None
+
     def do_load(self, roa: ReadonlyAccess) -> None:
         pass
 

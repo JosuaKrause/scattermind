@@ -15,9 +15,12 @@
 import base64
 import hashlib
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
-from typing import Any, NoReturn
+from typing import Any, IO, NoReturn, overload, TypeVar
+
+
+T = TypeVar('T')
 
 
 def is_partial_match(target: str, pattern: str) -> bool:
@@ -158,6 +161,32 @@ def fmt_time(when: datetime) -> str:
     return when.isoformat()
 
 
+@overload
+def maybe_fmt_time(when: datetime) -> str:
+    ...
+
+
+@overload
+def maybe_fmt_time(when: None) -> None:
+    ...
+
+
+def maybe_fmt_time(when: datetime | None) -> str | None:
+    """
+    Formats a timestamp as ISO formatted string. If the value is None, None
+    will be returned
+
+    Args:
+        when (datetime | None): The timestamp or None.
+
+    Returns:
+        str | None: The formatted string or None if the input was None.
+    """
+    if when is None:
+        return None
+    return fmt_time(when)
+
+
 def get_time_str() -> str:
     """
     Get the current time as ISO formatted string.
@@ -166,6 +195,29 @@ def get_time_str() -> str:
         str: The current time in ISO format.
     """
     return fmt_time(now())
+
+
+def fmt_day(when: datetime) -> str:
+    """
+    Format the timestamp as "YYYY-mm-dd".
+
+    Args:
+        when (datetime): The timestamp.
+
+    Returns:
+        str: The formatted timestamp.
+    """
+    return when.strftime(r"%Y-%m-%d")
+
+
+def get_day_str() -> str:
+    """
+    Get the current date as "YYYY-mm-dd".
+
+    Returns:
+        str: The current date as "YYYY-mm-dd".
+    """
+    return fmt_day(now())
 
 
 def parse_time_str(time_str: str) -> datetime:
@@ -179,6 +231,32 @@ def parse_time_str(time_str: str) -> datetime:
         datetime: The timestamp.
     """
     return datetime.fromisoformat(time_str)
+
+
+@overload
+def maybe_parse_time_str(time_str: str) -> datetime:
+    ...
+
+
+@overload
+def maybe_parse_time_str(time_str: None) -> None:
+    ...
+
+
+def maybe_parse_time_str(time_str: str | None) -> datetime | None:
+    """
+    Parses an ISO formatted string representing a timestamp. If the input is
+    None, None is returned.
+
+    Args:
+        time_str (str | None): The string or None.
+
+    Returns:
+        datetime | None: The timestamp or None if the input was None.
+    """
+    if time_str is None:
+        return None
+    return parse_time_str(time_str)
 
 
 def time_diff(from_time: datetime, to_time: datetime) -> float:
@@ -213,7 +291,7 @@ def seconds_since(time_str: str | None) -> float:
     return time_diff(parse_time_str(time_str), now())
 
 
-def to_bool(text: str | None) -> bool:
+def to_bool(text: object | bool | str | None) -> bool:
     """
     Makes a best effort conversion of the value to a boolean. If the value is
     None it is interpreted as False. If the value is a number or can be parsed
@@ -222,7 +300,7 @@ def to_bool(text: str | None) -> bool:
     False.
 
     Args:
-        text (str | None): The value to convert.
+        text (object | bool | str | None): The value to convert.
 
     Returns:
         bool: The converted boolean.
@@ -230,7 +308,7 @@ def to_bool(text: str | None) -> bool:
     if text is None:
         return False
     try:
-        return int(text) > 0
+        return int(text) > 0  # type: ignore
     except ValueError:
         pass
     return f"{text}".lower() == "true"
@@ -356,13 +434,27 @@ def get_file_hash(fname: str) -> str:
     Returns:
         str: The hash.
     """
-    blake = hashlib.blake2b(digest_size=32)
     with open(fname, "rb") as fin:
-        while True:
-            buff = fin.read(BUFF_SIZE)
-            if not buff:
-                break
-            blake.update(buff)
+        return get_blob_hash(fin)
+
+
+def get_blob_hash(blob: IO[bytes]) -> str:
+    """
+    Computes a hash for the content of the given blob. The length of the
+    resulting hash string can be retrieved via :py:function::`file_hash_size`.
+
+    Args:
+        blob (BinaryIO): The blob.
+
+    Returns:
+        str: The hash.
+    """
+    blake = hashlib.blake2b(digest_size=32)
+    while True:
+        buff = blob.read(BUFF_SIZE)
+        if not buff:
+            break
+        blake.update(buff)
     return blake.hexdigest()
 
 
@@ -419,10 +511,48 @@ def json_read(data: str) -> Any:
     Raises:
         ValueError: If the data couldn't be parsed.
 
+        TypeError: If the data type is incorrect.
+
     Returns:
         Any: The JSON object. Make sure to validate the expected layout.
     """
     try:
         return json.loads(data)
-    except json.JSONDecodeError as e:
-        report_json_error(e)
+    except TypeError as texc:
+        raise TypeError(
+            f"invalid type for JSON got {type(data)} {data=}") from texc
+    except json.JSONDecodeError as exc:
+        report_json_error(exc)
+
+
+def first(iterator: Iterable[T]) -> T:
+    """
+    Returns the first element of the iterable.
+
+    Args:
+        iterator (Iterable[T]): The iterable.
+
+    Raises:
+        ValueError: If the iterable was empty.
+
+    Returns:
+        T: The first item.
+    """
+    for res in iterator:
+        return res
+    raise ValueError("empty iterator!")
+
+
+def maybe_first(iterator: Iterable[T]) -> T | None:
+    """
+    Returns the first element of the iterable or None if the iterable is empty.
+
+    Args:
+        iterator (Iterable[T]): The iterable.
+
+    Returns:
+        T | None: The first item or None if the iterable was empty.
+    """
+    for res in iterator:
+        return res
+    return None

@@ -28,7 +28,6 @@ from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.error import ErrorInfo
 from scattermind.system.names import GNamespace, NName, ValueMap
 from scattermind.system.payload.data import DataStore
-from scattermind.system.response import ResponseObject, TaskStatus
 from scattermind.system.util import seconds_since
 
 
@@ -37,6 +36,7 @@ if TYPE_CHECKING:
         DataContainer,
         TaskValueContainer,
     )
+    from scattermind.system.response import ResponseObject, TaskStatus
 
 
 DT = TypeVar('DT', bound=DataId)
@@ -46,6 +46,19 @@ DT = TypeVar('DT', bound=DataId)
 TASK_MAX_RETRIES = 10
 """The maximum number the same task can be repeated for executed before giving
 up and setting the error and updating the state to error."""
+
+
+def set_task_max_retries(task_max_retries: int) -> None:
+    """
+    Sets the maximum number the same task can be repeated for execution before
+    giving up and setting the error.
+
+    Args:
+        task_max_retries (int): The number.
+    """
+    global TASK_MAX_RETRIES  # pylint: disable=global-statement
+
+    TASK_MAX_RETRIES = task_max_retries
 
 
 TaskFrame: TypeAlias = tuple[NName, GraphId, QueueId]
@@ -67,7 +80,7 @@ class ClientPool(Module):
     def get_response(
             self,
             task_id: TaskId,
-            output_format: DataFormat | None) -> ResponseObject:
+            output_format: DataFormat | None) -> 'ResponseObject':
         """
         Retrieves the summary of the task. If the final output are available or
         the task caused an error, the respective fields are set. Make sure to
@@ -93,18 +106,23 @@ class ClientPool(Module):
                 if output_format is None
                 else self.get_final_output(task_id, output_format),
             "error": self.get_error(task_id),
+            "fmt": output_format,
         }
 
     def create_task(
             self,
             ns: GNamespace,
-            original_input: 'TaskValueContainer') -> TaskId:
+            original_input: 'TaskValueContainer',
+            *,
+            task_id: TaskId | None = None) -> TaskId:
         """
         Create a new task from a given input.
 
         Args:
             ns (GNamespace): The namespace.
             original_input (TaskValueContainer): The input data for the task.
+            task_id (TaskId | None, optional): The task id to use for the task.
+                If set, the user has to ensure that the id is globally unique.
 
         Returns:
             TaskId: The new task id.
@@ -149,7 +167,7 @@ class ClientPool(Module):
     def set_bulk_status(
             self,
             task_ids: Iterable[TaskId],
-            status: TaskStatus) -> list[TaskId]:
+            status: 'TaskStatus') -> list[TaskId]:
         """
         Sets the status for multiple tasks.
 
@@ -175,7 +193,7 @@ class ClientPool(Module):
         """
         raise NotImplementedError()
 
-    def get_task_status(self, task_id: TaskId) -> TaskStatus:
+    def get_task_status(self, task_id: TaskId) -> 'TaskStatus':
         """
         Retrieves the status of the given task.
 

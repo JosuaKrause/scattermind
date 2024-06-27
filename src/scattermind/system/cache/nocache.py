@@ -23,8 +23,7 @@ from scattermind.system.queue.queue import QueuePool
 
 class NoCache(GraphCache):
     """No caching is performed with this graph cache."""
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_EITHER
 
     def put_cached_output(

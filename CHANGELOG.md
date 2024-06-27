@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.5.0] - 2024-06-27
+
+### Added
+
+- network drive friendly IO ([#15])
+- loading env files ([#15])
+- add session module ([#15])
+- add id tensor conversion ([#15])
+- add user id generation ([#15])
+- add session id generation ([#15])
+- add session storage and implementations ([#15])
+- add shutdown hooks for faster shutdown on keyboard interrupt ([#15])
+
+### Change
+
+- let user control task id ([#15])
+- make result fully serializable ([#15])
+- store format in result ([#15])
+- make task inputs serializable ([#15])
+- overwrite batch size from node via `batch_size` ([#15])
+- configurable max_task_retries ([#15])
+
+### Breaking
+
+- `locality` is now a method and not a staticmethod anymore ([#15])
+- new required node method `session_field` ([#15])
+
+### Bug-Fixes
+
+- Various bug fixes and improvements ([#15])
+
 ## [0.4.1] - 2024-04-21
 
 ### Added
@@ -94,3 +125,4 @@
 [#7]: https://github.com/JosuaKrause/scattermind/pull/7
 [#10]: https://github.com/JosuaKrause/scattermind/pull/10
 [#12]: https://github.com/JosuaKrause/scattermind/pull/12
+[#15]: https://github.com/JosuaKrause/scattermind/pull/15

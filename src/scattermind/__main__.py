@@ -23,6 +23,8 @@ def run() -> None:
     import time
     import traceback
 
+    from quick_server import setup_shutdown
+
     from scattermind.app.args import parse_args
     from scattermind.app.healthcheck import stop_healthcheck
 
@@ -42,6 +44,7 @@ def run() -> None:
     is_boot = "--boot" in sys.argv
     start_time = time.monotonic()
     try:
+        setup_shutdown()
         args, func = parse_args()
         execute = func(args)
     except BaseException:  # pylint: disable=broad-except

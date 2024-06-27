@@ -924,6 +924,8 @@ class QueuePool(Module):
                             (current_node is None
                                 or candidate_node == current_node),
                         )
+        if candidate_node == current_node:
+            return (current_node, False)
         if current_node is None or good_node is None:
             print(
                 f"candidate={candidate_node.get_qualified_name(self)} "
@@ -1022,7 +1024,9 @@ class QueuePool(Module):
             self,
             ns: GNamespace,
             store: DataStore,
-            original_input: TaskValueContainer) -> TaskId:
+            original_input: TaskValueContainer,
+            *,
+            task_id: TaskId | None = None) -> TaskId:
         """
         Enqueues a task to the overall input queue.
 
@@ -1030,12 +1034,14 @@ class QueuePool(Module):
             ns (GNamespace): The namespace.
             store (DataStore): The data store for storing the payload data.
             original_input (TaskValueContainer): The input data.
+            task_id (TaskId | None, optional): The task id to use for the task.
+                If set, the user has to ensure that the id is globally unique.
 
         Returns:
             TaskId: The new task id.
         """
         cpool = self.get_client_pool()
-        task_id = cpool.create_task(ns, original_input)
+        task_id = cpool.create_task(ns, original_input, task_id=task_id)
         if not self._enqueue_task_id(cpool, store, task_id):
             raise AssertionError(
                 f"newly created task is a ghost task? {task_id}")

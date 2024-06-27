@@ -63,16 +63,18 @@ class LocalClientPool(ClientPool):
         self._wait_queues = threading.Condition()
         self._wait_results = threading.Condition()
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_LOCAL
 
     def create_task(
             self,
             ns: GNamespace,
-            original_input: TaskValueContainer) -> TaskId:
+            original_input: TaskValueContainer,
+            *,
+            task_id: TaskId | None = None) -> TaskId:
         with self._lock:
-            task_id = TaskId.create()
+            if task_id is None:
+                task_id = TaskId.create()
             self._namespaces[task_id] = ns
             self._values[task_id] = original_input
             self._status[task_id] = TASK_STATUS_INIT

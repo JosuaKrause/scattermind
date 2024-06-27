@@ -31,6 +31,7 @@ from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import ComputeState, NoTasksToCompute
 from scattermind.system.queue.queue import QueuePool
 from scattermind.system.readonly.access import ReadonlyAccess
+from scattermind.system.session.session import SessionStore
 
 
 if TYPE_CHECKING:
@@ -105,8 +106,8 @@ class ExecutorManager(Module):
 
         Args:
             own_id (ExecutorId): The executor id.
-            batch_size (int): The batch size for processing tasks of the
-                given executor.
+            batch_size (int): The default batch size for processing tasks of
+                the given executor.
         """
         self._node: Node | None = None
         self._own_id = own_id
@@ -152,7 +153,7 @@ class ExecutorManager(Module):
         own_id = self._own_id
         node = self._node
         new_node, switch = queue_pool.pick_node(logger, node)
-        if switch:
+        if switch and new_node != node:
             if node is not None:
                 logger.log_event(
                     "tally.node.unload",
@@ -188,6 +189,7 @@ class ExecutorManager(Module):
             logger: EventStream,
             queue_pool: QueuePool,
             store: DataStore,
+            sessions: SessionStore | None,
             roa: ReadonlyAccess) -> bool:
         """
         Execute one batch of tasks. The active node might change based on
@@ -198,6 +200,7 @@ class ExecutorManager(Module):
             logger (EventStream): The logger.
             queue_pool (QueuePool): The queue pool.
             store (DataStore): The payload data store.
+            sessions (SessionStore): The session store.
             roa (ReadonlyAccess): The readonly data access.
 
         Returns:
@@ -208,7 +211,10 @@ class ExecutorManager(Module):
         node = self.update_node(logger, queue_pool, roa)
         with add_context(node.get_context_info(queue_pool)):
             queue = queue_pool.get_queue(node.get_input_queue())
-            tasks = queue.claim_tasks(self._batch_size, own_id)
+            batch_size = node.batch_size()
+            if batch_size is None:
+                batch_size = self._batch_size
+            tasks = queue.claim_tasks(batch_size, own_id)
             logger.log_lazy(
                 "debug.task",
                 lambda: {
@@ -217,7 +223,7 @@ class ExecutorManager(Module):
                 })
             if not tasks:
                 return False
-            state = ComputeState(queue_pool, store, node, tasks)
+            state = ComputeState(queue_pool, store, sessions, node, tasks)
             eqids = []
             e_msg: str | None = None
             r_msg: str | None = None

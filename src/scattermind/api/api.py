@@ -13,21 +13,39 @@
 # limitations under the License.
 """Provides functionality to send tasks and retrieve results."""
 from collections.abc import Iterable
-from typing import Any, TypedDict
+from typing import Any, TypeAlias, TypedDict
 
 import numpy as np
 import torch
 
-from scattermind.system.base import QueueId, TaskId
+from scattermind.system.base import QueueId, SessionId, TaskId, UserId
 from scattermind.system.graph.graphdef import FullGraphDefJSON
-from scattermind.system.names import GNamespace, QualifiedNodeName
+from scattermind.system.info import DataFormat
+from scattermind.system.names import GNamespace, QualifiedNodeName, UName
 from scattermind.system.payload.values import TaskValueContainer
+from scattermind.system.redis_util import (
+    redis_to_robj,
+    redis_to_tensor,
+    robj_to_redis,
+    tensor_to_redis,
+)
 from scattermind.system.response import ResponseObject, TaskStatus
+from scattermind.system.session.session import Session
 from scattermind.system.torch_util import (
     create_tensor,
     DTypeName,
     str_to_tensor,
 )
+
+
+InputTypes: TypeAlias = (
+    str
+    | Session
+    | SessionId
+    | list[Any]
+    | np.ndarray
+    | torch.Tensor)
+"""Types for task inputs."""
 
 
 QueueCounts = TypedDict('QueueCounts', {
@@ -37,6 +55,62 @@ QueueCounts = TypedDict('QueueCounts', {
     "listeners": int,
 })
 """Information about a queue."""
+
+
+def convert_data_to_tensor(val: InputTypes) -> torch.Tensor:
+    """
+    Convert standard data types into their tensor representation.
+
+    Args:
+        val (InputTypes): The value to convert.
+
+    Returns:
+        torch.Tensor: The tensor.
+    """
+    if isinstance(val, SessionId):
+        return val.to_tensor().clone().detach()
+    if isinstance(val, Session):
+        return val.get_session_id().to_tensor().clone().detach()
+    if isinstance(val, str):
+        return str_to_tensor(val).clone().detach()
+    if isinstance(val, torch.Tensor):
+        return val.clone().detach()
+    return create_tensor(val, dtype=None).clone().detach()
+
+
+def task_input_to_redis(obj: dict[str, InputTypes]) -> str:
+    """
+    Convert task inputs into a redis storable format.
+
+    Args:
+        obj (dict[str, InputTypes]): The task inputs.
+
+    Returns:
+        str: The redis storable format.
+    """
+    return robj_to_redis({
+        key: tensor_to_redis(convert_data_to_tensor(value))
+        for key, value in obj.items()
+    })
+
+
+def redis_to_task_input(
+        text: str, input_format: DataFormat) -> dict[str, InputTypes]:
+    """
+    Convert a redis value to a task input.
+
+    Args:
+        text (str): The redis value.
+        input_format (DataFormat): The expected data format of the task.
+
+    Returns:
+        dict[str, InputTypes]: The task input.
+    """
+    obj = redis_to_robj(text)
+    return {
+        key: redis_to_tensor(value, input_format[key].dtype())
+        for key, value in obj.items()
+    }
 
 
 class ScattermindAPI:
@@ -53,7 +127,12 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def enqueue(self, ns: GNamespace, value: TaskValueContainer) -> TaskId:
+    def enqueue(
+            self,
+            ns: GNamespace,
+            value: TaskValueContainer,
+            *,
+            task_id: TaskId | None = None) -> TaskId:
         """
         Enqueues a task. ::py::method:`enqueue_task` provides a more
         user-friendly way of creating a task.
@@ -61,6 +140,8 @@ class ScattermindAPI:
         Args:
             ns (GNamespace): The namespace.
             value (TaskValueContainer): The task's input values.
+            task_id (TaskId | None, optional): The task id to use for the task.
+                If set, the user has to ensure that the id is globally unique.
 
         Returns:
             TaskId: The task id.
@@ -131,38 +212,34 @@ class ScattermindAPI:
     def enqueue_task(
             self,
             ns: GNamespace | str,
-            obj: dict[str, str | list[Any] | np.ndarray | torch.Tensor],
+            obj: dict[str, InputTypes],
+            *,
+            task_id: TaskId | None = None,
             ) -> TaskId:
         """
         Enqueues a task.
 
         Args:
             ns (GNamespace | str): The namespace or a namespace string.
-            obj (dict[str, str | list[Any] | np.ndarray | torch.Tensor]):
+            obj (dict[str, InputTypes]):
                 The task's input values. Values can be strings or various forms
-                of tensor data (nested float lists, numpy arrays, etc.).
+                of tensor data (nested float lists, numpy arrays, etc.) and
+                other special types.
+            task_id (TaskId | None, optional): The task id to use for the task.
+                If set, the user has to ensure that the id is globally unique.
 
         Returns:
             TaskId: The task id.
         """
         if not isinstance(ns, GNamespace):
             ns = GNamespace(ns)
-
-        def convert(
-                val: str | list[Any] | np.ndarray | torch.Tensor,
-                ) -> torch.Tensor:
-            if isinstance(val, str):
-                return str_to_tensor(val).clone().detach()
-            if isinstance(val, torch.Tensor):
-                return val.clone().detach()
-            return create_tensor(val, dtype=None).clone().detach()
-
         return self.enqueue(
             ns,
             TaskValueContainer({
-                key: convert(value)
+                key: convert_data_to_tensor(value)
                 for key, value in obj.items()
-            }))
+            }),
+            task_id=task_id)
 
     def wait_for(
             self,
@@ -218,6 +295,19 @@ class ScattermindAPI:
 
         Returns:
             set[str]: The names of the input fields.
+        """
+        inputs = self.main_input_format(ns)
+        return set(inputs.keys())
+
+    def main_input_format(self, ns: GNamespace) -> DataFormat:
+        """
+        Retrieves the input format of the main graph.
+
+        Args:
+            ns (GNamespace): The namespace.
+
+        Returns:
+            DataFormat: The data format.
         """
         raise NotImplementedError()
 
@@ -275,5 +365,73 @@ class ScattermindAPI:
         Returns:
             tuple[str, str, int] | None: The in address, out address, port
                 tuple. If None, no healthcheck is available.
+        """
+        raise NotImplementedError()
+
+    def get_user_id(self, user_name: str) -> UserId:
+        """
+        Get the user id for the given name.
+
+        Args:
+            user_name (str): The user name.
+
+        Returns:
+            UserId: The user id.
+        """
+        return UserId.create(UName(user_name))
+
+    def new_session(
+            self,
+            user_id: UserId,
+            *,
+            copy_from: Session | None = None) -> Session:
+        """
+        Create a new session for the given user.
+
+        Args:
+            user_id (UserId): The user id.
+
+            copy_from (Session | None): If not None the new session is
+                initialized with values from a different session.
+
+        Returns:
+            Session: The session.
+        """
+        raise NotImplementedError()
+
+    def get_session(self, session_id: SessionId) -> Session:
+        """
+        Returns a session object for the given session id.
+
+        Args:
+            session_id (SessionId): The session id.
+
+        Returns:
+            Session: The session object.
+        """
+        raise NotImplementedError()
+
+    def get_session_user(self, session_id: SessionId) -> UserId | None:
+        """
+        Retrieves the user associated with the given session.
+
+        Args:
+            session_id (SessionId): The session.
+
+        Returns:
+            UserId | None: The user or None if the session is not associated
+                with any user (e.g., when it was deleted).
+        """
+        raise NotImplementedError()
+
+    def get_sessions(self, user_id: UserId) -> Iterable[Session]:
+        """
+        Returns all sessions associated with the given user.
+
+        Args:
+            user_id (UserId): The user id.
+
+        Yields:
+            Session: A session object.
         """
         raise NotImplementedError()

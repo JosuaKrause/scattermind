@@ -51,8 +51,7 @@ class RedisQueuePool(QueuePool):
         self._check_assertions = check_assertions
         self._claim_tasks = self._claim_tasks_script()
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_REMOTE
 
     @staticmethod

@@ -19,7 +19,7 @@ from typing_extensions import NotRequired
 from scattermind.system.base import GraphId, NodeId, QueueId
 from scattermind.system.graph.args import NodeArg, NodeArguments
 from scattermind.system.graph.graph import Graph
-from scattermind.system.info import DataFormat, DataFormatJSON
+from scattermind.system.info import DataFormat, UserDataFormatJSON
 from scattermind.system.names import (
     GName,
     GNamespace,
@@ -71,14 +71,14 @@ inputs of the node to locations in the stack frame.
 # - optimizations can be turn chain of nodes into a block and call
 # - find mutually recursive calls and turn them into a block together
 # - don't separate out data -- can be kept in memory to point to the same bulk
-# tensor still
+#   tensor still
 GraphDefJSON = TypedDict('GraphDefJSON', {
     "graph_id": NotRequired[str],
     "name": str,
     "description": NotRequired[str],
     "input": str,
-    "input_format": DataFormatJSON,
-    "output_format": DataFormatJSON,
+    "input_format": UserDataFormatJSON,
+    "output_format": UserDataFormatJSON,
     "vmap": ValueMapJSON,
     "nodes": list[NodeDefJSON],
     "is_block": NotRequired[bool],

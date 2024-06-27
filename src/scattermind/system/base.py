@@ -13,16 +13,29 @@
 # limitations under the License.
 """This module defines various ids used internally. Also various other base
 classes are defined here."""
+import os
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Literal, TypeVar
 
-from scattermind.system.names import NAME_SEP, NName, QualifiedGraphName
+import torch
+
+from scattermind.system.io import get_subfolders
+from scattermind.system.names import NAME_SEP, NName, QualifiedGraphName, UName
+from scattermind.system.torch_util import (
+    create_tensor,
+    tensor_list,
+    tensor_to_str,
+)
 
 
 SelfT = TypeVar('SelfT', bound='BaseId')
 """A `BaseId` subclass."""
 
+NS_USER = uuid.UUID("f41a0ce6a69e485d9c26f03ed4671203")
+"""Namespace for user ids."""
+NS_SESSION = uuid.UUID("f62c48dfdd33416a98121ff4b004817a")
+"""Namespace for session ids."""
 NS_GRAPH = uuid.UUID("15f123374f9f4a9385a5f31b6ed3f630")
 """Namespace for graph ids."""
 NS_NODE = uuid.UUID("3446718135514d6c9ea36b5377ea0a19")
@@ -95,6 +108,16 @@ class BaseId:
         """
         raise NotImplementedError()
 
+    @staticmethod
+    def length() -> int:
+        """
+        Get the length of the id in characters.
+
+        Returns:
+            int: The length if the id is represented as string.
+        """
+        return 33
+
     @classmethod
     def parse(cls: type[SelfT], text: str) -> SelfT:
         """
@@ -113,9 +136,64 @@ class BaseId:
         """
         if not text.startswith(cls.prefix()):
             raise ValueError(f"invalid prefix for {cls.__name__}: {text}")
-        if len(text) != 33 or "-" in text:
+        if len(text) != cls.length() or "-" in text:
             raise ValueError(f"invalid {cls.__name__}: {text}")
         return cls(uuid.UUID(text[1:]))
+
+    @classmethod
+    def parse_folder(cls: type[SelfT], path: str) -> SelfT | None:
+        """
+        Parses a folder path as id. This is done backwards from the leaf
+        folder.
+
+        Args:
+            cls (type[SelfT]): The id class.
+            path (str): The path.
+
+        Returns:
+            SelfT | None: The id or None if the path did not represent an id.
+        """
+        full = ""
+        length = cls.length()
+        while path:
+            path, segment = os.path.split(path)
+            if not segment:
+                continue
+            full = f"{full}{segment}"
+            if len(full) >= length:
+                break
+        try:
+            return cls.parse(full)
+        except ValueError:
+            return None
+
+    @classmethod
+    def find_folder_ids(cls: type[SelfT], path: str) -> Iterable[SelfT]:
+        """
+        Scans a given folder for subpaths that represent ids.
+
+        Args:
+            cls (type[SelfT]): The id class.
+            path (str): The root path (not part of any id).
+
+        Yields:
+            SelfT: The ids.
+        """
+        length = cls.length()
+
+        def scan_folder(prefix: str, folder: str) -> Iterable[SelfT]:
+            for inner in get_subfolders(folder):
+                candidate = f"{prefix}{inner}"
+                if len(candidate) >= length:
+                    try:
+                        yield cls.parse(candidate)
+                    except ValueError:
+                        pass
+                else:
+                    yield from scan_folder(
+                        candidate, os.path.join(folder, inner))
+
+        yield from scan_folder("", path)
 
     def _hex(self) -> str:
         """
@@ -134,6 +212,64 @@ class BaseId:
             str: A string that can be parsed by `parse`.
         """
         return f"{self.prefix()}{self._hex()}"
+
+    def as_folder(self) -> list[str]:
+        """
+        Creates a representation that can be used as folder structure.
+
+        Returns:
+            list[str]: Each element is a path segment.
+        """
+        out = self.to_parseable()
+        return [out[:3], out[3:]]
+
+    def to_tensor(self) -> torch.Tensor:
+        """
+        Convert the id to a tensor value.
+
+        Returns:
+            torch.Tensor: The tensor representing the id. Use `parse_tensor` to
+                parse.
+        """
+        prefix = list(self.prefix().encode("utf-8"))
+        bid = list(self._id.bytes)
+        return create_tensor(prefix + bid, dtype="uint8")
+
+    @staticmethod
+    def tensor_shape() -> list[int]:
+        """
+        The shape of the tensor representation.
+
+        Returns:
+            list[int]: The shape is 1 prefix byte and 16 uuid bytes.
+        """
+        return [17]
+
+    @classmethod
+    def parse_tensor(cls: type[SelfT], val: torch.Tensor) -> SelfT:
+        """
+        Parse an id from a tensor.
+
+        Args:
+            cls (type[SelfT]): The id class.
+            val (torch.Tensor): The parseable tensor.
+
+        Raises:
+            ValueError: If the tensor cannot be interpreted as id.
+
+        Returns:
+            SelfT: The id.
+        """
+        val = val.ravel()
+        if list(val.shape) != cls.tensor_shape():
+            raise ValueError(
+                f"invalid shape for tensor {list(val.shape)} != "
+                f"{cls.tensor_shape()}")
+        prefix = tensor_to_str(val[0])
+        if prefix != cls.prefix():
+            raise ValueError(f"invalid prefix for {cls.__name__}: {prefix}")
+        ubytes = bytes(tensor_list(val[1:]))  # type: ignore
+        return cls(uuid.UUID(bytes=ubytes))
 
     def __eq__(self, other: object) -> bool:
         """
@@ -181,8 +317,50 @@ class BaseId:
         return f"{self.__class__.__name__}[{self.__str__()}]"
 
 
+class UserId(BaseId):
+    """A `UserId` is used to identify a user."""
+    @staticmethod
+    def prefix() -> str:
+        return "U"
+
+    @staticmethod
+    def create(uname: UName) -> 'UserId':
+        """
+        Creates a `UserId` from a given user name.
+
+        Args:
+            uname (UName): The user name.
+
+        Returns:
+            UserId: The corrseponding user id.
+        """
+        return UserId(uuid.uuid5(NS_USER, uname.get()))
+
+
+class SessionId(BaseId):
+    """A `SessionId` is used to identify a session of a user."""
+    @staticmethod
+    def prefix() -> str:
+        return "S"
+
+    @staticmethod
+    def create_for(user_id: UserId) -> 'SessionId':
+        """
+        Create a new unique `SessionId` for a given user.
+
+        Args:
+            user_id (UserId): The user id.
+
+        Returns:
+            SessionId: The unique session id.
+        """
+        return SessionId(uuid.uuid5(
+            NS_SESSION,
+            f"{user_id.to_parseable()}{NAME_SEP}{uuid.uuid4().hex}"))
+
+
 class GraphId(BaseId):
-    """An `GraphId` is used to identify an execution graph."""
+    """A `GraphId` is used to identify an execution graph."""
     @staticmethod
     def prefix() -> str:
         return "G"
@@ -520,8 +698,7 @@ class Module:  # pylint: disable=too-few-public-methods
     A module for environment dependent behavior. Module classes need to be
     subclassed to implement the respective behavior.
     """
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         """
         Whether the module is for a local (same process) environment only, a
         possibly remote (other process / other node) environment, or either.

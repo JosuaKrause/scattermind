@@ -97,6 +97,10 @@ class NameStr:
         return self.__str__()
 
 
+class UName(NameStr):
+    """User name."""
+
+
 class NName(NameStr):
     """Name of a execution node. Node names are deterministically converted
     into node ids internally."""

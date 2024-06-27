@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import torch
 
-from scattermind.system.base import DataId, QueueId
+from scattermind.system.base import DataId, QueueId, SessionId
 from scattermind.system.client.client import ComputeTask
 from scattermind.system.helper import DictHelper
 from scattermind.system.info import DataFormat, DataInfo
@@ -29,6 +29,7 @@ from scattermind.system.names import (
     QualifiedName,
     ValueMap,
 )
+from scattermind.system.session.session import Session, SessionStore
 from scattermind.system.torch_util import (
     extract_shapes,
     mask_from_shapes,
@@ -392,6 +393,8 @@ class ComputeValueContainer:
             self,
             data_format: DataFormat,
             store: 'DataStore',
+            sessions: SessionStore | None,
+            session_field: str | None,
             tasks: list[ComputeTask]) -> None:
         """
         Create a compute value container providing access to the relevant data
@@ -404,6 +407,8 @@ class ComputeValueContainer:
         """
         self._data_format = data_format
         self._store = store
+        self._sessions = sessions
+        self._session_field = session_field
         self._tasks = tasks
         self._rejected_tasks: list[ComputeTask] | None = None
         self._data: dict[str, ComputeValues] | None = None
@@ -489,7 +494,48 @@ class ComputeValueContainer:
             ComputeValues: The data of all tasks.
         """
         data = self._compute_data()
-        return data[name]
+        try:
+            return data[name]
+        except KeyError as err:
+            raise KeyError(f"{name=} not in {data=}") from err
+
+    def get_session_scratch_folder(self) -> str:
+        """
+        Returns the scratch folder for sessions. This folder is shared and not
+        synchronized.
+
+        Raises:
+            ValueError: If the node or system does not support sessions.
+
+        Returns:
+            str: The scratch folder.
+        """
+        sessions = self._sessions
+        if sessions is None:
+            raise ValueError("no session store defined")
+        return sessions.scratch_folder()
+
+    def get_sessions(self) -> list[Session]:
+        """
+        Get sessions of all the tasks.
+
+        Raises:
+            ValueError: If the node or system does not support sessions.
+
+        Returns:
+            list[Session]: The sessions.
+        """
+        session_field = self._session_field
+        if session_field is None:
+            raise ValueError("node is not using a session")
+        vals = self.get_data(session_field)
+        sessions = self._sessions
+        if sessions is None:
+            raise ValueError("no session store defined")
+        return [
+            sessions.get_session(SessionId.parse_tensor(val))
+            for val in vals.iter_values()
+        ]
 
     def get_value_names(self) -> list[str]:
         """
@@ -541,6 +587,7 @@ class ComputeState:
             self,
             queue_pool: 'QueuePool',
             store: 'DataStore',
+            sessions: SessionStore | None,
             node: 'Node',
             tasks: list[ComputeTask]) -> None:
         """
@@ -556,7 +603,11 @@ class ComputeState:
         self._store = store
         self._node = node
         self._data_in = ComputeValueContainer(
-            node.get_input_data_format(), store, tasks)
+            node.get_input_data_format(),
+            store,
+            sessions,
+            node.session_field(),
+            tasks)
         self._tasks_out: list[ComputeTask] = []
 
     def get_node(self) -> 'Node':

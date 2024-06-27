@@ -66,13 +66,19 @@ def init_healthcheck(
 
     prefix = "/api"
 
+    server.register_shutdown()
+
     server.suppress_noise = True
 
     def report_slow_requests(
-            method_str: str, path: str, duration: float) -> None:
-        print(f"slow request {method_str} {path} ({duration}s)")
+            method_str: str,
+            path: str,
+            duration: float,
+            complete: bool) -> None:
+        duration_str = f"({duration}s)" if complete else "pending"
+        print(f"slow request {method_str} {path} {duration_str}")
 
-    server.report_slow_requests = report_slow_requests
+    server.report_slow_requests = (5.0, report_slow_requests)
 
     server_timeout = 10 * 60
     server.timeout = server_timeout

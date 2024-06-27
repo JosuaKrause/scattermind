@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Test dtypes."""
-from typing import get_args
-
 import pytest
 
 from scattermind.system.torch_util import (
+    ALL_DTYPES,
     dtype_to_str,
-    DTypeName,
     get_dtype,
     get_dtype_byte_size,
     get_dtype_name,
@@ -28,7 +26,7 @@ from scattermind.system.torch_util import (
 
 def test_dtype() -> None:
     """Test dtypes."""
-    for dtype in get_args(DTypeName):
+    for dtype in ALL_DTYPES:
         torch_dtype = get_dtype(dtype)
         other_dtype = get_dtype(dtype_to_str(torch_dtype))
         assert torch_dtype == other_dtype

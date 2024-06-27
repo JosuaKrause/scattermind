@@ -65,8 +65,7 @@ class LocalDataStore(DataStore):
                 if data is not None:
                     self._size -= len(data)
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_LOCAL
 
     @staticmethod

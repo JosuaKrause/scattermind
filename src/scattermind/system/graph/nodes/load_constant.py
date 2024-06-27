@@ -55,6 +55,9 @@ class LoadConstant(Node):
         _, _, length = self.get_arg("data").get("data")
         return length
 
+    def session_field(self) -> str | None:
+        return None
+
     def do_load(self, roa: ReadonlyAccess) -> None:
         data = self.get_arg("data").get("data")
         data_info = self.get_arg("ret").get("info")

@@ -14,7 +14,8 @@
 """Utility functions for pytorch."""
 import gzip
 import io
-from typing import Any, cast, Literal
+import subprocess
+from typing import Any, cast, get_args, Literal
 
 import numpy as np
 import torch
@@ -47,6 +48,9 @@ DTypeName = Literal[
 A supported data type. Names might map to the same internal type
 (e.g., `double` vs. `float64`).
 """
+
+
+ALL_DTYPES: tuple[DTypeName] = get_args(DTypeName)
 
 
 DTYPE_MAP: dict[DTypeName, torch.dtype] = {
@@ -413,6 +417,32 @@ def deserialize_tensor(
     return create_tensor(numpy_val, dtype=dtype)
 
 
+def tensor_list(value: torch.Tensor) -> list[int | float]:
+    """
+    Returns a flat tensor as list. Guarantees that a list is returned even for
+    scalar tensors.
+
+    Args:
+        value (torch.Tensor): The tensor.
+
+    Raises:
+        ValueError: If the tensor is nested.
+
+    Returns:
+        list[int | float]: The list.
+    """
+    shape = list(value.shape)
+    if len(shape) > 1:
+        raise ValueError(f"nested tensor. use ravel {value=}")
+    if len(shape) < 1 or shape[0] == 0:
+        return []
+    # NOTE: res will be int or float instead of list if shape == [1]
+    res = value.cpu().tolist()
+    if not isinstance(res, list):
+        return [res]
+    return res
+
+
 def pad_tensor(value: torch.Tensor, shape: list[int]) -> torch.Tensor:
     """
     Pads a tensor to a given shape. Each dimension where the tensor is smaller
@@ -649,6 +679,38 @@ def tensor_to_str(value: torch.Tensor) -> str:
         str: The string.
     """
     try:
-        return bytes(value.ravel().cpu().tolist()).decode("utf-8")
+        byte_list = tensor_list(value.ravel())
+        return bytes(byte_list).decode("utf-8")  # type: ignore
     except UnicodeDecodeError as e:
         raise ValueError(f"invalid str from tensor {value}") from e
+
+
+def get_arch() -> str:
+    """
+    Gets a string detailing the GPU backend.
+
+    Raises:
+        ValueError: If no GPU backend is found.
+
+    Returns:
+        str: A string detailing the GPU backend.
+    """
+
+    def normalize(text: str) -> str:
+        return text.strip().lower().replace(" ", "-")
+
+    if torch.backends.mps.is_built() or torch.backends.mps.is_available():
+        return normalize(subprocess.check_output(
+            ["sysctl", "-n", "machdep.cpu.brand_string"]).decode("utf-8"))
+    if torch.cuda.is_available() or torch.backends.cudnn.enabled:
+        device = torch.device("cuda")
+        name = normalize(torch.cuda.get_device_name(device))
+        # mem_gb = (
+        #     torch.cuda.mem_get_info(device)[1] / 1024.0 / 1024.0 / 1024.0)
+        # if mem_gb > 10.0:
+        #     mem = f"{int(mem_gb)}"
+        # else:
+        #     mem = f"{mem:.1f}"
+        # return f"{name}-{mem}gb"
+        return name
+    raise ValueError("pytorch is CPU only!")

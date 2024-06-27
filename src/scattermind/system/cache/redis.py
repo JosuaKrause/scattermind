@@ -38,8 +38,7 @@ class RedisCache(GraphCache):
         self._redis = Redis("redis", cfg=cfg, redis_module="cache")
         self._use_defer = use_defer
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_EITHER
 
     @staticmethod

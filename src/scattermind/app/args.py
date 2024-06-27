@@ -18,9 +18,12 @@ import sys
 from collections.abc import Callable
 from typing import cast
 
+from dotenv import load_dotenv
+
 from scattermind.api.loader import get_version_info, load_api, VersionInfo
 from scattermind.app.healthcheck import perform_healthcheck
 from scattermind.app.worker import worker_start
+from scattermind.system.client.client import set_task_max_retries
 from scattermind.system.config.loader import ConfigJSON
 
 
@@ -45,6 +48,11 @@ def parse_args_worker(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=1000.0,
         help="bonus score for nodes with the same executor prefix")
+    parser.add_argument(
+        "--max-task-retries",
+        type=int,
+        default=None,
+        help="the number of times a task is repeated on error")
 
 
 def display_welcome(
@@ -88,6 +96,9 @@ def parse_args() -> tuple[
     subparser = parser.add_subparsers(title="Commands")
 
     def run_worker(args: argparse.Namespace) -> Callable[[], int | None]:
+        max_task_retries: int | None = args.max_task_retries
+        if max_task_retries is not None:
+            set_task_max_retries(max_task_retries)
         version_info = get_version_info(args.version_file)
         display_welcome(args, "worker", version_info)
         execute = worker_start(
@@ -143,6 +154,14 @@ def parse_args() -> tuple[
         help=(
             "if booting, do not exit on load error. "
             "this prevents crash restart loops"))
+    parser.add_argument(
+        "--env",
+        default=None,
+        help="loads the given env file at startup")
 
     args = parser.parse_args()
+    env_file: str | None = args.env
+    if env_file:
+        print(f"loading env {env_file}")
+        load_dotenv(env_file)
     return args, args.func

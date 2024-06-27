@@ -41,6 +41,10 @@ from scattermind.system.readonly.loader import (
     ReadonlyAccessModule,
 )
 from scattermind.system.redis_util import get_test_config
+from scattermind.system.session.loader import (
+    load_session_store,
+    SessionStoreModule,
+)
 
 
 HealthCheck = TypedDict('HealthCheck', {
@@ -75,6 +79,7 @@ ConfigJSON = TypedDict('ConfigJSON', {
     "graph_cache": GraphCacheModule,
     "strategy": StrategyModule,
     "readonly_access": ReadonlyAccessModule,
+    "sessions": NotRequired[SessionStoreModule],
     "logger": LoggerDef,
     "healthcheck": NotRequired[HealthCheck],
 })
@@ -112,6 +117,7 @@ def load_config(
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
     config.set_readonly_access(
         load_readonly_access(config_obj["readonly_access"]))
+    config.set_session_store(load_session_store(config_obj.get("sessions")))
     hc = config_obj.get("healthcheck")
     if hc is not None:
         config.set_healthcheck(hc["address_in"], hc["address_out"], hc["port"])
@@ -144,6 +150,7 @@ def load_as_api(config_obj: ConfigJSON) -> Config:
     config.set_queue_strategy(load_queue_strategy(strategy_obj["queue"]))
     config.set_readonly_access(
         load_readonly_access(config_obj["readonly_access"]))
+    config.set_session_store(load_session_store(config_obj.get("sessions")))
     hc = config_obj.get("healthcheck")
     if hc is not None:
         config.set_healthcheck(hc["address_in"], hc["address_out"], hc["port"])

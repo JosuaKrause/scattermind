@@ -55,8 +55,7 @@ class RedisDataStore(DataStore):
         return RedisDataId.parse(
             f"{RedisDataId.prefix()}{get_bytes_hash(value)}")
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_REMOTE
 
     @staticmethod

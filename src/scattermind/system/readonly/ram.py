@@ -31,8 +31,7 @@ class RAMAccess(ReadonlyAccess[str], RoAWriter[str]):
         self._scratch_folder = scratch
         self._lock = threading.RLock()
 
-    @staticmethod
-    def locality() -> Locality:
+    def locality(self) -> Locality:
         return L_EITHER
 
     def open_raw(self, path: str) -> str:
