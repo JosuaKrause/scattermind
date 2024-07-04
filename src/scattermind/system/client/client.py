@@ -28,6 +28,7 @@ from scattermind.system.logger.context import ctx_fmt
 from scattermind.system.logger.error import ErrorInfo
 from scattermind.system.names import GNamespace, NName, ValueMap
 from scattermind.system.payload.data import DataStore
+from scattermind.system.response import TASK_STATUS_UNKNOWN
 from scattermind.system.util import seconds_since
 
 
@@ -590,6 +591,21 @@ class ComputeTask:
             TaskId: The task id.
         """
         return self._task_id
+
+    def is_valid(self) -> bool:
+        """
+        Whether the task is valid. A task can be made invalid by clearing the
+        task before its completion. Checking whether a task is valid is
+        generally not necessary (results will be silently discarded if a task
+        is invalid after execution). However, if a computation step is long
+        running it is better to regularly check whether the task is still
+        active to avoid excessive computations that will be discarded.
+
+        Returns:
+            bool: True, if the task is valid.
+        """
+        status = self._cpool.get_task_status(self._task_id)
+        return status != TASK_STATUS_UNKNOWN
 
     def get_simple_weight_in(self) -> float:
         """
