@@ -1,5 +1,11 @@
 # Changelog
 
+## [release candidate]
+
+### Added
+
+- allow checking if a task is still valid for long running nodes ([#16])
+
 ## [0.5.0] - 2024-06-27
 
 ### Added
@@ -126,3 +132,4 @@
 [#10]: https://github.com/JosuaKrause/scattermind/pull/10
 [#12]: https://github.com/JosuaKrause/scattermind/pull/12
 [#15]: https://github.com/JosuaKrause/scattermind/pull/15
+[#16]: https://github.com/JosuaKrause/scattermind/pull/16
