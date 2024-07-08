@@ -340,9 +340,14 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def get_queue_stats(self) -> Iterable[QueueCounts]:
+    def get_queue_stats(
+            self, ns: GNamespace | None = None) -> Iterable[QueueCounts]:
         """
         Retrieves information about all active queues.
+
+        Args:
+            ns (GNamespace | None, optional): The namespace to filter. Defaults
+                to no filter.
 
         Returns:
             Iterable[QueueCounts]: The information about each queue.

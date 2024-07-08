@@ -576,16 +576,20 @@ class Config(ScattermindAPI):
         output_fmt = output[output_name]
         return output_fmt.dtype(), output_fmt.shape()
 
-    def get_queue_stats(self) -> Iterable[QueueCounts]:
+    def get_queue_stats(
+            self, ns: GNamespace | None = None) -> Iterable[QueueCounts]:
         queue_pool = self.get_queue_pool()
         for qid in queue_pool.get_all_queues():
             queue = queue_pool.get_queue(qid)
+            node = queue.get_consumer_node()
+            graph_name = queue_pool.get_graph_name(node.get_graph())
+            if ns is not None and graph_name.get_namespace() != ns:
+                continue
             listerners = queue_pool.get_queue_listeners(qid)
             queue_length = queue.get_queue_length()
             if listerners <= 0 and queue_length <= 0:
                 continue
-            qual_name = queue.get_consumer_node().get_qualified_name(
-                queue_pool)
+            qual_name = node.get_qualified_name(queue_pool)
             yield {
                 "id": qid,
                 "name": qual_name,
