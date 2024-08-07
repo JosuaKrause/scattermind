@@ -246,6 +246,7 @@ class ScattermindAPI:
             task_ids: list[TaskId],
             *,
             timeout: float | None = 10.0,
+            auto_clear: bool = False,
             ) -> Iterable[tuple[TaskId, ResponseObject]]:
         """
         Wait for a collection of tasks to complete.
@@ -256,6 +257,10 @@ class ScattermindAPI:
                 task to complete. The timeout is reset after each successfully
                 returned task. If None, no timeout is enforced. Defaults to
                 10.0.
+            auto_clear (bool, optional): If True, tasks get automatically
+                cleared after they have been processed. Note, that this will
+                also clear tasks that have timed out. After the loop finishes
+                no task in the list will be valid anymore. Defaults to False.
 
         Yields:
             tuple[TaskId, ResponseObject]: Whenever the next task finishes.
@@ -340,9 +345,14 @@ class ScattermindAPI:
         """
         raise NotImplementedError()
 
-    def get_queue_stats(self) -> Iterable[QueueCounts]:
+    def get_queue_stats(
+            self, ns: GNamespace | None = None) -> Iterable[QueueCounts]:
         """
         Retrieves information about all active queues.
+
+        Args:
+            ns (GNamespace | None, optional): The namespace to filter. Defaults
+                to no filter.
 
         Returns:
             Iterable[QueueCounts]: The information about each queue.

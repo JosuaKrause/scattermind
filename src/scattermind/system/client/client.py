@@ -591,6 +591,22 @@ class ComputeTask:
         """
         return self._task_id
 
+    def is_valid(self) -> bool:
+        """
+        Whether the task is valid. A task can be made invalid by clearing the
+        task before its completion. Checking whether a task is valid is
+        generally not necessary (results will be silently discarded if a task
+        is invalid after execution). However, if a computation step is long
+        running it is better to regularly check whether the task is still
+        active to avoid excessive computations that will be discarded.
+
+        Returns:
+            bool: True, if the task is valid.
+        """
+        unknown: 'TaskStatus' = "unknown"  # NOTE: avoid circular import
+        status = self._cpool.get_task_status(self._task_id)
+        return status != unknown
+
     def get_simple_weight_in(self) -> float:
         """
         Computes the simple weight of the task.

@@ -216,6 +216,24 @@ class QualifiedNodeName:
         self._graph = graph
         self._node = node
 
+    def get_graph(self) -> QualifiedGraphName:
+        """
+        The graph name.
+
+        Returns:
+            QualifiedGraphName: The graph name.
+        """
+        return self._graph
+
+    def get_node(self) -> NName:
+        """
+        The node name.
+
+        Returns:
+            NName: The node name.
+        """
+        return self._node
+
     def get(self) -> str:
         """
         The name as string.

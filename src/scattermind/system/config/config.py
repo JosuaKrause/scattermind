@@ -428,27 +428,41 @@ class Config(ScattermindAPI):
             task_ids: list[TaskId],
             *,
             timeout: float | None = 10.0,
+            auto_clear: bool = False,
             ) -> Iterable[tuple[TaskId, ResponseObject]]:
         assert timeout is None or timeout > 0.0
+        already_cleared: set[TaskId] = set()
         cpool = self.get_client_pool()
         cur_ids: set[TaskId] = set(task_ids)
         start_time = time.monotonic()
         individual_timeout: float = 60.0 if timeout is None else timeout
-        while cur_ids:
-            task_id = cpool.wait_for_task_notifications(
-                list(cur_ids), timeout=individual_timeout)
-            elapsed = time.monotonic() - start_time
-            if task_id is None:
-                if timeout is not None and elapsed >= timeout:
-                    break
-                continue
-            status = self.get_status(task_id)
-            if status in TASK_COMPLETE:
+        try:
+            while cur_ids:
+                task_id = cpool.wait_for_task_notifications(
+                    list(cur_ids), timeout=individual_timeout)
+                elapsed = time.monotonic() - start_time
+                if task_id is None:
+                    if timeout is not None and elapsed >= timeout:
+                        break
+                    continue
+                status = self.get_status(task_id)
+                if status in TASK_COMPLETE:
+                    yield (task_id, self.get_response(task_id))
+                    start_time = time.monotonic()
+                    cur_ids.remove(task_id)
+                    if auto_clear:
+                        self.clear_task(task_id)
+                        already_cleared.add(task_id)
+            for task_id in cur_ids:  # FIXME write timeout test?
                 yield (task_id, self.get_response(task_id))
-                start_time = time.monotonic()
-                cur_ids.remove(task_id)
-        for task_id in cur_ids:  # FIXME write timeout test?
-            yield (task_id, self.get_response(task_id))
+                if auto_clear:
+                    self.clear_task(task_id)
+                    already_cleared.add(task_id)
+        finally:
+            if auto_clear:
+                for task_id in task_ids:
+                    if task_id not in already_cleared:
+                        self.clear_task(task_id)
 
     def get_status(self, task_id: TaskId) -> TaskStatus:
         # FIXME: remove side-effects of this method
@@ -576,16 +590,20 @@ class Config(ScattermindAPI):
         output_fmt = output[output_name]
         return output_fmt.dtype(), output_fmt.shape()
 
-    def get_queue_stats(self) -> Iterable[QueueCounts]:
+    def get_queue_stats(
+            self, ns: GNamespace | None = None) -> Iterable[QueueCounts]:
         queue_pool = self.get_queue_pool()
         for qid in queue_pool.get_all_queues():
             queue = queue_pool.get_queue(qid)
+            node = queue.get_consumer_node()
+            graph_name = queue_pool.get_graph_name(node.get_graph())
+            if ns is not None and graph_name.get_namespace() != ns:
+                continue
             listerners = queue_pool.get_queue_listeners(qid)
             queue_length = queue.get_queue_length()
             if listerners <= 0 and queue_length <= 0:
                 continue
-            qual_name = queue.get_consumer_node().get_qualified_name(
-                queue_pool)
+            qual_name = node.get_qualified_name(queue_pool)
             yield {
                 "id": qid,
                 "name": qual_name,
