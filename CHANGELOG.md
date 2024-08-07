@@ -1,10 +1,12 @@
 # Changelog
 
-## [release candidate]
+## [0.5.1] - 2024-08-07
 
 ### Added
 
 - allow checking if a task is still valid for long running nodes ([#16])
+- automatically cancel tasks when waiting for their completion ([#16])
+- filter queue stats ([#16])
 
 ## [0.5.0] - 2024-06-27
 
