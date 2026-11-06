@@ -218,9 +218,16 @@ def test_simple_call(
     for task_id, _ in tasks:
         assert config.get_status(task_id) == TASK_STATUS_WAIT
     try:
-        config.run(force_no_block=True, no_reclaim=True)
+        # NOTE: the single executor (parallelism 0) processes all tasks and
+        # terminates afterwards. running it blocking makes the test
+        # independent of how fast the machine is. parallel executors are
+        # inherently asynchronous. with the simple node strategy and a batch
+        # size of 1 the first result only arrives after most of the work is
+        # done (several seconds with redis) so the timeout between results
+        # must cover nearly the full workload.
+        config.run(force_no_block=parallelism != 0, no_reclaim=True)
         for task_id, response, expected_result in wait_for_tasks(
-                config, tasks):
+                config, tasks, timeout=60.0):
             response_ok(response, no_warn=True)
             real_duration = time.monotonic() - time_start
             status = response["status"]
