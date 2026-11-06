@@ -56,8 +56,8 @@ def test_simple_call(
         "graphs": [
             {
                 "name": "main",
-                "description":
-                    f"batch_size={batch_size};parallelism={parallelism}",
+                "description": (
+                    f"batch_size={batch_size};parallelism={parallelism}"),
                 "input": "node_0",
                 "input_format": {
                     "value": ("float", [2, 2]),

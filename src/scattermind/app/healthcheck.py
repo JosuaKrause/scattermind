@@ -131,7 +131,7 @@ def start_healthcheck(server: QuickServer, prefix: str) -> None:
     HEALTHCHECK_SERVER = server
 
     def start() -> None:
-        addr, port = server.server_address
+        addr, port = server.server_address[:2]
         if not isinstance(addr, str):
             addr = addr.decode("utf-8")
         print(f"starting healthcheck at http://{addr}:{port}{prefix}/")

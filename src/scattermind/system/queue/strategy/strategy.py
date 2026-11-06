@@ -90,6 +90,7 @@ class NodeStrategy:
 
     def want_to_switch(
             self,
+            *,
             own_queue_length: Callable[[], int],
             own_weight: Callable[[], float],
             own_pressure: Callable[[], float],
