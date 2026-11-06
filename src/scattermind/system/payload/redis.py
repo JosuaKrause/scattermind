@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """A redis based payload data storage."""
-from redipy import Redis, RedisConfig
+from redipy import RedisConfig
 
 from scattermind.system.base import DataId, L_REMOTE, Locality
 from scattermind.system.payload.data import DataStore
 from scattermind.system.redis_util import (
     bytes_to_redis,
+    create_redis,
     DataMode,
     DM_TIME,
     maybe_redis_to_bytes,
@@ -48,7 +49,7 @@ class RedisDataStore(DataStore):
             mode (DataMode): The strategy used for freeing the cache.
         """
         super().__init__()
-        self._redis = Redis("redis", cfg=cfg, redis_module="data")
+        self._redis = create_redis(cfg, "data")
         self._mode = mode
 
     def _generate_redis_id(self, value: bytes) -> RedisDataId:

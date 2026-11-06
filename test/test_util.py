@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for the utility modules."""
+import gzip
+import io
 import os
+import time
 import tomllib
 from typing import Any
 
@@ -63,6 +66,41 @@ def test_serialize() -> None:
         [[0.5], [0.6]],
         [[0.7], [0.8]],
     ]), "float32")
+
+
+def test_serialize_deterministic(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Test that serializing the same tensor always yields the same bytes
+    regardless of the current time.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch): Used to control the clock.
+    """
+    set_system_device_cpu()
+    tensor = create_tensor(np.array([
+        [1.0, 2.0, 3.0],
+        [4.0, 5.0, 6.0],
+    ]), dtype="float32")
+    monkeypatch.setattr(time, "time", lambda: 1_700_000_000.0)
+    first = serialize_tensor(tensor)
+    monkeypatch.setattr(time, "time", lambda: 1_800_000_000.0)
+    second = serialize_tensor(tensor)
+    monkeypatch.undo()
+    assert first == second
+    # bytes 4 to 8 of the gzip header contain the modification time
+    assert first[:2] == b"\x1f\x8b"
+    assert first[4:8] == b"\x00\x00\x00\x00"
+    torch.testing.assert_close(deserialize_tensor(first, "float32"), tensor)
+    assert serialize_tensor(tensor, compress=False) == serialize_tensor(
+        tensor, compress=False)
+
+    # payloads written with a timestamp in the header remain readable
+    bout = io.BytesIO()
+    with gzip.GzipFile(fileobj=bout, mode="wb", mtime=1_700_000_000) as fout:
+        np.save(fout, tensor.numpy())
+    legacy = bout.getvalue()
+    assert legacy != first
+    torch.testing.assert_close(deserialize_tensor(legacy, "float32"), tensor)
 
 
 def test_pad() -> None:
