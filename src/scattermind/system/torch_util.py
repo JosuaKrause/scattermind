@@ -378,13 +378,16 @@ def serialize_tensor(value: torch.Tensor, *, compress: bool = True) -> bytes:
             Defaults to True.
 
     Returns:
-        bytes: The serialized byte sequence.
+        bytes: The serialized byte sequence. The output is deterministic,
+            i.e., serializing the same tensor always yields the same bytes.
     """
     bout = io.BytesIO()
     numpy_type = to_numpy_type(value.dtype)
     numpy_val = as_numpy(value).astype(numpy_type)
     if compress:
-        with gzip.GzipFile(fileobj=bout, mode="wb") as fout:
+        # NOTE: a fixed mtime keeps the gzip header (and thus the output)
+        # independent of the current time
+        with gzip.GzipFile(fileobj=bout, mode="wb", mtime=0) as fout:
             np.save(fout, numpy_val)
     else:
         np.save(bout, numpy_val)

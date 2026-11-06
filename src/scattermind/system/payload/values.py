@@ -291,7 +291,7 @@ class ComputeValues:
         elif self._values_padded is not None:
             values, shapes = self._values_padded
             yield from (
-                values[[ix] + [slice(dim) for dim in shape]]
+                values[ix][tuple(slice(dim) for dim in shape)]
                 for ix, shape in enumerate(shapes)
             )
         else:

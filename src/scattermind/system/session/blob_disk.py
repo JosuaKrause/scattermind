@@ -17,10 +17,11 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from typing import IO
 
-from redipy import Redis, RedisConfig
+from redipy import RedisConfig
 
 from scattermind.system.base import L_EITHER, Locality, SessionId
 from scattermind.system.io import ensure_folder, open_readb, open_writeb
+from scattermind.system.redis_util import create_redis
 from scattermind.system.session.session import SessionBlob
 from scattermind.system.util import get_file_hash
 
@@ -28,7 +29,7 @@ from scattermind.system.util import get_file_hash
 class DiskSessionBlob(SessionBlob):
     """A session blob storage using the local file system and redis."""
     def __init__(self, cfg: RedisConfig, *, disk_path: str) -> None:
-        self._redis = Redis("redis", cfg=cfg, redis_module="session")
+        self._redis = create_redis(cfg, "session")
         self._disk_path = disk_path
 
     def locality(self) -> Locality:

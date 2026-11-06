@@ -16,15 +16,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ['3.11']
+        python: ['3.12', '3.15']
     env:
       ENV: CI
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
         cache: 'pip'
@@ -83,29 +83,34 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ['3.11']
+        python: ['3.12', '3.15']
         ci_node_total: [3]
         ci_node_index: [0, 1, 2]
     env:
       ENV: CI
 
+    services:
+      redis:
+        image: redis:8
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
         cache: 'pip'
 
-    - name: Start Redis
-      uses: supercharge/redis-github-action@1.4.0
-      with:
-        redis-version: 6
-        redis-port: 6380
-
     - name: Restore test-result Cache
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: test-results/*
         key:  test-results-v1-${{ matrix.python }}-${{ hashFiles('test/*.py') }}-${{ hashFiles('test/data/*') }}-${{ github.sha }}-${{ matrix.ci_node_index }}
@@ -122,16 +127,19 @@ jobs:
         PYTHON_NAME="${{ matrix.python }}" CUR_NODE_IX="${{ matrix.ci_node_index }}" TOTAL_NODES="${{ matrix.ci_node_total }}" make split-test
 
     - name: Upload Artifact(results)
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v7
       with:
         name: results-${{ matrix.python }}-${{ matrix.ci_node_index }}
         path: test-results/results-${{ matrix.python }}-${{ matrix.ci_node_index }}.xml
+        if-no-files-found: error
 
     - name: Upload Artifact(coverage reports)
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v7
       with:
         name: coverage-${{ matrix.python }}-${{ matrix.ci_node_index }}
         path: .coverage
+        include-hidden-files: true
+        if-no-files-found: error
 
     - name: Git Check (tests may not alter any git visible files)
       run: |
@@ -145,15 +153,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ['3.11']
+        python: ['3.12', '3.15']
     env:
       ENV: CI
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
         cache: 'pip'
@@ -163,7 +171,7 @@ jobs:
         make install PYTHON=python USE_DEV=1
 
     - name: Restore test-result Cache
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: test-results/*
         key:  test-results-v1-${{ matrix.python }}-${{ hashFiles('test/*.py') }}-${{ hashFiles('test/data/*') }}
@@ -173,18 +181,27 @@ jobs:
         rm -r test-results/ || true
         mkdir -p test-results/parts/
 
-    - name: Download all results and coverage
-      uses: actions/download-artifact@v3
+    - name: Download results
+      uses: actions/download-artifact@v8
+      with:
+        pattern: results-${{ matrix.python }}-*
+        path: test-results/parts/
+        merge-multiple: true
+
+    - name: Download coverage reports
+      uses: actions/download-artifact@v8
+      with:
+        pattern: coverage-${{ matrix.python }}-*
+        path: coverage-parts/
 
     - name: Merge results
       run: |
-        mv results-${{ matrix.python }}-*/results-${{ matrix.python }}-* test-results/parts/
         python -m test merge --dir test-results --out-fname results.xml
         tail -v -n +1 test-results/*.xml
 
     - name: Merge coverage reports
       run: |
-        coverage combine coverage*/.coverage
+        coverage combine coverage-parts/coverage-${{ matrix.python }}-*/.coverage
         coverage xml -o coverage/reports/xml_report.xml
         coverage html -d coverage/reports/html_report
         coverage report

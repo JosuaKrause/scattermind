@@ -15,9 +15,10 @@
 from collections.abc import Callable
 from typing import TypeVar
 
-from redipy import Redis, RedisConfig
+from redipy import RedisConfig
 
 from scattermind.system.base import L_EITHER, Locality, SessionId
+from scattermind.system.redis_util import create_redis
 from scattermind.system.session.session import SessionKeyValue
 
 
@@ -27,7 +28,7 @@ T = TypeVar('T')
 class RedisSessionKeyValue(SessionKeyValue):
     """A session key value storage using redis."""
     def __init__(self, cfg: RedisConfig) -> None:
-        self._redis = Redis("redis", cfg=cfg, redis_module="session")
+        self._redis = create_redis(cfg, "session")
 
     def locality(self) -> Locality:
         return L_EITHER

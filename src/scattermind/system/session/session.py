@@ -822,7 +822,7 @@ class SessionStore(Module):
             ensure_folder(os.path.dirname(full_path))
             with open_writeb(full_path) as fout:
                 with self.open_blob_read(session_id, fname) as fin:
-                    shutil.copyfileobj(fin, fout)  # type: ignore
+                    shutil.copyfileobj(fin, fout)
             assert get_file_hash(full_path) == hash_lookup[fname]
         self.set_info(session_id, {
             "time_in": now(),
@@ -873,7 +873,7 @@ class SessionStore(Module):
                 full_path = os.path.join(path, fname)
                 with self.open_blob_write(session_id, fname) as fout:
                     with open_readb(full_path) as fin:
-                        shutil.copyfileobj(fin, fout)  # type: ignore
+                        shutil.copyfileobj(fin, fout)
                 if fname not in out_hash_lookup:
                     out_hash_lookup[fname] = get_file_hash(full_path)
             hash_final = self.blob_hash(session_id, need_copy)
@@ -915,7 +915,7 @@ class SessionStore(Module):
             ensure_folder(os.path.dirname(full_path))
             with open_writeb(full_path) as fout:
                 with self.open_blob_read(from_id, fname) as fin:
-                    shutil.copyfileobj(fin, fout)  # type: ignore
+                    shutil.copyfileobj(fin, fout)
             assert get_file_hash(full_path) == hash_lookup[fname]
         self.set_info(to_id, {
             "time_in": now(),

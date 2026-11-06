@@ -35,6 +35,9 @@ export LANG=C
 
 PYTHON?=python
 NS?=default
+# NOTE: parallel pylint pickles its state with dill which does not support
+# python 3.15 yet (uqfoundation/dill#753) so pylint runs serially there
+PYLINT_JOBS?=$(shell $(PYTHON) -c 'import sys; print(1 if sys.version_info >= (3, 15) else 6)')
 
 lint-comment:
 	! ./sh/findpy.sh \
@@ -71,7 +74,7 @@ lint-pycodestyle-debug:
 
 lint-pylint:
 	./sh/findpy.sh | sort
-	./sh/findpy.sh | sort | xargs --no-run-if-empty pylint -j 6 -v
+	./sh/findpy.sh | sort | xargs --no-run-if-empty pylint -j $(PYLINT_JOBS) -v
 
 lint-type-check:
 	mypy .
