@@ -102,6 +102,9 @@ class DiskSessionBlob(SessionBlob):
         })
 
     def blob_remove(self, session_id: SessionId, names: list[str]) -> None:
+        if not names:
+            # NOTE: redis rejects DEL without keys
+            return
         self._redis.delete(*(
             self._fname_key(session_id, name)
             for name in names
@@ -110,5 +113,8 @@ class DiskSessionBlob(SessionBlob):
     def remove(self, session_id: SessionId) -> None:
         # FIXME: make redis function
         names = self.blob_list(session_id)
+        if not names:
+            # NOTE: redis rejects DEL without keys
+            return
         with self._redis.pipeline() as pipe:
             pipe.delete(*(self._fname_key(session_id, name) for name in names))
