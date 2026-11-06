@@ -15,7 +15,7 @@
 from collections.abc import Callable, Iterable
 from typing import Literal, TypeVar
 
-from redipy import Redis, RedisConfig
+from redipy import RedisConfig
 from redipy.api import PipelineAPI
 from redipy.graph.expr import JSONType
 
@@ -39,6 +39,7 @@ from scattermind.system.names import GNamespace, NName, QualifiedName, ValueMap
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import DataContainer, TaskValueContainer
 from scattermind.system.redis_util import (
+    create_redis,
     redis_to_robj,
     redis_to_tvc,
     robj_to_redis,
@@ -83,7 +84,7 @@ class RedisClientPool(ClientPool):
     """A redis based client pool."""
     def __init__(self, cfg: RedisConfig) -> None:
         super().__init__()
-        self._redis = Redis("redis", cfg=cfg, redis_module="client")
+        self._redis = create_redis(cfg, "client")
         self._stack = RStack(self._redis)
 
     def locality(self) -> Locality:

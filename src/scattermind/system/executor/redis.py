@@ -21,12 +21,13 @@ from typing import Literal
 
 import redis as redis_lib
 from quick_server import add_shutdown_hook
-from redipy import Redis, RedisConfig
+from redipy import RedisConfig
 
 from scattermind.system.base import ExecutorId, L_EITHER, Locality
 from scattermind.system.executor.executor import Executor, ExecutorManager
 from scattermind.system.logger.context import add_context
 from scattermind.system.logger.log import EventStream
+from scattermind.system.redis_util import create_redis
 
 
 REDIS_STATUS_PREFIX = "status"
@@ -71,7 +72,7 @@ class RedisExecutorManager(ExecutorManager):
         self._sleep_on_idle = sleep_on_idle
         self._reclaim_sleep = reclaim_sleep
         self._heartbeat_time = heartbeat_time
-        self._redis = Redis("redis", cfg=cfg, redis_module="executors")
+        self._redis = create_redis(cfg, "executors")
         self._heartbeat: threading.Thread | None = None
         self._reclaim: threading.Thread | None = None
         self._logger: EventStream | None = None

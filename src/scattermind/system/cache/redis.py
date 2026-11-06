@@ -14,7 +14,7 @@
 """A caching layer implemented in redis."""
 from typing import Literal
 
-from redipy import Redis, RedisConfig
+from redipy import RedisConfig
 
 from scattermind.system.base import CacheId, L_EITHER, Locality, TaskId
 from scattermind.system.cache.cache import GraphCache
@@ -23,7 +23,11 @@ from scattermind.system.logger.log import EventStream
 from scattermind.system.payload.data import DataStore
 from scattermind.system.payload.values import TaskValueContainer
 from scattermind.system.queue.queue import QueuePool
-from scattermind.system.redis_util import redis_to_tvc, tvc_to_redis
+from scattermind.system.redis_util import (
+    create_redis,
+    redis_to_tvc,
+    tvc_to_redis,
+)
 
 
 RedisPrefix = Literal["data", "listeners"]
@@ -35,7 +39,7 @@ class RedisCache(GraphCache):
     """Cache using redis."""
     def __init__(self, cfg: RedisConfig, *, use_defer: bool) -> None:
         super().__init__()
-        self._redis = Redis("redis", cfg=cfg, redis_module="cache")
+        self._redis = create_redis(cfg, "cache")
         self._use_defer = use_defer
 
     def locality(self) -> Locality:

@@ -15,7 +15,7 @@
 from collections.abc import Callable
 from typing import Literal
 
-from redipy import ExecFunction, Redis, RedisConfig
+from redipy import ExecFunction, RedisConfig
 from redipy.api import RSM_MISSING
 from redipy.symbolic.expr import Strs
 from redipy.symbolic.rlist import RedisList
@@ -31,6 +31,7 @@ from scattermind.system.base import (
     TaskId,
 )
 from scattermind.system.queue.queue import QueuePool
+from scattermind.system.redis_util import create_redis
 
 
 KeyName = Literal[
@@ -47,7 +48,7 @@ class RedisQueuePool(QueuePool):
     """Redis baked queue pool."""
     def __init__(self, *, cfg: RedisConfig, check_assertions: bool) -> None:
         super().__init__()
-        self._redis = Redis("redis", cfg=cfg, redis_module="queues")
+        self._redis = create_redis(cfg, "queues")
         self._check_assertions = check_assertions
         self._claim_tasks = self._claim_tasks_script()
 
