@@ -20,7 +20,7 @@ from redipy import Redis
 
 from scattermind.system.base import SessionId, UserId
 from scattermind.system.names import UName
-from scattermind.system.redis_util import get_test_config
+from scattermind.system.redis_util import create_redis, get_test_config
 from scattermind.system.session.blob_disk import DiskSessionBlob
 from scattermind.system.session.kv_redis import RedisSessionKeyValue
 
@@ -75,8 +75,8 @@ class _StrictPipeContext:
 
 def _make_redis(is_redis: bool) -> StrictRedis:
     if is_redis:
-        return StrictRedis(Redis(
-            "redis", cfg=get_test_config(), redis_module="session"))
+        return StrictRedis(
+            create_redis(get_test_config(), redis_module="session"))
     return StrictRedis(Redis("memory"))
 
 
