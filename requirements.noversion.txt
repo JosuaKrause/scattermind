@@ -12,6 +12,7 @@ pytest-cov
 python-dotenv
 quick-server
 redipy
+redis
 requests
 torch
 types-requests
