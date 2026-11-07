@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.0] - 2026-11-06
+
+### Breaking
+
+- require Python 3.12+ ([#18])
+- require redipy 0.8.0+ and redis-py 8.1+ ([#18])
+- `NodeStrategy.want_to_switch` is keyword-only ([#18])
+
+### Change
+
+- use redipy's default redis connection instead of a custom factory; redipy 0.8.0 no longer passes the deprecated `retry_on_timeout`
+
+### Bug-Fixes
+
+- skip empty `DEL` when removing sessions without keys or blobs ([#17])
+- `serialize_tensor` output is deterministic (gzip `mtime=0`) ([#18])
+- avoid deprecated list indexing of padded tensors ([#18])
+
 ## [0.5.1] - 2024-08-07
 
 ### Added
@@ -135,3 +153,5 @@
 [#12]: https://github.com/JosuaKrause/scattermind/pull/12
 [#15]: https://github.com/JosuaKrause/scattermind/pull/15
 [#16]: https://github.com/JosuaKrause/scattermind/pull/16
+[#17]: https://github.com/JosuaKrause/scattermind/pull/17
+[#18]: https://github.com/JosuaKrause/scattermind/pull/18
