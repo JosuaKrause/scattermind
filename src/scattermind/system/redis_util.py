@@ -18,7 +18,6 @@ import uuid
 from collections.abc import Mapping
 from typing import cast, Literal, overload
 
-import redis as redis_lib
 import torch
 from redipy import ExecFunction, Redis, RedisConfig
 from redipy.api import RedisClientAPI
@@ -98,30 +97,6 @@ def get_test_config() -> RedisConfig:
     }
 
 
-def create_redis_connection(*, cfg: RedisConfig) -> redis_lib.Redis:
-    """
-    Creates a raw redis-py connection from a redis configuration. This is
-    used as connection factory for redipy and mirrors redipy's default
-    connection settings. Instead of the deprecated `retry_on_timeout`
-    argument, timeouts are explicitly added to the errors that trigger a
-    retry.
-
-    Args:
-        cfg (RedisConfig): The redis connection configuration.
-
-    Returns:
-        redis_lib.Redis: The redis connection.
-    """
-    return redis_lib.Redis(
-        host=cfg["host"],
-        port=cfg["port"],
-        db=0,
-        password=cfg["passwd"],
-        retry_on_error=[redis_lib.TimeoutError],
-        health_check_interval=45,
-        client_name=f"rc-{uuid.uuid4().hex}")
-
-
 def create_redis(cfg: RedisConfig, redis_module: str) -> Redis:
     """
     Creates a redipy redis client using the redis backend.
@@ -136,8 +111,7 @@ def create_redis(cfg: RedisConfig, redis_module: str) -> Redis:
     return Redis(
         "redis",
         cfg=cfg,
-        redis_module=redis_module,
-        redis_factory=create_redis_connection)
+        redis_module=redis_module)
 
 
 DataMode = Literal["size", "time"]
