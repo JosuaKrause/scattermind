@@ -97,5 +97,8 @@ class RedisSessionKeyValue(SessionKeyValue):
     def remove(self, session_id: SessionId) -> None:
         # FIXME: make redis function
         keys = self.get_keys(session_id)
+        if not keys:
+            # NOTE: redis rejects DEL without keys
+            return
         with self._redis.pipeline() as pipe:
             pipe.delete(*(self._val_key(session_id, key) for key in keys))
